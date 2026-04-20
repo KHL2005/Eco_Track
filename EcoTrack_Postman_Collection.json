@@ -1,0 +1,1264 @@
+{
+  "info": {
+    "name": "EcoTrack Microservices",
+    "description": "Complete API collection for EcoTrack Microservices - Environmental Monitoring & Sustainability Management System. All requests go through API Gateway on port 8090.\n\n## Setup:\n1. Register a user\n2. Login and copy the token\n3. Set the `token` variable with your JWT token\n4. All authenticated requests will use it automatically",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8090", "type": "string" },
+    { "key": "token", "value": "PASTE_YOUR_JWT_TOKEN_HERE", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 - Authentication (IAM)",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@ecotrack.com\",\n  \"password\": \"admin123\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] }
+          }
+        },
+        {
+          "name": "Register Citizen",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Citizen\",\n  \"email\": \"citizen@ecotrack.com\",\n  \"password\": \"citizen123\",\n  \"role\": \"CITIZEN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] }
+          }
+        },
+        {
+          "name": "Register Officer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Agency Officer\",\n  \"email\": \"officer@ecotrack.com\",\n  \"password\": \"officer123\",\n  \"role\": \"OFFICER\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] }
+          }
+        },
+        {
+          "name": "Register Scientist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Env Scientist\",\n  \"email\": \"scientist@ecotrack.com\",\n  \"password\": \"scientist123\",\n  \"role\": \"SCIENTIST\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] }
+          }
+        },
+        {
+          "name": "Register Industry",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Industry Rep\",\n  \"email\": \"industry@ecotrack.com\",\n  \"password\": \"industry123\",\n  \"role\": \"INDUSTRY\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set('token', jsonData.token);",
+                  "  console.log('Token saved:', jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@ecotrack.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - User Management (IAM)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users", "host": ["{{baseUrl}}"], "path": ["api","v1","users"] }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/1", "host": ["{{baseUrl}}"], "path": ["api","v1","users","1"] }
+          }
+        },
+        {
+          "name": "Get Users By Role",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/role/CITIZEN", "host": ["{{baseUrl}}"], "path": ["api","v1","users","role","CITIZEN"] }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@ecotrack.com\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/users/1", "host": ["{{baseUrl}}"], "path": ["api","v1","users","1"] }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/1", "host": ["{{baseUrl}}"], "path": ["api","v1","users","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Notifications (IAM)",
+      "item": [
+        {
+          "name": "Create Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"message\": \"Your issue has been resolved.\",\n  \"type\": \"ISSUE_UPDATE\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications"] }
+          }
+        },
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications"] }
+          }
+        },
+        {
+          "name": "Get Notifications By User",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/user/1", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications","user","1"] }
+          }
+        },
+        {
+          "name": "Get Unread Notifications By User",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/user/1/unread", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications","user","1","unread"] }
+          }
+        },
+        {
+          "name": "Mark Notification As Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/1/read", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications","1","read"] }
+          }
+        },
+        {
+          "name": "Archive Notification",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/1/archive", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications","1","archive"] }
+          }
+        },
+        {
+          "name": "Mark All Read For User",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/user/1/read-all", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications","user","1","read-all"] }
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/1", "host": ["{{baseUrl}}"], "path": ["api","v1","notifications","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Issues (Citizen Reporting)",
+      "item": [
+        {
+          "name": "Create Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"citizenId\": 1,\n  \"title\": \"Air Pollution Near Factory\",\n  \"description\": \"Heavy smoke coming from the factory chimney.\",\n  \"location\": \"Industrial Zone, Sector 5\",\n  \"issueType\": \"AIR_POLLUTION\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/issues", "host": ["{{baseUrl}}"], "path": ["api","v1","issues"] }
+          }
+        },
+        {
+          "name": "Get All Issues",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues", "host": ["{{baseUrl}}"], "path": ["api","v1","issues"] }
+          }
+        },
+        {
+          "name": "Get Issue By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","1"] }
+          }
+        },
+        {
+          "name": "Get Issues By Citizen",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/citizen/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","citizen","1"] }
+          }
+        },
+        {
+          "name": "Get Issues By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/status/OPEN", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","status","OPEN"],
+              "description": "Status values: OPEN, IN_PROGRESS, RESOLVED, CLOSED" }
+          }
+        },
+        {
+          "name": "Get Issues By Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/type/AIR_POLLUTION", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","type","AIR_POLLUTION"] }
+          }
+        },
+        {
+          "name": "Update Issue (Partial)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated description with more details.\",\n  \"location\": \"Updated Location\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","1"] }
+          }
+        },
+        {
+          "name": "Update Issue Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/1/status", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","1","status"] }
+          }
+        },
+        {
+          "name": "Delete Issue",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Resolutions (Citizen Reporting)",
+      "item": [
+        {
+          "name": "Add Resolution To Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"officerId\": 2,\n  \"actionsTaken\": \"Inspected the factory and issued a warning.\",\n  \"resolutionStatus\": \"IN_PROGRESS\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/1/resolutions", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","1","resolutions"] }
+          }
+        },
+        {
+          "name": "Get Resolution By Issue",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/1/resolutions", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","1","resolutions"] }
+          }
+        },
+        {
+          "name": "Get All Resolutions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/resolutions", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","resolutions"] }
+          }
+        },
+        {
+          "name": "Get Resolution By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/resolutions/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","resolutions","1"] }
+          }
+        },
+        {
+          "name": "Get Resolutions By Officer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/resolutions/officer/2", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","resolutions","officer","2"] }
+          }
+        },
+        {
+          "name": "Get Resolutions By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/resolutions/status/PENDING", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","resolutions","status","PENDING"],
+              "description": "Status values: PENDING, IN_PROGRESS, COMPLETED" }
+          }
+        },
+        {
+          "name": "Update Resolution",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolutionStatus\": \"COMPLETED\",\n  \"actionsTaken\": \"Factory was shut down for violation.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/resolutions/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","resolutions","1"] }
+          }
+        },
+        {
+          "name": "Delete Resolution",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/issues/resolutions/1", "host": ["{{baseUrl}}"], "path": ["api","v1","issues","resolutions","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Sensors (Monitoring)",
+      "item": [
+        {
+          "name": "Create Sensor",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensorName\": \"Air Sensor A1\",\n  \"sensorType\": \"AIR\",\n  \"location\": \"Industrial Zone, Sector 5\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/sensors", "host": ["{{baseUrl}}"], "path": ["api","v1","sensors"] }
+          }
+        },
+        {
+          "name": "Get All Sensors",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensors", "host": ["{{baseUrl}}"], "path": ["api","v1","sensors"] }
+          }
+        },
+        {
+          "name": "Get Sensor By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensors/1", "host": ["{{baseUrl}}"], "path": ["api","v1","sensors","1"] }
+          }
+        },
+        {
+          "name": "Get Sensors By Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensors/type/AIR", "host": ["{{baseUrl}}"], "path": ["api","v1","sensors","type","AIR"],
+              "description": "Type values: AIR, WATER, NOISE" }
+          }
+        },
+        {
+          "name": "Update Sensor",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Updated Location, Zone 2\",\n  \"sensorType\": \"WATER\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/sensors/1", "host": ["{{baseUrl}}"], "path": ["api","v1","sensors","1"] }
+          }
+        },
+        {
+          "name": "Update Sensor Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sensors/1/status?status=MAINTENANCE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","sensors","1","status"],
+              "query": [{ "key": "status", "value": "MAINTENANCE", "description": "Values: ACTIVE, INACTIVE, MAINTENANCE" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Sensor",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensors/1", "host": ["{{baseUrl}}"], "path": ["api","v1","sensors","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Sensor Data (Monitoring)",
+      "item": [
+        {
+          "name": "Add Sensor Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensorId\": 1,\n  \"parametersJson\": \"{\\\"PM2.5\\\": 85.5, \\\"PM10\\\": 120.3, \\\"CO2\\\": 420.0}\",\n  \"recordedAt\": \"2026-04-17T10:00:00\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/sensor-data", "host": ["{{baseUrl}}"], "path": ["api","v1","sensor-data"] }
+          }
+        },
+        {
+          "name": "Get All Sensor Data",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensor-data", "host": ["{{baseUrl}}"], "path": ["api","v1","sensor-data"] }
+          }
+        },
+        {
+          "name": "Get Sensor Data By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensor-data/1", "host": ["{{baseUrl}}"], "path": ["api","v1","sensor-data","1"] }
+          }
+        },
+        {
+          "name": "Get Sensor Data By Sensor",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensor-data/sensor/1", "host": ["{{baseUrl}}"], "path": ["api","v1","sensor-data","sensor","1"] }
+          }
+        },
+        {
+          "name": "Delete Sensor Data",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/sensor-data/1", "host": ["{{baseUrl}}"], "path": ["api","v1","sensor-data","1"] }
+          }
+        },
+        {
+          "name": "Upload CSV",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select your CSV file" },
+                { "key": "sensorId", "value": "1", "type": "text" },
+                { "key": "sensorType", "value": "AIR", "type": "text", "description": "Values: AIR, WATER, NOISE" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/upload-csv", "host": ["{{baseUrl}}"], "path": ["api","v1","upload-csv"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Analysis (Monitoring)",
+      "item": [
+        {
+          "name": "Create Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataId\": 1,\n  \"scientistId\": 3,\n  \"findings\": \"PM2.5 levels exceed safe limits by 40%.\",\n  \"status\": \"PENDING\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis"] }
+          }
+        },
+        {
+          "name": "Get All Analyses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis"] }
+          }
+        },
+        {
+          "name": "Get Analysis By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis/1", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis","1"] }
+          }
+        },
+        {
+          "name": "Get Analyses By Data ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis/data/1", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis","data","1"] }
+          }
+        },
+        {
+          "name": "Get Analyses By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis/status/PENDING", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis","status","PENDING"],
+              "description": "Status values: PENDING, REVIEWED, FLAGGED" }
+          }
+        },
+        {
+          "name": "Get Analyses By Sensor",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis/sensor/1", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis","sensor","1"] }
+          }
+        },
+        {
+          "name": "Get Analyses By Scientist",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis/scientist/3", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis","scientist","3"] }
+          }
+        },
+        {
+          "name": "Review Analysis",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analysis/1/review?scientistId=3&findings=Pollution levels are critical",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","analysis","1","review"],
+              "query": [
+                { "key": "scientistId", "value": "3" },
+                { "key": "findings", "value": "Pollution levels are critical" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Analysis Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analysis/1/status?status=FLAGGED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","analysis","1","status"],
+              "query": [{ "key": "status", "value": "FLAGGED", "description": "Values: PENDING, REVIEWED, FLAGGED" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Analysis",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/analysis/1", "host": ["{{baseUrl}}"], "path": ["api","v1","analysis","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Emissions (Industry)",
+      "item": [
+        {
+          "name": "Log Emission",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"industryId\": 4,\n  \"emissionType\": \"CO2\",\n  \"quantity\": 150.5,\n  \"unit\": \"tonnes\",\n  \"emissionDate\": \"2026-04-17\",\n  \"description\": \"Monthly CO2 emission report\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions"] }
+          }
+        },
+        {
+          "name": "Get All Emissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions"] }
+          }
+        },
+        {
+          "name": "Get Emission By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/1", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","1"] }
+          }
+        },
+        {
+          "name": "Get Emissions By Industry",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/industry/4", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","industry","4"] }
+          }
+        },
+        {
+          "name": "Get Emissions By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/status/SUBMITTED", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","status","SUBMITTED"],
+              "description": "Status values: SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED" }
+          }
+        },
+        {
+          "name": "Get Emissions By Industry And Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/industry/4/status/SUBMITTED", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","industry","4","status","SUBMITTED"] }
+          }
+        },
+        {
+          "name": "Get Emissions By Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/type/CO2", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","type","CO2"] }
+          }
+        },
+        {
+          "name": "Update Emission",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 160.0,\n  \"description\": \"Revised monthly CO2 emission report\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/1", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","1"] }
+          }
+        },
+        {
+          "name": "Update Emission Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions/1/status?status=UNDER_REVIEW",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","emissions","1","status"],
+              "query": [{ "key": "status", "value": "UNDER_REVIEW" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Emission",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/emissions/1", "host": ["{{baseUrl}}"], "path": ["api","v1","emissions","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Industry Documents",
+      "item": [
+        {
+          "name": "Submit Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"industryId\": 4,\n  \"docType\": \"COMPLIANCE_REPORT\",\n  \"fileUri\": \"https://storage.ecotrack.com/docs/compliance_2026_q1.pdf\",\n  \"description\": \"Q1 2026 Compliance Report\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents"] }
+          }
+        },
+        {
+          "name": "Get All Documents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents"] }
+          }
+        },
+        {
+          "name": "Get Document By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/1", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","1"] }
+          }
+        },
+        {
+          "name": "Get Documents By Industry",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/industry/4", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","industry","4"] }
+          }
+        },
+        {
+          "name": "Get Documents By Verification Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/verification/PENDING", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","verification","PENDING"],
+              "description": "Status values: PENDING, VERIFIED, REJECTED" }
+          }
+        },
+        {
+          "name": "Get Documents By Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/type/COMPLIANCE_REPORT", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","type","COMPLIANCE_REPORT"] }
+          }
+        },
+        {
+          "name": "Get Documents By Industry And Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/industry/4/verification/PENDING", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","industry","4","verification","PENDING"] }
+          }
+        },
+        {
+          "name": "Update Document",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileUri\": \"https://storage.ecotrack.com/docs/updated_compliance.pdf\",\n  \"description\": \"Updated Q1 2026 Compliance Report\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/1", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","1"] }
+          }
+        },
+        {
+          "name": "Verify Document",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents/1/verify?status=VERIFIED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","industry-documents","1","verify"],
+              "query": [{ "key": "status", "value": "VERIFIED", "description": "Values: PENDING, VERIFIED, REJECTED" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/industry-documents/1", "host": ["{{baseUrl}}"], "path": ["api","v1","industry-documents","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Projects (Project Management)",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Clean Air Initiative 2026\",\n  \"description\": \"Project to reduce air pollution in industrial zones.\",\n  \"managedBy\": 2,\n  \"startDate\": \"2026-05-01\",\n  \"endDate\": \"2026-12-31\",\n  \"budget\": 500000.00,\n  \"status\": \"PLANNED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects", "host": ["{{baseUrl}}"], "path": ["api","v1","projects"] }
+          }
+        },
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects", "host": ["{{baseUrl}}"], "path": ["api","v1","projects"] }
+          }
+        },
+        {
+          "name": "Get Project By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1"] }
+          }
+        },
+        {
+          "name": "Get Projects By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/status/PLANNED", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","status","PLANNED"],
+              "description": "Status values: PLANNED, IN_PROGRESS, COMPLETED, ON_HOLD, CANCELLED" }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"budget\": 600000.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1"] }
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Milestones (Project Management)",
+      "item": [
+        {
+          "name": "Add Milestone To Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Phase 1 - Assessment Complete\",\n  \"description\": \"Complete environmental impact assessment.\",\n  \"targetDate\": \"2026-06-30\",\n  \"status\": \"PENDING\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1/milestones", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1","milestones"] }
+          }
+        },
+        {
+          "name": "Get Milestones By Project",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1/milestones", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1","milestones"] }
+          }
+        },
+        {
+          "name": "Get Milestone By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/milestones/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","milestones","1"] }
+          }
+        },
+        {
+          "name": "Get Milestones By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/milestones/status/PENDING", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","milestones","status","PENDING"],
+              "description": "Status values: PENDING, IN_PROGRESS, COMPLETED, DELAYED" }
+          }
+        },
+        {
+          "name": "Update Milestone",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"description\": \"Assessment is in progress.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/milestones/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","milestones","1"] }
+          }
+        },
+        {
+          "name": "Delete Milestone",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/milestones/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","milestones","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - Impacts (Project Management)",
+      "item": [
+        {
+          "name": "Add Impact To Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Reduction of PM2.5 by 30% in target zone.\",\n  \"co2Reduced\": 500.0,\n  \"treesPlanted\": 200,\n  \"status\": \"DRAFT\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1/impact", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1","impact"] }
+          }
+        },
+        {
+          "name": "Get Impact By Project",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1/impact", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1","impact"] }
+          }
+        },
+        {
+          "name": "Get Impact By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/impact/1", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","impact","1"] }
+          }
+        },
+        {
+          "name": "Get Impacts By Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/impact/status/DRAFT", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","impact","status","DRAFT"],
+              "description": "Status values: DRAFT, PUBLISHED, ARCHIVED" }
+          }
+        },
+        {
+          "name": "Update Impact Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/1/impact/status?status=PUBLISHED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","projects","1","impact","status"],
+              "query": [{ "key": "status", "value": "PUBLISHED", "description": "Values: DRAFT, PUBLISHED, ARCHIVED" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Impact",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/1/impact", "host": ["{{baseUrl}}"], "path": ["api","v1","projects","1","impact"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Reports (Project Management)",
+      "item": [
+        {
+          "name": "Create Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Q1 2026 Environmental Summary\",\n  \"content\": \"Comprehensive summary of environmental metrics for Q1 2026.\",\n  \"scope\": \"QUARTERLY\",\n  \"generatedBy\": 2\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/reports", "host": ["{{baseUrl}}"], "path": ["api","v1","reports"] }
+          }
+        },
+        {
+          "name": "Get All Reports",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/reports", "host": ["{{baseUrl}}"], "path": ["api","v1","reports"] }
+          }
+        },
+        {
+          "name": "Get Report By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/reports/1", "host": ["{{baseUrl}}"], "path": ["api","v1","reports","1"] }
+          }
+        },
+        {
+          "name": "Get Reports By Scope",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/reports/scope/QUARTERLY", "host": ["{{baseUrl}}"], "path": ["api","v1","reports","scope","QUARTERLY"] }
+          }
+        },
+        {
+          "name": "Delete Report",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/reports/1", "host": ["{{baseUrl}}"], "path": ["api","v1","reports","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 - Compliance (Audit Service)",
+      "item": [
+        {
+          "name": "Create Compliance Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": 4,\n  \"complianceType\": \"EMISSION\",\n  \"description\": \"Annual emission compliance check for industry ID 4.\",\n  \"result\": \"COMPLIANT\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance"] }
+          }
+        },
+        {
+          "name": "Get All Compliance Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance"] }
+          }
+        },
+        {
+          "name": "Get Compliance Record By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance/1", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance","1"] }
+          }
+        },
+        {
+          "name": "Get Compliance By Entity ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance/entity/4", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance","entity","4"] }
+          }
+        },
+        {
+          "name": "Get Compliance By Type",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance/type/EMISSION", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance","type","EMISSION"] }
+          }
+        },
+        {
+          "name": "Get Compliance By Result",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance/result/COMPLIANT", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance","result","COMPLIANT"] }
+          }
+        },
+        {
+          "name": "Delete Compliance Record",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/compliance/1", "host": ["{{baseUrl}}"], "path": ["api","v1","compliance","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 - Audits (Audit Service)",
+      "item": [
+        {
+          "name": "Create Audit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"officerId\": 2,\n  \"entityId\": 4,\n  \"entityType\": \"INDUSTRY\",\n  \"description\": \"Annual compliance audit for Factory 4.\",\n  \"scheduledDate\": \"2026-05-15\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/audits", "host": ["{{baseUrl}}"], "path": ["api","v1","audits"] }
+          }
+        },
+        {
+          "name": "Get All Audits",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/audits", "host": ["{{baseUrl}}"], "path": ["api","v1","audits"] }
+          }
+        },
+        {
+          "name": "Get Audit By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/audits/1", "host": ["{{baseUrl}}"], "path": ["api","v1","audits","1"] }
+          }
+        },
+        {
+          "name": "Get Audits By Officer",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/audits/officer/2", "host": ["{{baseUrl}}"], "path": ["api","v1","audits","officer","2"] }
+          }
+        },
+        {
+          "name": "Update Audit Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audits/1/status?status=COMPLETED&findings=No major violations found.",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","audits","1","status"],
+              "query": [
+                { "key": "status", "value": "COMPLETED" },
+                { "key": "findings", "value": "No major violations found." }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+

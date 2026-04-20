@@ -1,0 +1,6 @@
+com\ecotrack\gateway\security\JwtUtil.class
+com\ecotrack\gateway\ApiGatewayApplication.class
+com\ecotrack\gateway\security\SecurityConfig.class
+com\ecotrack\gateway\filter\JwtAuthenticationFilter.class
+com\ecotrack\gateway\security\JwtAuthenticationFilter.class
+com\ecotrack\gateway\config\CorsConfig.class
