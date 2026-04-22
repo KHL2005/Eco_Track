@@ -4,6 +4,7 @@ import com.ecotrack.iam.dto.AuthResponse;
 import com.ecotrack.iam.dto.LoginRequest;
 import com.ecotrack.iam.dto.RegisterRequest;
 import com.ecotrack.iam.entity.User;
+import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.enums.UserStatus;
 import com.ecotrack.iam.exception.BadRequestException;
 import com.ecotrack.iam.exception.DuplicateResourceException;
@@ -41,7 +42,7 @@ public class AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
-                .role(request.getRole())
+                .role(UserRole.CITIZEN) // Public registration ALWAYS assigns CITIZEN
                 .status(UserStatus.ACTIVE)
                 .build();
 

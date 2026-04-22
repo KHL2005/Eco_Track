@@ -20,7 +20,7 @@ public class RegisterRequest {
 
     private String phone;
 
-    @NotNull(message = "Role is required")
+    // Role is ignored on public registration — always defaults to CITIZEN
     private UserRole role;
 }
 

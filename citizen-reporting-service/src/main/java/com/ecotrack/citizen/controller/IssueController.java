@@ -5,14 +5,21 @@ import com.ecotrack.citizen.enums.IssueStatus;
 import com.ecotrack.citizen.enums.IssueType;
 import com.ecotrack.citizen.enums.ResolutionStatus;
 import com.ecotrack.citizen.service.IssueService;
+import com.ecotrack.citizen.service.MediaStorageService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,6 +30,7 @@ import java.util.List;
 public class IssueController {
 
     private final IssueService issueService;
+    private final MediaStorageService mediaStorageService;
 
     // ─── Issue Endpoints ─────────────────────────────────────────
 
@@ -85,6 +93,61 @@ public class IssueController {
     public ResponseEntity<Void> deleteIssue(@PathVariable("id") Long id) {
         issueService.deleteIssue(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ─── Media Endpoints ──────────────────────────────────────────
+
+    /**
+     * Upload a single image or video file.
+     * Swagger UI will show a real "Choose File" button.
+     * Call this endpoint once per file (up to 5 times per issue).
+     */
+    @PostMapping(value = "/{id}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload an image or video file for an issue (call once per file, max 5 per issue)")
+    public ResponseEntity<IssueResponse> uploadMedia(
+            @PathVariable("id") Long id,
+            @Parameter(
+                description = "Image or video file — jpg, png, gif, mp4, avi, mov (max 50 MB)",
+                required = true,
+                schema = @Schema(type = "string", format = "binary")
+            )
+            @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.ok(issueService.uploadMedia(id, List.of(file)));
+    }
+
+    /**
+     * View / stream an uploaded image or video directly in the browser.
+     * The fileName is the unique name e.g. uuid_photo.jpg
+     */
+    @GetMapping("/{id}/media/{fileName:.+}")
+    @Operation(summary = "View or stream an uploaded image / video file")
+    public ResponseEntity<Resource> serveMedia(
+            @PathVariable("id") Long id,
+            @PathVariable("fileName") String fileName) {
+
+        // Stored DB paths are relative: "issue_1/uuid_photo.jpg"
+        // fileName from URL is just the last segment: "uuid_photo.jpg"
+        String relativePath = "issue_" + id + "/" + fileName;
+
+        Resource resource = mediaStorageService.load(relativePath);
+        String contentType = mediaStorageService.resolveContentType(relativePath);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(resource);
+    }
+
+    /**
+     * Delete a specific media file from an issue.
+     */
+    @DeleteMapping("/{id}/media/{fileName:.+}")
+    @Operation(summary = "Delete a specific media file from an issue")
+    @PreAuthorize("hasAnyAuthority('CITIZEN','OFFICER','ADMIN')")
+    public ResponseEntity<IssueResponse> deleteMedia(
+            @PathVariable("id") Long id,
+            @PathVariable("fileName") String fileName) {
+        return ResponseEntity.ok(issueService.deleteMedia(id, fileName));
     }
 
     // ─── Resolution Endpoints ─────────────────────────────────────

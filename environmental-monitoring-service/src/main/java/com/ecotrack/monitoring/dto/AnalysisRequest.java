@@ -1,7 +1,6 @@
 package com.ecotrack.monitoring.dto;
 
 import com.ecotrack.monitoring.enums.AnalysisStatus;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -10,12 +9,12 @@ public class AnalysisRequest {
     @NotNull(message = "Data ID is required")
     private Long dataId;
 
-    @NotNull(message = "Scientist ID is required")
+    // scientistId is auto-assigned from the JWT token (X-User-Id header).
+    // Do NOT pass this manually — it will be ignored.
     private Long scientistId;
 
-    @NotBlank(message = "Findings are required")
+    // findings are optional — auto-generated from sensor parameters if not provided
     private String findings;
 
     private AnalysisStatus status;
 }
-

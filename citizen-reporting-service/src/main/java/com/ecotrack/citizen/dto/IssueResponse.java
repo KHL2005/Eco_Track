@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data @Builder @AllArgsConstructor @NoArgsConstructor
 public class IssueResponse {
@@ -17,7 +18,7 @@ public class IssueResponse {
     private String description;
     private LocalDateTime date;
     private IssueStatus status;
+    private List<String> mediaUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

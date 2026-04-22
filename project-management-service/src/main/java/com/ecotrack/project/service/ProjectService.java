@@ -1,6 +1,7 @@
 package com.ecotrack.project.service;
 
 import com.ecotrack.project.dto.*;
+import com.ecotrack.project.dto.ImpactMetrics;
 import com.ecotrack.project.entity.*;
 import com.ecotrack.project.enums.*;
 import com.ecotrack.project.exception.BadRequestException;
@@ -175,14 +176,108 @@ public class ProjectService {
 
     @Transactional
     public ImpactResponse addOrUpdateImpact(Long projectId, ImpactRequest request) {
-        findProjectById(projectId); // validates project exists, throws ProjectNotFoundException
+        findProjectById(projectId);
         Impact impact = impactRepository.findByProjectId(projectId)
                 .orElse(Impact.builder().projectId(projectId).build());
 
-        impact.setMetricsJson(request.getMetricsJson());
+        impact.setMetrics(request.getMetrics());
         if (request.getStatus() != null) {
             impact.setStatus(request.getStatus());
         }
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    /**
+     * Partially update predefined metric fields.
+     * Only fields that are non-null in the request will be updated.
+     * customMetrics entries in the request are MERGED into existing ones (not replaced).
+     *
+     * Example — pollution project adds treesPlanted later:
+     *   PATCH /projects/1/impact/metrics
+     *   { "treesPlanted": 200, "pollutionIncidentsResolved": 15 }
+     */
+    @Transactional
+    public ImpactResponse patchMetrics(Long projectId, ImpactMetrics patch) {
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+
+        ImpactMetrics existing = impact.getMetrics();
+        if (existing == null) existing = new ImpactMetrics();
+
+        // Predefined fields — only overwrite if non-null in patch
+        if (patch.getTreesPlanted()                != null) existing.setTreesPlanted(patch.getTreesPlanted());
+        if (patch.getAreaRestoredHectares()        != null) existing.setAreaRestoredHectares(patch.getAreaRestoredHectares());
+        if (patch.getCo2ReducedTons()              != null) existing.setCo2ReducedTons(patch.getCo2ReducedTons());
+        if (patch.getRenewableEnergyKwh()          != null) existing.setRenewableEnergyKwh(patch.getRenewableEnergyKwh());
+        if (patch.getWasteCollectedKg()            != null) existing.setWasteCollectedKg(patch.getWasteCollectedKg());
+        if (patch.getWaterBodiesCleaned()          != null) existing.setWaterBodiesCleaned(patch.getWaterBodiesCleaned());
+        if (patch.getPollutionIncidentsResolved()  != null) existing.setPollutionIncidentsResolved(patch.getPollutionIncidentsResolved());
+        if (patch.getPeopleBenefited()             != null) existing.setPeopleBenefited(patch.getPeopleBenefited());
+        if (patch.getAwarenessSessionsConducted()  != null) existing.setAwarenessSessionsConducted(patch.getAwarenessSessionsConducted());
+        if (patch.getVolunteerEngagements()        != null) existing.setVolunteerEngagements(patch.getVolunteerEngagements());
+        if (patch.getNotes()                       != null) existing.setNotes(patch.getNotes());
+
+        // Custom metrics — MERGE new entries into existing map
+        if (patch.getCustomMetrics() != null && !patch.getCustomMetrics().isEmpty()) {
+            if (existing.getCustomMetrics() == null) {
+                existing.setCustomMetrics(new java.util.HashMap<>());
+            }
+            existing.getCustomMetrics().putAll(patch.getCustomMetrics());
+        }
+
+        impact.setMetrics(existing);
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    /**
+     * Add or update individual custom metric entries (key-value pairs).
+     * Merges into existing customMetrics — does not replace the whole map.
+     *
+     * Example — pollution project adds AQI readings:
+     *   PATCH /projects/1/impact/metrics/custom
+     *   { "aqiBefore": 180, "aqiAfter": 95, "treesPlantedNearFactory": 50 }
+     */
+    @Transactional
+    public ImpactResponse addOrUpdateCustomMetrics(Long projectId, java.util.Map<String, Object> customEntries) {
+        if (customEntries == null || customEntries.isEmpty()) {
+            throw new BadRequestException("At least one custom metric key-value pair is required");
+        }
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+
+        ImpactMetrics metrics = impact.getMetrics();
+        if (metrics == null) metrics = new ImpactMetrics();
+        if (metrics.getCustomMetrics() == null) metrics.setCustomMetrics(new java.util.HashMap<>());
+
+        metrics.getCustomMetrics().putAll(customEntries);
+        impact.setMetrics(metrics);
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    /**
+     * Remove a single custom metric key from an impact.
+     *
+     * Example: DELETE /projects/1/impact/metrics/custom/aqiBefore
+     */
+    @Transactional
+    public ImpactResponse removeCustomMetric(Long projectId, String key) {
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+
+        ImpactMetrics metrics = impact.getMetrics();
+        if (metrics == null || metrics.getCustomMetrics() == null
+                || !metrics.getCustomMetrics().containsKey(key)) {
+            throw new ResourceNotFoundException("Custom metric key not found: " + key);
+        }
+
+        metrics.getCustomMetrics().remove(key);
+        impact.setMetrics(metrics);
         return toImpactResponse(impactRepository.save(impact));
     }
 
@@ -269,7 +364,7 @@ public class ProjectService {
         return ImpactResponse.builder()
                 .impactId(i.getImpactId())
                 .projectId(i.getProjectId())
-                .metricsJson(i.getMetricsJson())
+                .metrics(i.getMetrics())
                 .date(i.getDate())
                 .status(i.getStatus())
                 .createdAt(i.getCreatedAt())

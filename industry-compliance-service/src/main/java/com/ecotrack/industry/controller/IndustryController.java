@@ -1,7 +1,6 @@
 package com.ecotrack.industry.controller;
 
 import com.ecotrack.industry.dto.*;
-import com.ecotrack.industry.enums.DocType;
 import com.ecotrack.industry.enums.EmissionStatus;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.service.IndustryService;
@@ -44,39 +43,12 @@ public class IndustryController {
         return ResponseEntity.ok(industryService.getEmissionById(id));
     }
 
-    @GetMapping("/api/v1/emissions/industry/{industryId}")
-    @Operation(summary = "Get all emissions for a specific industry")
-    public ResponseEntity<List<EmissionLogResponse>> getEmissionsByIndustry(@PathVariable("industryId") Long industryId) {
-        return ResponseEntity.ok(industryService.getEmissionsByIndustry(industryId));
+    @GetMapping("/api/v1/emissions/industry")
+    @Operation(summary = "Get all emissions for a specific industry by name (supports spaces, e.g. ?industryName=Steel Industries)")
+    public ResponseEntity<List<EmissionLogResponse>> getEmissionsByIndustryName(@RequestParam("industryName") String industryName) {
+        return ResponseEntity.ok(industryService.getEmissionsByIndustryName(industryName));
     }
 
-    @GetMapping("/api/v1/emissions/status/{status}")
-    @Operation(summary = "Get emissions by status (SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED)")
-    public ResponseEntity<List<EmissionLogResponse>> getEmissionsByStatus(@PathVariable("status") EmissionStatus status) {
-        return ResponseEntity.ok(industryService.getEmissionsByStatus(status));
-    }
-
-    @GetMapping("/api/v1/emissions/industry/{industryId}/status/{status}")
-    @Operation(summary = "Get emissions for a specific industry filtered by status")
-    public ResponseEntity<List<EmissionLogResponse>> getEmissionsByIndustryAndStatus(
-            @PathVariable("industryId") Long industryId,
-            @PathVariable("status") EmissionStatus status) {
-        return ResponseEntity.ok(industryService.getEmissionsByIndustryAndStatus(industryId, status));
-    }
-
-    @GetMapping("/api/v1/emissions/type/{type}")
-    @Operation(summary = "Get emissions by type (e.g., CO2, NOx, SO2)")
-    public ResponseEntity<List<EmissionLogResponse>> getEmissionsByType(@PathVariable("type") String type) {
-        return ResponseEntity.ok(industryService.getEmissionsByType(type));
-    }
-
-    @PatchMapping("/api/v1/emissions/{id}")
-    @Operation(summary = "Partially update emission log (type, quantity, status)")
-    @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
-    public ResponseEntity<EmissionLogResponse> updateEmission(@PathVariable("id") Long id,
-                                                               @RequestBody EmissionLogUpdateRequest request) {
-        return ResponseEntity.ok(industryService.updateEmission(id, request));
-    }
 
     @PatchMapping("/api/v1/emissions/{id}/status")
     @Operation(summary = "Update emission status (SUBMITTED→UNDER_REVIEW→APPROVED/REJECTED)")
@@ -116,40 +88,12 @@ public class IndustryController {
         return ResponseEntity.ok(industryService.getDocumentById(docId));
     }
 
-    @GetMapping("/api/v1/industry-documents/industry/{industryId}")
-    @Operation(summary = "Get all documents for a specific industry")
-    public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByIndustry(@PathVariable("industryId") Long industryId) {
-        return ResponseEntity.ok(industryService.getDocumentsByIndustry(industryId));
+    @GetMapping("/api/v1/industry-documents/industry")
+    @Operation(summary = "Get all documents for a specific industry by name (supports spaces, e.g. ?industryName=Steel Industries)")
+    public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByIndustryName(@RequestParam("industryName") String industryName) {
+        return ResponseEntity.ok(industryService.getDocumentsByIndustryName(industryName));
     }
 
-    @GetMapping("/api/v1/industry-documents/verification/{status}")
-    @Operation(summary = "Get documents by verification status (PENDING, VERIFIED, REJECTED)")
-    public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByVerificationStatus(
-            @PathVariable("status") VerificationStatus status) {
-        return ResponseEntity.ok(industryService.getDocumentsByVerificationStatus(status));
-    }
-
-    @GetMapping("/api/v1/industry-documents/type/{docType}")
-    @Operation(summary = "Get documents by type (PERMIT, COMPLIANCE_REPORT, etc.)")
-    public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByDocType(@PathVariable("docType") DocType docType) {
-        return ResponseEntity.ok(industryService.getDocumentsByDocType(docType));
-    }
-
-    @GetMapping("/api/v1/industry-documents/industry/{industryId}/verification/{status}")
-    @Operation(summary = "Get documents for a specific industry filtered by verification status")
-    public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByIndustryAndStatus(
-            @PathVariable("industryId") Long industryId,
-            @PathVariable("status") VerificationStatus status) {
-        return ResponseEntity.ok(industryService.getDocumentsByIndustryAndStatus(industryId, status));
-    }
-
-    @PatchMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Partially update a document (docType, fileUri, verificationStatus)")
-    @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
-    public ResponseEntity<IndustryDocumentResponse> updateDocument(@PathVariable("docId") Long docId,
-                                                                    @RequestBody IndustryDocumentUpdateRequest request) {
-        return ResponseEntity.ok(industryService.updateDocument(docId, request));
-    }
 
     @PatchMapping("/api/v1/industry-documents/{docId}/verify")
     @Operation(summary = "Verify or reject a document (PENDING→VERIFIED/REJECTED)")

@@ -12,8 +12,10 @@ import java.time.LocalDateTime;
 public class IndustryDocumentResponse {
     private Long documentId;
     private Long industryId;
+    private String industryName;
     private DocType docType;
     private String fileUri;
+    private String description;
     private LocalDateTime uploadedDate;
     private VerificationStatus verificationStatus;
     private LocalDateTime createdAt;

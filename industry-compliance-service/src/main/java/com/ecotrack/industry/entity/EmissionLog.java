@@ -12,6 +12,7 @@ public class EmissionLog {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "log_id") private Long logId;
     @Column(name = "industry_id", nullable = false) private Long industryId;
+    @Column(name = "industry_name", nullable = false, length = 500) private String industryName;
     @Column(nullable = false, length = 100) private String type;
     @Column(nullable = false, precision = 12, scale = 4) private BigDecimal quantity;
     @Column(nullable = false) private LocalDateTime date;

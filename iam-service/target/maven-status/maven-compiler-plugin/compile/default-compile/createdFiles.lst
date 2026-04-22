@@ -26,9 +26,11 @@ com\ecotrack\iam\repository\AuditLogRepository.class
 com\ecotrack\iam\dto\UserResponse.class
 com\ecotrack\iam\dto\LoginRequest.class
 com\ecotrack\iam\IamServiceApplication.class
+com\ecotrack\iam\dto\CreateUserRequest.class
 com\ecotrack\iam\enums\UserStatus.class
 com\ecotrack\iam\service\NotificationService.class
 com\ecotrack\iam\service\UserService.class
+com\ecotrack\iam\config\SuperAdminSeeder.class
 com\ecotrack\iam\config\SecurityConfig.class
 com\ecotrack\iam\entity\Notification.class
 com\ecotrack\iam\kafka\EcoTrackEvent.class
@@ -38,6 +40,7 @@ com\ecotrack\iam\controller\NotificationController.class
 com\ecotrack\iam\dto\NotificationRequest.class
 com\ecotrack\iam\enums\NotificationCategory.class
 com\ecotrack\iam\exception\GlobalExceptionHandler.class
+com\ecotrack\iam\dto\ChangePasswordRequest.class
 com\ecotrack\iam\dto\UserResponse$UserResponseBuilder.class
 com\ecotrack\iam\exception\BadRequestException.class
 com\ecotrack\iam\exception\DuplicateResourceException.class

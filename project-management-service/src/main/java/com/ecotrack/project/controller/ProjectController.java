@@ -1,6 +1,7 @@
 package com.ecotrack.project.controller;
 
 import com.ecotrack.project.dto.*;
+import com.ecotrack.project.dto.ImpactMetrics;
 import com.ecotrack.project.enums.ImpactStatus;
 import com.ecotrack.project.enums.MilestoneStatus;
 import com.ecotrack.project.enums.ProjectStatus;
@@ -15,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/projects")
@@ -147,6 +149,35 @@ public class ProjectController {
     public ResponseEntity<ImpactResponse> updateImpactStatus(@PathVariable("projectId") Long projectId,
                                                               @RequestParam("status") ImpactStatus status) {
         return ResponseEntity.ok(projectService.updateImpactStatus(projectId, status));
+    }
+
+    @PatchMapping("/{projectId}/impact/metrics")
+    @Operation(summary = "Partially update predefined impact metrics — only provided fields are updated, customMetrics are merged",
+               description = "For a pollution project you can later add treesPlanted, co2ReducedTons etc. " +
+                             "without resetting the existing metrics. Null fields are ignored.")
+    @PreAuthorize("hasAnyAuthority('OFFICER','SCIENTIST','ADMIN')")
+    public ResponseEntity<ImpactResponse> patchMetrics(@PathVariable("projectId") Long projectId,
+                                                        @RequestBody ImpactMetrics patch) {
+        return ResponseEntity.ok(projectService.patchMetrics(projectId, patch));
+    }
+
+    @PatchMapping("/{projectId}/impact/metrics/custom")
+    @Operation(summary = "Add or update custom metric key-value pairs — merged into existing custom metrics",
+               description = "Use this to add any project-specific metric. " +
+                             "Example: { \"aqiBefore\": 180, \"aqiAfter\": 95, \"treesPlantedNearFactory\": 50 }")
+    @PreAuthorize("hasAnyAuthority('OFFICER','SCIENTIST','ADMIN')")
+    public ResponseEntity<ImpactResponse> addOrUpdateCustomMetrics(@PathVariable("projectId") Long projectId,
+                                                                    @RequestBody Map<String, Object> customEntries) {
+        return ResponseEntity.ok(projectService.addOrUpdateCustomMetrics(projectId, customEntries));
+    }
+
+    @DeleteMapping("/{projectId}/impact/metrics/custom/{key}")
+    @Operation(summary = "Remove a single custom metric key from an impact",
+               description = "Example: DELETE /projects/1/impact/metrics/custom/aqiBefore")
+    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    public ResponseEntity<ImpactResponse> removeCustomMetric(@PathVariable("projectId") Long projectId,
+                                                              @PathVariable("key") String key) {
+        return ResponseEntity.ok(projectService.removeCustomMetric(projectId, key));
     }
 
     @DeleteMapping("/{projectId}/impact")

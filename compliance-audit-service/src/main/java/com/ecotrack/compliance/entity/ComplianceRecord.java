@@ -12,8 +12,8 @@ public class ComplianceRecord {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "compliance_id") private Long complianceId;
     @Column(name = "entity_id", nullable = false) private Long entityId;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private ComplianceType type;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private ComplianceResult result;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 50) private ComplianceType type;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 50) private ComplianceResult result;
     @Column(nullable = false) private LocalDateTime date;
     @Column(columnDefinition = "TEXT") private String notes;
     @Column(name = "created_at") private LocalDateTime createdAt;

@@ -6,13 +6,16 @@ import com.ecotrack.monitoring.entity.Sensor;
 import com.ecotrack.monitoring.entity.SensorData;
 import com.ecotrack.monitoring.enums.AnalysisStatus;
 import com.ecotrack.monitoring.enums.SensorStatus;
-import com.ecotrack.monitoring.enums.SensorType;
 import com.ecotrack.monitoring.exception.BadRequestException;
 import com.ecotrack.monitoring.exception.ResourceNotFoundException;
+import com.ecotrack.monitoring.exception.ScientistNotFoundException;
+import com.ecotrack.monitoring.exception.UnauthorizedException;
 import com.ecotrack.monitoring.kafka.EventProducer;
 import com.ecotrack.monitoring.repository.AnalysisRepository;
 import com.ecotrack.monitoring.repository.SensorDataRepository;
 import com.ecotrack.monitoring.repository.SensorRepository;
+import com.ecotrack.monitoring.feign.IamServiceClient;
+import com.ecotrack.monitoring.feign.UserDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,7 @@ public class MonitoringService {
     private final SensorDataRepository sensorDataRepository;
     private final AnalysisRepository analysisRepository;
     private final EventProducer eventProducer;
+    private final IamServiceClient iamServiceClient;
 
     // ─── Sensors ─────────────────────────────────────────────────
 
@@ -54,26 +58,6 @@ public class MonitoringService {
         return toSensorResponse(findSensorById(id));
     }
 
-    public List<SensorResponse> getSensorsByType(SensorType type) {
-        if (type == null) {
-            throw new BadRequestException("Sensor type is required");
-        }
-        return sensorRepository.findByType(type).stream()
-                .map(this::toSensorResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional
-    public SensorResponse updateSensor(Long id, SensorRequest request) {
-        Sensor sensor = findSensorById(id);
-        if (request.getLocation() != null && !request.getLocation().isBlank()) {
-            sensor.setLocation(request.getLocation());
-        }
-        if (request.getType() != null) {
-            sensor.setType(request.getType());
-        }
-        return toSensorResponse(sensorRepository.save(sensor));
-    }
 
     @Transactional
     public SensorResponse updateSensorStatus(Long id, SensorStatus status) {
@@ -122,7 +106,11 @@ public class MonitoringService {
 
     public List<SensorDataResponse> getDataBySensor(Long sensorId) {
         findSensorById(sensorId); // validate sensor exists
-        return sensorDataRepository.findBySensorId(sensorId).stream()
+        List<SensorData> results = sensorDataRepository.findBySensorId(sensorId);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No sensor data found for sensor id: " + sensorId);
+        }
+        return results.stream()
                 .map(this::toSensorDataResponse)
                 .collect(Collectors.toList());
     }
@@ -148,17 +136,39 @@ public class MonitoringService {
 
     @Transactional
     public AnalysisResponse createAnalysis(AnalysisRequest request) {
-        // Validate sensor data exists
+        // Fetch sensor data
         SensorData data = sensorDataRepository.findById(request.getDataId())
                 .orElseThrow(() -> new ResourceNotFoundException("SensorData", request.getDataId()));
+
+        // Generate findings from parametersJson if not provided in request
+        String findings = (request.getFindings() != null && !request.getFindings().isBlank())
+                ? request.getFindings()
+                : generateFindings(data.getParametersJson());
+
+        // Assign scientistId: from request → IAM fetch → default 1L
+        Long scientistId = request.getScientistId();
+        if (scientistId == null) {
+            scientistId = assignScientist();
+        }
+        if (scientistId == null) {
+            scientistId = 1L; // fallback default
+        }
+
+        // Determine status based on whether findings contain issues
+        AnalysisStatus status = request.getStatus();
+        if (status == null) {
+            boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
+            status = hasViolation ? AnalysisStatus.FLAGGED : AnalysisStatus.PENDING;
+        }
 
         Analysis analysis = Analysis.builder()
                 .dataId(request.getDataId())
                 .sensorId(data.getSensorId())
-                .scientistId(request.getScientistId())
-                .findings(request.getFindings())
-                .status(request.getStatus() != null ? request.getStatus() : AnalysisStatus.PENDING)
+                .scientistId(scientistId)
+                .findings(findings)
+                .status(status)
                 .build();
+
         return toAnalysisResponse(analysisRepository.save(analysis));
     }
 
@@ -177,47 +187,42 @@ public class MonitoringService {
         if (!sensorDataRepository.existsById(dataId)) {
             throw new ResourceNotFoundException("SensorData", dataId);
         }
-        return analysisRepository.findAllByDataId(dataId).stream()
-                .map(this::toAnalysisResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<AnalysisResponse> getAnalysesByStatus(AnalysisStatus status) {
-        if (status == null) {
-            throw new BadRequestException("Status is required");
+        List<Analysis> results = analysisRepository.findAllByDataId(dataId);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No analysis records found for sensor data id: " + dataId);
         }
-        return analysisRepository.findByStatus(status).stream()
-                .map(this::toAnalysisResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<AnalysisResponse> getAnalysesBySensor(Long sensorId) {
-        findSensorById(sensorId);
-        return analysisRepository.findBySensorId(sensorId).stream()
-                .map(this::toAnalysisResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<AnalysisResponse> getAnalysesByScientist(Long scientistId) {
-        return analysisRepository.findByScientistId(scientistId).stream()
+        return results.stream()
                 .map(this::toAnalysisResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public AnalysisResponse reviewAnalysis(Long id, Long scientistId, String findings) {
-        if (scientistId == null) {
-            throw new BadRequestException("Scientist ID is required for review");
+    public AnalysisResponse reviewAnalysis(Long id, String userId, String userRole, AnalysisStatus status, String findings) {
+        // ── Validate that the caller is a SCIENTIST ──────────────────────────
+        if (userRole == null || !userRole.equalsIgnoreCase("SCIENTIST")) {
+            throw new UnauthorizedException("Only SCIENTIST role can review analysis. Your role: " + userRole);
         }
+        if (userId == null || userId.isBlank()) {
+            throw new UnauthorizedException("User ID is missing from request. Please login again.");
+        }
+
+        Long scientistId;
+        try {
+            scientistId = Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            throw new UnauthorizedException("Invalid user ID in token: " + userId);
+        }
+
+        if (status == null || status == AnalysisStatus.PENDING) {
+            throw new BadRequestException("Status must be REVIEWED or FLAGGED");
+        }
+
         Analysis analysis = analysisRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis", id));
 
-        if (analysis.getStatus() == AnalysisStatus.REVIEWED) {
-            throw new BadRequestException("Analysis already reviewed");
-        }
-
+        // Auto-assign scientistId from JWT — no manual override allowed
         analysis.setScientistId(scientistId);
-        analysis.setStatus(AnalysisStatus.REVIEWED);
+        analysis.setStatus(status);
         if (findings != null && !findings.isBlank()) {
             analysis.setFindings(findings);
         }
@@ -233,15 +238,15 @@ public class MonitoringService {
         return toAnalysisResponse(analysis);
     }
 
-    @Transactional
-    public AnalysisResponse updateAnalysisStatus(Long id, AnalysisStatus status) {
-        if (status == null) {
-            throw new BadRequestException("Status is required");
+
+    public List<AnalysisResponse> getAnalysisByScientistId(Long scientistId) {
+        List<Analysis> results = analysisRepository.findByScientistId(scientistId);
+        if (results.isEmpty()) {
+            throw new ScientistNotFoundException(scientistId);
         }
-        Analysis analysis = analysisRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Analysis", id));
-        analysis.setStatus(status);
-        return toAnalysisResponse(analysisRepository.save(analysis));
+        return results.stream()
+                .map(this::toAnalysisResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -261,131 +266,108 @@ public class MonitoringService {
 
     private void triggerAutoAnalysis(SensorData data) {
         try {
-            Sensor sensor = findSensorById(data.getSensorId());
-            String findings = generateFindings(data, sensor);
-            boolean hasViolation = findings.contains("[UNHEALTHY]") || findings.contains("[HAZARDOUS]")
-                    || findings.contains("[POOR]") || findings.contains("[SEVERE]");
+            String findings = generateFindings(data.getParametersJson());
+            boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
+
+            Long scientistId = assignScientist();
+            if (scientistId == null) {
+                scientistId = 1L; // fallback default
+            }
 
             Analysis analysis = Analysis.builder()
                     .dataId(data.getDataId())
                     .sensorId(data.getSensorId())
+                    .scientistId(scientistId)
                     .findings(findings)
                     .status(hasViolation ? AnalysisStatus.FLAGGED : AnalysisStatus.PENDING)
                     .build();
             analysisRepository.save(analysis);
-            log.info("Auto-analysis triggered for sensorData id={}, flagged={}", data.getDataId(), hasViolation);
+            log.info("Auto-analysis triggered for sensorData id={}, flagged={}, scientistId={}", data.getDataId(), hasViolation, scientistId);
         } catch (Exception e) {
             log.error("Failed to trigger auto-analysis for dataId={}: {}", data.getDataId(), e.getMessage());
         }
     }
 
-    private String generateFindings(SensorData data, Sensor sensor) {
-        String json = data.getParametersJson();
-        StringBuilder sb = new StringBuilder();
-        sb.append("=== EcoTrack Auto-Analysis Report ===\n");
-        sb.append("Sensor ID: ").append(data.getSensorId())
-          .append(" | Type: ").append(sensor.getType())
-          .append(" | Location: ").append(sensor.getLocation()).append("\n");
-        sb.append("Data ID: ").append(data.getDataId())
-          .append(" | Recorded At: ").append(data.getTimestamp()).append("\n");
-        sb.append("-------------------------------------\n");
-
-        if (json == null || json.isBlank()) {
-            sb.append("No parameters found in data.\n");
-            return sb.toString();
+    private Long assignScientist() {
+        try {
+            List<UserDto> scientists = iamServiceClient.getUsersByRole("SCIENTIST");
+            if (scientists != null && !scientists.isEmpty()) {
+                // Round-robin: pick scientist based on current analysis count
+                long totalAnalyses = analysisRepository.count();
+                int index = (int) (totalAnalyses % scientists.size());
+                Long selectedId = scientists.get(index).getUserId();
+                log.info("Auto-assigned scientist userId={} for analysis", selectedId);
+                return selectedId;
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch scientists from IAM service: {}", e.getMessage());
         }
-
-        java.util.Map<String, Double> params = parseJsonToMap(json);
-
-        if (params.isEmpty()) {
-            sb.append("Could not parse numeric parameters from data.\n");
-            sb.append("Raw: ").append(json).append("\n");
-            return sb.toString();
-        }
-
-        boolean hasViolation = false;
-        sb.append("PARAMETER ANALYSIS:\n\n");
-
-        if (sensor.getType() == SensorType.AIR) {
-            hasViolation |= analyzeParam(sb, params, "pm25", "PM2.5 (ug/m3)", 12.0, 35.4, 55.4, 150.4, false);
-            hasViolation |= analyzeParam(sb, params, "pm10", "PM10 (ug/m3)", 20.0, 50.0, 150.0, 250.0, false);
-            hasViolation |= analyzeParam(sb, params, "CO2", "CO2 (ppm)", 400.0, 800.0, 1000.0, 2000.0, false);
-            hasViolation |= analyzeParam(sb, params, "NO2", "NO2 (ppb)", 20.0, 40.0, 80.0, 150.0, false);
-            hasViolation |= analyzeParam(sb, params, "SO2", "SO2 (ppb)", 10.0, 20.0, 40.0, 75.0, false);
-            hasViolation |= analyzeParam(sb, params, "O3", "Ozone O3 (ppb)", 50.0, 70.0, 85.0, 105.0, false);
-        } else if (sensor.getType() == SensorType.WATER) {
-            analyzeWaterPh(sb, params);
-            hasViolation |= analyzeParam(sb, params, "dissolvedOxygen", "Dissolved Oxygen (mg/L)", 8.0, 6.0, 4.0, 2.0, true);
-            hasViolation |= analyzeParam(sb, params, "turbidity", "Turbidity (NTU)", 1.0, 5.0, 10.0, 25.0, false);
-            hasViolation |= analyzeParam(sb, params, "conductivity", "Conductivity (uS/cm)", 300.0, 500.0, 800.0, 1200.0, false);
-            hasViolation |= analyzeParam(sb, params, "temperature", "Temperature (C)", 20.0, 25.0, 30.0, 35.0, false);
-            hasViolation |= analyzeParam(sb, params, "BOD", "BOD (mg/L)", 2.0, 5.0, 8.0, 15.0, false);
-        } else if (sensor.getType() == SensorType.NOISE) {
-            hasViolation |= analyzeParam(sb, params, "decibel", "Noise Level (dB)", 55.0, 70.0, 85.0, 100.0, false);
-        }
-
-        for (java.util.Map.Entry<String, Double> entry : params.entrySet()) {
-            sb.append("  * ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" (no threshold defined)\n");
-        }
-
-        sb.append("\n-------------------------------------\n");
-        sb.append("OVERALL STATUS: ").append(hasViolation
-                ? "!! REQUIRES ATTENTION - Scientist review recommended"
-                : "OK - ALL PARAMETERS WITHIN SAFE LIMITS").append("\n");
-        sb.append("Scientist Review: PENDING\n");
-        sb.append("=====================================\n");
-
-        return sb.toString();
+        return null;
     }
 
-    private boolean analyzeParam(StringBuilder sb, java.util.Map<String, Double> params,
-                                  String key, String label,
-                                  double good, double moderate, double unhealthy, double hazardous,
-                                  boolean inverted) {
-        Double value = params.remove(key);
-        if (value == null) return false;
+    /**
+     * Generates a clean, concise findings string based on threshold rules applied to sensor parameters.
+     * Returns a comma-separated list of issues, or a "safe" message if all values are within limits.
+     */
+    private String generateFindings(String parametersJson) {
+        java.util.Map<String, Double> params = parseJsonToMap(parametersJson);
+        java.util.List<String> parts = new java.util.ArrayList<>();
 
-        String severity;
-        boolean violation = false;
+        // ── Air Parameters ──────────────────────────────────────────
+        addFinding(parts, params, "CO2",         "CO2",         new double[]{2000, 1000, 800, 400});
+        addFinding(parts, params, "NO2",         "NO2",         new double[]{150,  80,   40,  20});
+        addFinding(parts, params, "SO2",         "SO2",         new double[]{75,   40,   20,  10});
+        addFinding(parts, params, "O3",          "ozone",       new double[]{105,  85,   70,  50});
+        addFinding(parts, params, "pm25",        "PM2.5",       new double[]{150,  55,   35,  12});
+        addFinding(parts, params, "pm10",        "PM10",        new double[]{250,  150,  50,  20});
 
-        if (inverted) {
-            if (value >= good) severity = "[GOOD]";
-            else if (value >= moderate) severity = "[MODERATE]";
-            else if (value >= unhealthy) { severity = "[POOR]"; violation = true; }
-            else { severity = "[SEVERE]"; violation = true; }
-        } else {
-            if (value <= good) severity = "[GOOD]";
-            else if (value <= moderate) severity = "[MODERATE]";
-            else if (value <= unhealthy) { severity = "[UNHEALTHY]"; violation = true; }
-            else { severity = "[HAZARDOUS]"; violation = true; }
+        // ── Water Parameters ────────────────────────────────────────
+        Double ph = params.get("pH") != null ? params.get("pH") : params.get("ph");
+        if (ph != null) {
+            String label;
+            if (ph < 5.0 || ph > 10.0)      label = "hazardous";
+            else if (ph < 6.0 || ph > 9.0)  label = "high";
+            else if (ph < 6.5 || ph > 8.5)  label = "moderate";
+            else                             label = "normal";
+            parts.add("pH levels are " + label);
         }
 
-        sb.append("  * ").append(label).append(": ").append(value)
-          .append("  ->  ").append(severity);
-
-        if (inverted) {
-            sb.append("  (Good: >=").append(good).append(" | Moderate: >=").append(moderate)
-              .append(" | Poor: >=").append(unhealthy).append(" | Severe: <").append(unhealthy).append(")");
-        } else {
-            sb.append("  (Good: <=").append(good).append(" | Moderate: <=").append(moderate)
-              .append(" | Unhealthy: <=").append(unhealthy).append(" | Hazardous: >").append(hazardous).append(")");
+        Double dox = params.get("dissolvedOxygen");
+        if (dox != null) {
+            String label;
+            if (dox < 2.0)      label = "critically low";
+            else if (dox < 4.0) label = "low";
+            else if (dox < 6.0) label = "slightly low";
+            else                label = "normal";
+            parts.add("dissolved oxygen is " + label);
         }
-        sb.append("\n");
-        return violation;
+
+        addFinding(parts, params, "turbidity",    "turbidity",    new double[]{25,   15,   10,  5});
+        addFinding(parts, params, "conductivity", "conductivity", new double[]{1200, 800,  500, 200});
+        addFinding(parts, params, "BOD",          "BOD",          new double[]{15,   10,   5,   2});
+
+        // ── Noise & Temperature ─────────────────────────────────────
+        addFinding(parts, params, "decibel",     "noise",        new double[]{100,  85,   70,  60});
+        addFinding(parts, params, "temperature", "temperature",  new double[]{40,   35,   30,  25});
+
+        if (parts.isEmpty()) {
+            return "All environmental parameters are within safe limits";
+        }
+        return String.join(", ", parts);
     }
 
-    private void analyzeWaterPh(StringBuilder sb, java.util.Map<String, Double> params) {
-        Double ph = params.remove("pH");
-        if (ph == null) ph = params.remove("ph");
-        if (ph == null) return;
-
-        String severity;
-        if (ph >= 6.5 && ph <= 8.5) severity = "[GOOD] (Normal range 6.5-8.5)";
-        else if (ph >= 6.0 && ph <= 9.0) severity = "[MODERATE] (Slightly outside normal)";
-        else if (ph >= 5.0 && ph <= 10.0) severity = "[UNHEALTHY] (Significantly abnormal)";
-        else severity = "[HAZARDOUS] (Extreme pH level)";
-
-        sb.append("  * pH Level: ").append(ph).append("  ->  ").append(severity).append("\n");
+    /** Evaluates a parameter against four thresholds and adds a concise finding. */
+    private void addFinding(java.util.List<String> parts, java.util.Map<String, Double> params,
+                            String key, String label, double[] t) {
+        Double v = params.get(key);
+        if (v == null) return;
+        String status;
+        if      (v > t[0]) status = "hazardous";
+        else if (v > t[1]) status = "high";
+        else if (v > t[2]) status = "moderate";
+        else if (v > t[3]) status = "slightly elevated";
+        else               status = "normal";
+        parts.add(label + " levels are " + status);
     }
 
     private java.util.Map<String, Double> parseJsonToMap(String json) {

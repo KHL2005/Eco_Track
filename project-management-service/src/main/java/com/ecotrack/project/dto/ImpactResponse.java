@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 public class ImpactResponse {
     private Long impactId;
     private Long projectId;
-    private String metricsJson;
+    private ImpactMetrics metrics;
     private LocalDate date;
     private ImpactStatus status;
     private LocalDateTime createdAt;

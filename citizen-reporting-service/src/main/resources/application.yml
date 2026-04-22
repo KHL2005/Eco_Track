@@ -6,6 +6,11 @@ spring:
     name: citizen-reporting-service
   config:
     import: "optional:configserver:http://localhost:8888"
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 150MB
   cloud:
     config:
       override-none: true
@@ -51,4 +56,8 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
 
-
+app:
+  upload:
+    dir: uploads/citizen-media
+    allowed-types: image/jpeg,image/png,image/gif,video/mp4,video/avi,video/quicktime
+    max-files-per-issue: 5

@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 @Data
 public class EmissionLogRequest {
     @NotNull(message = "Industry ID is required") private Long industryId;
+    @NotBlank(message = "Industry name is required") private String industryName;
     @NotBlank(message = "Emission type is required") private String type;
     @NotNull(message = "Quantity is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "Quantity must be positive")

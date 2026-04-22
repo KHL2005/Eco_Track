@@ -11,6 +11,9 @@ spring:
       override-none: true
       allow-override: true
       override-system-properties: false
+    openfeign:
+      circuitbreaker:
+        enabled: true
   datasource:
     url: jdbc:mysql://localhost:3306/ecotrack_monitoring?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root

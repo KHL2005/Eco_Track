@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +30,7 @@ public class IssueService {
     private final IssueRepository issueRepository;
     private final ResolutionRepository resolutionRepository;
     private final EventProducer eventProducer;
+    private final MediaStorageService mediaStorageService;
 
     // ─── Issue CRUD ───────────────────────────────────────────────
 
@@ -122,6 +124,46 @@ public class IssueService {
                 .ifPresent(r -> resolutionRepository.deleteById(r.getResolutionId()));
         issueRepository.deleteById(id);
         log.info("Issue {} and linked resolution deleted", id);
+    }
+
+    // ─── Media Upload / Delete ────────────────────────────────────
+
+    @Transactional
+    public IssueResponse uploadMedia(Long issueId, List<MultipartFile> files) {
+        Issue issue = findIssueById(issueId);
+
+        int existing = issue.getMediaUrls().size();
+        int maxAllowed = mediaStorageService.getMaxFilesPerIssue();
+
+        if (existing + files.size() > maxAllowed) {
+            throw new BadRequestException(
+                    "Cannot upload " + files.size() + " file(s). Issue already has " + existing +
+                    " attachment(s). Maximum allowed per issue: " + maxAllowed);
+        }
+
+        for (MultipartFile file : files) {
+            // store() returns relative path like "issue_1/uuid_photo.jpg"
+            String relativePath = mediaStorageService.store(file, issueId);
+            issue.getMediaUrls().add(relativePath);
+        }
+
+        return toIssueResponse(issueRepository.save(issue));
+    }
+
+    @Transactional
+    public IssueResponse deleteMedia(Long issueId, String fileName) {
+        Issue issue = findIssueById(issueId);
+
+        // Match stored relative path by the unique file name (last segment)
+        String matchedPath = issue.getMediaUrls().stream()
+                .filter(p -> p.endsWith("/" + fileName) || p.equals(fileName))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Media file not found for issue " + issueId + ": " + fileName));
+
+        mediaStorageService.delete(matchedPath);
+        issue.getMediaUrls().remove(matchedPath);
+        return toIssueResponse(issueRepository.save(issue));
     }
 
     // ─── Resolution CRUD ─────────────────────────────────────────
@@ -267,6 +309,12 @@ public class IssueService {
     // ─── Mappers ─────────────────────────────────────────────────
 
     private IssueResponse toIssueResponse(Issue issue) {
+        // Convert relative stored paths to HTTP-accessible URLs
+        // e.g. "issue_1/uuid_photo.jpg"  →  "/media-files/issue_1/uuid_photo.jpg"
+        List<String> mediaUrls = issue.getMediaUrls().stream()
+                .map(path -> "/media-files/" + path)
+                .collect(Collectors.toList());
+
         return IssueResponse.builder()
                 .issueId(issue.getIssueId())
                 .citizenId(issue.getCitizenId())
@@ -275,6 +323,7 @@ public class IssueService {
                 .description(issue.getDescription())
                 .date(issue.getDate())
                 .status(issue.getStatus())
+                .mediaUrls(mediaUrls)
                 .createdAt(issue.getCreatedAt())
                 .updatedAt(issue.getUpdatedAt())
                 .build();

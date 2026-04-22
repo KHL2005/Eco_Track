@@ -3,10 +3,10 @@ package com.ecotrack.industry.service;
 import com.ecotrack.industry.dto.*;
 import com.ecotrack.industry.entity.EmissionLog;
 import com.ecotrack.industry.entity.IndustryDocument;
-import com.ecotrack.industry.enums.DocType;
 import com.ecotrack.industry.enums.EmissionStatus;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
+import com.ecotrack.industry.exception.DuplicateResourceException;
 import com.ecotrack.industry.exception.ResourceNotFoundException;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
@@ -30,9 +30,19 @@ public class IndustryService {
 
     @Transactional
     public EmissionLogResponse logEmission(EmissionLogRequest request) {
+        String normalizedName = request.getIndustryName().trim();
+        String normalizedType = request.getType().trim();
+
+        if (emissionLogRepository.existsByIndustryNameAndType(normalizedName, normalizedType)) {
+            throw new DuplicateResourceException(
+                    "Emission record already exists for company '" + normalizedName +
+                    "' with emission type '" + normalizedType + "'");
+        }
+
         EmissionLog emissionLog = EmissionLog.builder()
                 .industryId(request.getIndustryId())
-                .type(request.getType())
+                .industryName(normalizedName)
+                .type(normalizedType)
                 .quantity(request.getQuantity())
                 .status(EmissionStatus.SUBMITTED)
                 .build();
@@ -58,53 +68,15 @@ public class IndustryService {
                 .collect(Collectors.toList());
     }
 
-    public List<EmissionLogResponse> getEmissionsByStatus(EmissionStatus status) {
-        if (status == null) {
-            throw new BadRequestException("Status is required");
+    public List<EmissionLogResponse> getEmissionsByIndustryName(String industryName) {
+        if (industryName == null || industryName.isBlank()) {
+            throw new BadRequestException("Industry name is required");
         }
-        return emissionLogRepository.findByStatus(status).stream()
+        return emissionLogRepository.findByIndustryName(industryName.trim()).stream()
                 .map(this::toEmissionResponse)
                 .collect(Collectors.toList());
     }
 
-    public List<EmissionLogResponse> getEmissionsByIndustryAndStatus(Long industryId, EmissionStatus status) {
-        if (industryId == null) throw new BadRequestException("Industry ID is required");
-        if (status == null) throw new BadRequestException("Status is required");
-        return emissionLogRepository.findByIndustryIdAndStatus(industryId, status).stream()
-                .map(this::toEmissionResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<EmissionLogResponse> getEmissionsByType(String type) {
-        if (type == null || type.isBlank()) {
-            throw new BadRequestException("Emission type is required");
-        }
-        return emissionLogRepository.findByType(type).stream()
-                .map(this::toEmissionResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional
-    public EmissionLogResponse updateEmission(Long id, EmissionLogUpdateRequest request) {
-        EmissionLog emissionLog = findEmissionById(id);
-
-        // Partial update — only update provided fields
-        if (request.getType() != null && !request.getType().isBlank()) {
-            emissionLog.setType(request.getType());
-        }
-        if (request.getQuantity() != null) {
-            if (request.getQuantity().signum() <= 0) {
-                throw new BadRequestException("Quantity must be positive");
-            }
-            emissionLog.setQuantity(request.getQuantity());
-        }
-        if (request.getStatus() != null) {
-            validateEmissionStatusTransition(emissionLog.getStatus(), request.getStatus());
-            emissionLog.setStatus(request.getStatus());
-        }
-
-        return toEmissionResponse(emissionLogRepository.save(emissionLog));
-    }
 
     @Transactional
     public EmissionLogResponse updateEmissionStatus(Long id, EmissionStatus status) {
@@ -130,9 +102,11 @@ public class IndustryService {
     public IndustryDocumentResponse submitDocument(IndustryDocumentRequest request) {
         IndustryDocument doc = IndustryDocument.builder()
                 .industryId(request.getIndustryId())
+                .industryName(request.getIndustryName().trim())
                 .docType(request.getDocType())
                 .fileUri(request.getFileUri())
-                .verificationStatus(VerificationStatus.PENDING)
+                .description(request.getDescription())
+                .verificationStatus(VerificationStatus.SUBMITTED)
                 .build();
         return toDocumentResponse(documentRepository.save(doc));
     }
@@ -156,49 +130,15 @@ public class IndustryService {
                 .collect(Collectors.toList());
     }
 
-    public List<IndustryDocumentResponse> getDocumentsByVerificationStatus(VerificationStatus status) {
-        if (status == null) {
-            throw new BadRequestException("Verification status is required");
+    public List<IndustryDocumentResponse> getDocumentsByIndustryName(String industryName) {
+        if (industryName == null || industryName.isBlank()) {
+            throw new BadRequestException("Industry name is required");
         }
-        return documentRepository.findByVerificationStatus(status).stream()
+        return documentRepository.findByIndustryName(industryName.trim()).stream()
                 .map(this::toDocumentResponse)
                 .collect(Collectors.toList());
     }
 
-    public List<IndustryDocumentResponse> getDocumentsByDocType(DocType docType) {
-        if (docType == null) {
-            throw new BadRequestException("Doc type is required");
-        }
-        return documentRepository.findByDocType(docType).stream()
-                .map(this::toDocumentResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<IndustryDocumentResponse> getDocumentsByIndustryAndStatus(Long industryId, VerificationStatus status) {
-        if (industryId == null) throw new BadRequestException("Industry ID is required");
-        if (status == null) throw new BadRequestException("Verification status is required");
-        return documentRepository.findByIndustryIdAndVerificationStatus(industryId, status).stream()
-                .map(this::toDocumentResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional
-    public IndustryDocumentResponse updateDocument(Long docId, IndustryDocumentUpdateRequest request) {
-        IndustryDocument doc = findDocumentById(docId);
-
-        // Partial update — only update provided fields
-        if (request.getDocType() != null) {
-            doc.setDocType(request.getDocType());
-        }
-        if (request.getFileUri() != null && !request.getFileUri().isBlank()) {
-            doc.setFileUri(request.getFileUri());
-        }
-        if (request.getVerificationStatus() != null) {
-            doc.setVerificationStatus(request.getVerificationStatus());
-        }
-
-        return toDocumentResponse(documentRepository.save(doc));
-    }
 
     @Transactional
     public IndustryDocumentResponse verifyDocument(Long docId, VerificationStatus status) {
@@ -206,6 +146,7 @@ public class IndustryService {
             throw new BadRequestException("Verification status is required");
         }
         IndustryDocument doc = findDocumentById(docId);
+        validateDocumentStatusTransition(doc.getVerificationStatus(), status);
         doc.setVerificationStatus(status);
         return toDocumentResponse(documentRepository.save(doc));
     }
@@ -232,8 +173,19 @@ public class IndustryService {
     private void validateEmissionStatusTransition(EmissionStatus current, EmissionStatus next) {
         if (current == next) return;
         boolean valid = switch (current) {
-            case SUBMITTED    -> next == EmissionStatus.UNDER_REVIEW;
-            case UNDER_REVIEW -> next == EmissionStatus.APPROVED || next == EmissionStatus.REJECTED;
+            case SUBMITTED -> next == EmissionStatus.APPROVED || next == EmissionStatus.REJECTED;
+            case APPROVED, REJECTED -> false; // terminal states
+        };
+        if (!valid) {
+            throw new BadRequestException(
+                    "Invalid status transition from " + current + " to " + next);
+        }
+    }
+
+    private void validateDocumentStatusTransition(VerificationStatus current, VerificationStatus next) {
+        if (current == next) return;
+        boolean valid = switch (current) {
+            case SUBMITTED -> next == VerificationStatus.APPROVED || next == VerificationStatus.REJECTED;
             case APPROVED, REJECTED -> false; // terminal states
         };
         if (!valid) {
@@ -248,6 +200,7 @@ public class IndustryService {
         return EmissionLogResponse.builder()
                 .logId(e.getLogId())
                 .industryId(e.getIndustryId())
+                .industryName(e.getIndustryName())
                 .type(e.getType())
                 .quantity(e.getQuantity())
                 .date(e.getDate())
@@ -261,8 +214,10 @@ public class IndustryService {
         return IndustryDocumentResponse.builder()
                 .documentId(d.getDocumentId())
                 .industryId(d.getIndustryId())
+                .industryName(d.getIndustryName())
                 .docType(d.getDocType())
                 .fileUri(d.getFileUri())
+                .description(d.getDescription())
                 .uploadedDate(d.getUploadedDate())
                 .verificationStatus(d.getVerificationStatus())
                 .createdAt(d.getCreatedAt())

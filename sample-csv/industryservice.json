@@ -1,0 +1,317 @@
+{
+  "info": {
+    "name": "Industry Compliance Service",
+    "_postman_id": "ics-ecotrack-2026",
+    "description": "Complete API collection for Industry Compliance Service — Emission Logs & Industry Documents (port 8085)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8085",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Emission Logs",
+      "item": [
+        {
+          "name": "POST - Log New Emission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Required: INDUSTRY or ADMIN role"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "emissions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"industryId\": 1,\n  \"industryName\": \"Steel Industries\",\n  \"type\": \"CO2\",\n  \"quantity\": 150.5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Log a new emission. Status defaults to SUBMITTED.\n\n⚠️ Duplicate check: Same industryName + type combination is rejected with HTTP 409."
+          },
+          "response": [
+            {
+              "name": "201 - Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"logId\": 1,\n  \"industryId\": 1,\n  \"industryName\": \"Steel Industries\",\n  \"type\": \"CO2\",\n  \"quantity\": 150.5000,\n  \"date\": \"2026-04-22T10:00:00\",\n  \"status\": \"SUBMITTED\",\n  \"createdAt\": \"2026-04-22T10:00:00\",\n  \"updatedAt\": \"2026-04-22T10:00:00\"\n}"
+            },
+            {
+              "name": "409 - Duplicate",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"timestamp\": \"2026-04-22T10:00:00\",\n  \"status\": 409,\n  \"error\": \"Duplicate Record\",\n  \"message\": \"Emission record already exists for company 'Steel Industries' with emission type 'CO2'\"\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"timestamp\": \"2026-04-22T10:00:00\",\n  \"status\": 400,\n  \"error\": \"Validation Failed\",\n  \"message\": \"Industry name is required; Quantity must be positive\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET - All Emissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "emissions"]
+            },
+            "description": "Fetch all emission log records."
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Emission By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "emissions", "1"]
+            },
+            "description": "Fetch a single emission log by its ID."
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Emissions By Industry Name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions/industry?industryName=Steel Industries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "emissions", "industry"],
+              "query": [
+                {
+                  "key": "industryName",
+                  "value": "Steel Industries",
+                  "description": "Supports multi-word names with spaces"
+                }
+              ]
+            },
+            "description": "Fetch all emissions for a company by industryName. Supports names with spaces (e.g. Steel Industries)."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Update Emission Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Required: OFFICER or ADMIN role"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions/1/status?status=APPROVED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "emissions", "1", "status"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "APPROVED",
+                  "description": "Allowed values: SUBMITTED, APPROVED, REJECTED"
+                }
+              ]
+            },
+            "description": "Update emission status. Transitions:\n- SUBMITTED → APPROVED\n- SUBMITTED → REJECTED\n- APPROVED/REJECTED → terminal (no further change)"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Delete Emission",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Required: INDUSTRY or ADMIN role"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/emissions/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "emissions", "1"]
+            },
+            "description": "Delete an emission log by ID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Industry Documents",
+      "item": [
+        {
+          "name": "POST - Submit Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Required: INDUSTRY or ADMIN role"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "industry-documents"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"industryId\": 1,\n  \"industryName\": \"Steel Industries\",\n  \"docType\": \"PERMIT\",\n  \"fileUri\": \"https://storage.ecotrack.com/docs/steel-industries-permit-2026.pdf\",\n  \"description\": \"Annual environmental permit for Steel Industries issued by the Pollution Control Board\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Submit a compliance document. Status defaults to SUBMITTED.\n\n✅ Allowed docType values: PERMIT, COMPLIANCE, OTHERS\n📝 description is optional."
+          },
+          "response": [
+            {
+              "name": "201 - Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"documentId\": 1,\n  \"industryId\": 1,\n  \"industryName\": \"Steel Industries\",\n  \"docType\": \"PERMIT\",\n  \"fileUri\": \"https://storage.ecotrack.com/docs/steel-industries-permit-2026.pdf\",\n  \"description\": \"Annual environmental permit for Steel Industries issued by the Pollution Control Board\",\n  \"uploadedDate\": \"2026-04-22T10:00:00\",\n  \"verificationStatus\": \"SUBMITTED\",\n  \"createdAt\": \"2026-04-22T10:00:00\",\n  \"updatedAt\": \"2026-04-22T10:00:00\"\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"timestamp\": \"2026-04-22T10:00:00\",\n  \"status\": 400,\n  \"error\": \"Validation Failed\",\n  \"message\": \"Industry name is required; Doc type is required\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET - All Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "industry-documents"]
+            },
+            "description": "Fetch all industry documents."
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Document By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "industry-documents", "1"]
+            },
+            "description": "Fetch a single document by its ID."
+          },
+          "response": []
+        },
+        {
+          "name": "GET - Documents By Industry Name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents/industry?industryName=Steel Industries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "industry-documents", "industry"],
+              "query": [
+                {
+                  "key": "industryName",
+                  "value": "Steel Industries",
+                  "description": "Supports multi-word names with spaces"
+                }
+              ]
+            },
+            "description": "Fetch all documents for a company by industryName. Supports names with spaces."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH - Verify Document",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Required: OFFICER or ADMIN role"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents/1/verify?status=APPROVED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "industry-documents", "1", "verify"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "APPROVED",
+                  "description": "Allowed values: SUBMITTED, APPROVED, REJECTED"
+                }
+              ]
+            },
+            "description": "Verify or reject a document. Transitions:\n- SUBMITTED → APPROVED\n- SUBMITTED → REJECTED\n- APPROVED/REJECTED → terminal (no further change)"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE - Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Required: INDUSTRY or ADMIN role"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/industry-documents/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "industry-documents", "1"]
+            },
+            "description": "Delete a document by ID."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

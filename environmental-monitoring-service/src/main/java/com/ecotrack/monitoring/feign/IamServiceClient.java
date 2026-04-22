@@ -4,12 +4,17 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import java.util.List;
+
 @FeignClient(name = "iam-service", fallback = IamServiceClientFallback.class)
 public interface IamServiceClient {
 
     @GetMapping("/api/v1/internal/users/{id}")
-    UserDto getUserById(@PathVariable Long id);
+    UserDto getUserById(@PathVariable("id") Long id);
 
     @GetMapping("/api/v1/internal/users/{id}/exists")
-    Boolean userExists(@PathVariable Long id);
+    Boolean userExists(@PathVariable("id") Long id);
+
+    @GetMapping("/api/v1/internal/users/role/{role}")
+    List<UserDto> getUsersByRole(@PathVariable("role") String role);
 }

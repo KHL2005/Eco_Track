@@ -1,4 +1,5 @@
 com\ecotrack\monitoring\controller\MonitoringController.class
+com\ecotrack\monitoring\exception\UnauthorizedException.class
 com\ecotrack\monitoring\config\SecurityConfig.class
 com\ecotrack\monitoring\dto\CsvUploadResponse.class
 com\ecotrack\monitoring\exception\BadRequestException.class
@@ -18,6 +19,7 @@ com\ecotrack\monitoring\feign\IamServiceClientFallback.class
 com\ecotrack\monitoring\service\CsvParserService.class
 com\ecotrack\monitoring\feign\UserDto.class
 com\ecotrack\monitoring\dto\AnalysisRequest.class
+com\ecotrack\monitoring\exception\ScientistNotFoundException.class
 com\ecotrack\monitoring\dto\SensorDataRequest.class
 com\ecotrack\monitoring\enums\SensorType.class
 com\ecotrack\monitoring\service\MonitoringService.class

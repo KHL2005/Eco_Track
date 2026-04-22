@@ -4,6 +4,7 @@ C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monito
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\AnalysisRequest.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\AnalysisResponse.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\CsvUploadResponse.java
+C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\ReviewRequest.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\SensorDataRequest.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\SensorDataResponse.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\dto\SensorRequest.java
@@ -18,6 +19,8 @@ C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monito
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\exception\BadRequestException.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\exception\GlobalExceptionHandler.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\exception\ResourceNotFoundException.java
+C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\exception\ScientistNotFoundException.java
+C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\exception\UnauthorizedException.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\feign\IamServiceClient.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\feign\IamServiceClientFallback.java
 C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\environmental-monitoring-service\src\main\java\com\ecotrack\monitoring\feign\UserDto.java

@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class EmissionLogResponse {
     private Long logId;
     private Long industryId;
+    private String industryName;
     private String type;
     private BigDecimal quantity;
     private LocalDateTime date;

@@ -1,3 +1,3 @@
 package com.ecotrack.industry.enums;
-public enum VerificationStatus { PENDING, VERIFIED, REJECTED }
+public enum VerificationStatus { SUBMITTED, APPROVED, REJECTED }
 

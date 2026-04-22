@@ -1,3 +1,3 @@
 package com.ecotrack.industry.enums;
-public enum EmissionStatus { SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED }
+public enum EmissionStatus { SUBMITTED, APPROVED, REJECTED }
 

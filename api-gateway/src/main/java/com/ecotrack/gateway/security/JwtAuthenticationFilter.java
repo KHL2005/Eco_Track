@@ -65,12 +65,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     // ── Role → permitted path prefixes ────────────────────────────────────────
 
-    private static final Map<String, List<String>> ROLE_PERMISSIONS = Map.of(
-            "CITIZEN",  List.of(
+    private static final Map<String, List<String>> ROLE_PERMISSIONS = Map.ofEntries(
+            Map.entry("CITIZEN",       List.of(
                     "/api/v1/issues",
                     "/api/v1/notifications"
-            ),
-            "OFFICER",  List.of(
+            )),
+            Map.entry("OFFICER",       List.of(
                     "/api/v1/issues",
                     "/api/v1/sensors",     "/api/v1/sensor-data",
                     "/api/v1/analysis",    "/api/v1/upload-csv",
@@ -78,21 +78,23 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     "/api/v1/projects",    "/api/v1/reports",
                     "/api/v1/emissions",   "/api/v1/industry-documents",
                     "/api/v1/users",       "/api/v1/notifications"
-            ),
-            "SCIENTIST", List.of(
+            )),
+            Map.entry("SCIENTIST",     List.of(
                     "/api/v1/sensors",     "/api/v1/sensor-data",
                     "/api/v1/analysis",    "/api/v1/upload-csv",
                     "/api/v1/projects",    "/api/v1/reports",
                     "/api/v1/notifications"
-            ),
-            "INDUSTRY",  List.of(
+            )),
+            Map.entry("INDUSTRY",      List.of(
                     "/api/v1/emissions",   "/api/v1/industry-documents",
                     "/api/v1/compliance",
                     "/api/v1/projects",    "/api/v1/reports",
                     "/api/v1/notifications"
-            ),
-            "ADMIN",     List.of("/api/v1")  // full access
+            )),
+            Map.entry("SUPER_ADMIN",    List.of("/api/v1")),   // ✅ was "ADMIN"
+            Map.entry("ADMINISTRATOR",  List.of("/api/v1"))    // ✅ new entry
     );
+
 
     // ── GlobalFilter ─────────────────────────────────────────────────────────
 

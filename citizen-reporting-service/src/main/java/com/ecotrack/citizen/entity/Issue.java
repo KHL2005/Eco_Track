@@ -5,6 +5,8 @@ import com.ecotrack.citizen.enums.IssueType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "issue")
@@ -37,6 +39,12 @@ public class Issue {
     @Builder.Default
     private IssueStatus status = IssueStatus.OPEN;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "issue_media", joinColumns = @JoinColumn(name = "issue_id"))
+    @Column(name = "media_url", length = 512)
+    @Builder.Default
+    private List<String> mediaUrls = new ArrayList<>();
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -55,4 +63,3 @@ public class Issue {
         this.updatedAt = LocalDateTime.now();
     }
 }
-
