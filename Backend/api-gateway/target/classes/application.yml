@@ -81,45 +81,6 @@ spring:
           uri: lb://compliance-audit-service
           predicates:
             - Path=/api/v1/audits/**
-#
-#        # ─── Swagger / OpenAPI routes (per service) ──────────────
-#        - id: iam-swagger-docs
-#          uri: lb://iam-service
-#          predicates:
-#            - Path=/iam/v3/api-docs/**
-#          filters:
-#            - RewritePath=/iam/(?<segment>.*), /${segment}
-#        - id: citizen-swagger-docs
-#          uri: lb://citizen-reporting-service
-#          predicates:
-#            - Path=/citizen/v3/api-docs/**
-#          filters:
-#            - RewritePath=/citizen/(?<segment>.*), /${segment}
-#        - id: monitoring-swagger-docs
-#          uri: lb://environmental-monitoring-service
-#          predicates:
-#            - Path=/monitoring/v3/api-docs/**
-#          filters:
-#            - RewritePath=/monitoring/(?<segment>.*), /${segment}
-#        - id: industry-swagger-docs
-#          uri: lb://industry-compliance-service
-#          predicates:
-#            - Path=/industry/v3/api-docs/**
-#          filters:
-#            - RewritePath=/industry/(?<segment>.*), /${segment}
-#        - id: project-swagger-docs
-#          uri: lb://project-management-service
-#          predicates:
-#            - Path=/project/v3/api-docs/**
-#          filters:
-#            - RewritePath=/project/(?<segment>.*), /${segment}
-#        - id: compliance-swagger-docs
-#          uri: lb://compliance-audit-service
-#          predicates:
-#            - Path=/compliance/v3/api-docs/**
-#          filters:
-#            - RewritePath=/compliance/(?<segment>.*), /${segment}
-
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 

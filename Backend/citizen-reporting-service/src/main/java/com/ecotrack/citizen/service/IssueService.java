@@ -10,7 +10,6 @@ import com.ecotrack.citizen.exception.BadRequestException;
 import com.ecotrack.citizen.exception.DuplicateResourceException;
 import com.ecotrack.citizen.exception.IssueNotFoundException;
 import com.ecotrack.citizen.exception.ResourceNotFoundException;
-import com.ecotrack.citizen.kafka.EventProducer;
 import com.ecotrack.citizen.repository.IssueRepository;
 import com.ecotrack.citizen.repository.ResolutionRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +28,6 @@ public class IssueService {
 
     private final IssueRepository issueRepository;
     private final ResolutionRepository resolutionRepository;
-    private final EventProducer eventProducer;
     private final MediaStorageService mediaStorageService;
 
     // ─── Issue CRUD ───────────────────────────────────────────────
@@ -44,13 +42,6 @@ public class IssueService {
                 .status(IssueStatus.OPEN)
                 .build();
         issue = issueRepository.save(issue);
-
-        // Publish async Kafka event — does not affect response
-        try {
-            eventProducer.publishIssueCreated(issue.getCitizenId(), issue.getIssueId(), issue.getLocation());
-        } catch (Exception e) {
-            log.warn("Kafka publish failed for issueId={}: {}", issue.getIssueId(), e.getMessage());
-        }
 
         return toIssueResponse(issue);
     }

@@ -3,6 +3,7 @@ package com.ecotrack.industry.service;
 import com.ecotrack.industry.dto.*;
 import com.ecotrack.industry.entity.EmissionLog;
 import com.ecotrack.industry.entity.IndustryDocument;
+import com.ecotrack.industry.enums.DocType;
 import com.ecotrack.industry.enums.EmissionStatus;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
@@ -14,8 +15,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,22 +26,21 @@ import java.util.stream.Collectors;
 @Slf4j
 public class IndustryService {
 
-    private final EmissionLogRepository emissionLogRepository;
+    private final EmissionLogRepository      emissionLogRepository;
     private final IndustryDocumentRepository documentRepository;
+    private final GridFsService              gridFsService;
 
-    // ─── Emission Log CRUD ────────────────────────────────────────
+    // ─── Emission Log CRUD ────────────────────────────────────────────────────
 
     @Transactional
     public EmissionLogResponse logEmission(EmissionLogRequest request) {
         String normalizedName = request.getIndustryName().trim();
         String normalizedType = request.getType().trim();
-
         if (emissionLogRepository.existsByIndustryNameAndType(normalizedName, normalizedType)) {
             throw new DuplicateResourceException(
                     "Emission record already exists for company '" + normalizedName +
                     "' with emission type '" + normalizedType + "'");
         }
-
         EmissionLog emissionLog = EmissionLog.builder()
                 .industryId(request.getIndustryId())
                 .industryName(normalizedName)
@@ -50,9 +52,7 @@ public class IndustryService {
     }
 
     public List<EmissionLogResponse> getAllEmissions() {
-        return emissionLogRepository.findAll().stream()
-                .map(this::toEmissionResponse)
-                .collect(Collectors.toList());
+        return emissionLogRepository.findAll().stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
 
     public EmissionLogResponse getEmissionById(Long id) {
@@ -60,29 +60,18 @@ public class IndustryService {
     }
 
     public List<EmissionLogResponse> getEmissionsByIndustry(Long industryId) {
-        if (industryId == null) {
-            throw new BadRequestException("Industry ID is required");
-        }
-        return emissionLogRepository.findByIndustryId(industryId).stream()
-                .map(this::toEmissionResponse)
-                .collect(Collectors.toList());
+        if (industryId == null) throw new BadRequestException("Industry ID is required");
+        return emissionLogRepository.findByIndustryId(industryId).stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
 
     public List<EmissionLogResponse> getEmissionsByIndustryName(String industryName) {
-        if (industryName == null || industryName.isBlank()) {
-            throw new BadRequestException("Industry name is required");
-        }
-        return emissionLogRepository.findByIndustryName(industryName.trim()).stream()
-                .map(this::toEmissionResponse)
-                .collect(Collectors.toList());
+        if (industryName == null || industryName.isBlank()) throw new BadRequestException("Industry name is required");
+        return emissionLogRepository.findByIndustryName(industryName.trim()).stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
-
 
     @Transactional
     public EmissionLogResponse updateEmissionStatus(Long id, EmissionStatus status) {
-        if (status == null) {
-            throw new BadRequestException("Status is required");
-        }
+        if (status == null) throw new BadRequestException("Status is required");
         EmissionLog emissionLog = findEmissionById(id);
         validateEmissionStatusTransition(emissionLog.getStatus(), status);
         emissionLog.setStatus(status);
@@ -91,30 +80,47 @@ public class IndustryService {
 
     @Transactional
     public void deleteEmission(Long id) {
-        findEmissionById(id); // validates existence
+        findEmissionById(id);
         emissionLogRepository.deleteById(id);
         log.info("EmissionLog {} deleted", id);
     }
 
-    // ─── Industry Document CRUD ───────────────────────────────────
+    // ─── Industry Document CRUD ───────────────────────────────────────────────
 
+    /**
+     * Saves metadata to MySQL and uploads the PDF to MongoDB GridFS in one call.
+     * fileUri is auto-set to "/api/v1/industry-documents/{id}?view=true".
+     */
     @Transactional
-    public IndustryDocumentResponse submitDocument(IndustryDocumentRequest request) {
+    public IndustryDocumentResponse submitDocument(Long industryId,
+                                                    String industryName,
+                                                    String docType,
+                                                    String description,
+                                                    MultipartFile file) {
+        // Step 1 – save metadata with temporary fileUri
         IndustryDocument doc = IndustryDocument.builder()
-                .industryId(request.getIndustryId())
-                .industryName(request.getIndustryName().trim())
-                .docType(request.getDocType())
-                .fileUri(request.getFileUri())
-                .description(request.getDescription())
+                .industryId(industryId)
+                .industryName(industryName.trim())
+                .docType(DocType.valueOf(docType.toUpperCase()))
+                .fileUri("pending")
+                .description(description)
                 .verificationStatus(VerificationStatus.SUBMITTED)
                 .build();
-        return toDocumentResponse(documentRepository.save(doc));
+        doc = documentRepository.save(doc);
+
+        // Step 2 – upload PDF to GridFS (validates type + 10 MB limit internally)
+        String gridFsId = gridFsService.storePdf(file, doc.getDocumentId());
+
+        // Step 3 – replace fileUri with the self-serving view URL
+        doc.setFileUri("/api/v1/industry-documents/" + doc.getDocumentId() + "?view=true");
+        doc = documentRepository.save(doc);
+
+        log.info("Document {} saved, PDF stored in GridFS id={}", doc.getDocumentId(), gridFsId);
+        return toDocumentResponse(doc);
     }
 
     public List<IndustryDocumentResponse> getAllDocuments() {
-        return documentRepository.findAll().stream()
-                .map(this::toDocumentResponse)
-                .collect(Collectors.toList());
+        return documentRepository.findAll().stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
 
     public IndustryDocumentResponse getDocumentById(Long docId) {
@@ -122,43 +128,49 @@ public class IndustryService {
     }
 
     public List<IndustryDocumentResponse> getDocumentsByIndustry(Long industryId) {
-        if (industryId == null) {
-            throw new BadRequestException("Industry ID is required");
-        }
-        return documentRepository.findByIndustryId(industryId).stream()
-                .map(this::toDocumentResponse)
-                .collect(Collectors.toList());
+        if (industryId == null) throw new BadRequestException("Industry ID is required");
+        return documentRepository.findByIndustryId(industryId).stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
 
     public List<IndustryDocumentResponse> getDocumentsByIndustryName(String industryName) {
-        if (industryName == null || industryName.isBlank()) {
-            throw new BadRequestException("Industry name is required");
-        }
-        return documentRepository.findByIndustryName(industryName.trim()).stream()
-                .map(this::toDocumentResponse)
-                .collect(Collectors.toList());
+        if (industryName == null || industryName.isBlank()) throw new BadRequestException("Industry name is required");
+        return documentRepository.findByIndustryName(industryName.trim()).stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
-
 
     @Transactional
     public IndustryDocumentResponse verifyDocument(Long docId, VerificationStatus status) {
-        if (status == null) {
-            throw new BadRequestException("Verification status is required");
-        }
+        if (status == null) throw new BadRequestException("Verification status is required");
         IndustryDocument doc = findDocumentById(docId);
         validateDocumentStatusTransition(doc.getVerificationStatus(), status);
         doc.setVerificationStatus(status);
         return toDocumentResponse(documentRepository.save(doc));
     }
 
+    /**
+     * Deletes MySQL metadata AND the linked PDF from MongoDB GridFS together.
+     */
     @Transactional
     public void deleteDocument(Long docId) {
-        findDocumentById(docId); // validates existence
+        findDocumentById(docId);
+        try {
+            gridFsService.deletePdfByDocumentId(docId);
+            log.info("PDF deleted from GridFS for documentId={}", docId);
+        } catch (Exception e) {
+            log.warn("No PDF found in GridFS for documentId={} — skipping GridFS delete", docId);
+        }
         documentRepository.deleteById(docId);
         log.info("IndustryDocument {} deleted", docId);
     }
 
-    // ─── Private Helpers ─────────────────────────────────────────
+    /**
+     * Fetches the raw PDF bytes from GridFS — called by the controller for view/download.
+     */
+    public Map<String, Object> getPdfForDocument(Long docId) {
+        findDocumentById(docId); // validate document exists in MySQL first
+        return gridFsService.getPdfByDocumentId(docId);
+    }
+
+    // ─── Private Helpers ──────────────────────────────────────────────────────
 
     private EmissionLog findEmissionById(Long id) {
         return emissionLogRepository.findById(id)
@@ -174,54 +186,36 @@ public class IndustryService {
         if (current == next) return;
         boolean valid = switch (current) {
             case SUBMITTED -> next == EmissionStatus.APPROVED || next == EmissionStatus.REJECTED;
-            case APPROVED, REJECTED -> false; // terminal states
+            case APPROVED, REJECTED -> false;
         };
-        if (!valid) {
-            throw new BadRequestException(
-                    "Invalid status transition from " + current + " to " + next);
-        }
+        if (!valid) throw new BadRequestException("Invalid status transition from " + current + " to " + next);
     }
 
     private void validateDocumentStatusTransition(VerificationStatus current, VerificationStatus next) {
         if (current == next) return;
         boolean valid = switch (current) {
             case SUBMITTED -> next == VerificationStatus.APPROVED || next == VerificationStatus.REJECTED;
-            case APPROVED, REJECTED -> false; // terminal states
+            case APPROVED, REJECTED -> false;
         };
-        if (!valid) {
-            throw new BadRequestException(
-                    "Invalid status transition from " + current + " to " + next);
-        }
+        if (!valid) throw new BadRequestException("Invalid status transition from " + current + " to " + next);
     }
 
-    // ─── Mappers ─────────────────────────────────────────────────
+    // ─── Mappers ─────────────────────────────────────────────────────────────
 
     private EmissionLogResponse toEmissionResponse(EmissionLog e) {
         return EmissionLogResponse.builder()
-                .logId(e.getLogId())
-                .industryId(e.getIndustryId())
-                .industryName(e.getIndustryName())
-                .type(e.getType())
-                .quantity(e.getQuantity())
-                .date(e.getDate())
-                .status(e.getStatus())
-                .createdAt(e.getCreatedAt())
-                .updatedAt(e.getUpdatedAt())
+                .logId(e.getLogId()).industryId(e.getIndustryId()).industryName(e.getIndustryName())
+                .type(e.getType()).quantity(e.getQuantity()).date(e.getDate())
+                .status(e.getStatus()).createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
                 .build();
     }
 
     private IndustryDocumentResponse toDocumentResponse(IndustryDocument d) {
         return IndustryDocumentResponse.builder()
-                .documentId(d.getDocumentId())
-                .industryId(d.getIndustryId())
-                .industryName(d.getIndustryName())
-                .docType(d.getDocType())
-                .fileUri(d.getFileUri())
-                .description(d.getDescription())
-                .uploadedDate(d.getUploadedDate())
-                .verificationStatus(d.getVerificationStatus())
-                .createdAt(d.getCreatedAt())
-                .updatedAt(d.getUpdatedAt())
+                .documentId(d.getDocumentId()).industryId(d.getIndustryId()).industryName(d.getIndustryName())
+                .docType(d.getDocType()).fileUri(d.getFileUri()).description(d.getDescription())
+                .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus())
+                .createdAt(d.getCreatedAt()).updatedAt(d.getUpdatedAt())
                 .build();
     }
 }

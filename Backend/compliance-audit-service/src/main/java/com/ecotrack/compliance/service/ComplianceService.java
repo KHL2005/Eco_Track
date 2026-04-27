@@ -7,7 +7,6 @@ import com.ecotrack.compliance.enums.AuditStatus;
 import com.ecotrack.compliance.enums.ComplianceResult;
 import com.ecotrack.compliance.enums.ComplianceType;
 import com.ecotrack.compliance.exception.ResourceNotFoundException;
-import com.ecotrack.compliance.kafka.EventProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.ecotrack.compliance.repository.AuditRepository;
@@ -27,7 +26,6 @@ public class ComplianceService {
 
     private final ComplianceRecordRepository complianceRecordRepository;
     private final AuditRepository auditRepository;
-    private final EventProducer eventProducer;
 
     @Transactional
     public ComplianceRecordResponse createRecord(ComplianceRecordRequest request) {
@@ -38,14 +36,6 @@ public class ComplianceService {
                 .notes(request.getNotes())
                 .build();
         record = complianceRecordRepository.save(record);
-
-        // Publish async Kafka event — does not affect response
-        try {
-            eventProducer.publishComplianceTriggered(
-                    record.getEntityId(), record.getComplianceId(), record.getResult().name());
-        } catch (Exception e) {
-            log.warn("Kafka publish failed for complianceId={}: {}", record.getComplianceId(), e.getMessage());
-        }
 
         return toRecordResponse(record);
     }
@@ -128,5 +118,3 @@ public class ComplianceService {
                 .status(a.getStatus()).createdAt(a.getCreatedAt()).updatedAt(a.getUpdatedAt()).build();
     }
 }
-
-

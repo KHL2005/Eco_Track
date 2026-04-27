@@ -7,7 +7,6 @@ import com.ecotrack.project.enums.*;
 import com.ecotrack.project.exception.BadRequestException;
 import com.ecotrack.project.exception.ProjectNotFoundException;
 import com.ecotrack.project.exception.ResourceNotFoundException;
-import com.ecotrack.project.kafka.EventProducer;
 import com.ecotrack.project.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +24,6 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final MilestoneRepository milestoneRepository;
     private final ImpactRepository impactRepository;
-    private final EventProducer eventProducer;
 
     // ─── Project CRUD ─────────────────────────────────────────────
 
@@ -44,12 +42,6 @@ public class ProjectService {
                 .status(request.getStatus() != null ? request.getStatus() : ProjectStatus.PLANNED)
                 .build();
         project = projectRepository.save(project);
-        // Publish async Kafka event — does not affect response
-        try {
-            eventProducer.publishProjectCreated(project.getProjectId(), project.getTitle());
-        } catch (Exception e) {
-            log.warn("Kafka publish failed for projectId={}: {}", project.getProjectId(), e.getMessage());
-        }
         return toProjectResponse(project);
     }
 
@@ -154,15 +146,6 @@ public class ProjectService {
             milestone.setStatus(request.getStatus());
         }
         Milestone saved = milestoneRepository.save(milestone);
-        // Publish async event when milestone is marked COMPLETED
-        if (MilestoneStatus.COMPLETED.equals(saved.getStatus())) {
-            try {
-                eventProducer.publishMilestoneCompleted(
-                        saved.getProjectId(), saved.getMilestoneId(), saved.getTitle());
-            } catch (Exception e) {
-                log.warn("Kafka publish failed for milestoneId={}: {}", saved.getMilestoneId(), e.getMessage());
-            }
-        }
         return toMilestoneResponse(saved);
     }
 

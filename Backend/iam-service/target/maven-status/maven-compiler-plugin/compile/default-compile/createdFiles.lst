@@ -8,14 +8,12 @@ com\ecotrack\iam\dto\NotificationResponse.class
 com\ecotrack\iam\exception\ResourceNotFoundException.class
 com\ecotrack\iam\entity\AuditLog.class
 com\ecotrack\iam\enums\NotificationStatus.class
-com\ecotrack\iam\kafka\KafkaTopicConfig.class
 com\ecotrack\iam\dto\UpdateUserRequest.class
 com\ecotrack\iam\dto\AuthResponse$AuthResponseBuilder.class
 com\ecotrack\iam\security\UserDetailsServiceImpl.class
 com\ecotrack\iam\security\JwtAuthFilter.class
 com\ecotrack\iam\security\JwtUtil.class
 com\ecotrack\iam\dto\RegisterRequest.class
-com\ecotrack\iam\kafka\NotificationEventConsumer.class
 com\ecotrack\iam\entity\User$UserBuilder.class
 com\ecotrack\iam\service\AuthService.class
 com\ecotrack\iam\entity\Notification$NotificationBuilder.class
@@ -33,7 +31,6 @@ com\ecotrack\iam\service\UserService.class
 com\ecotrack\iam\config\SuperAdminSeeder.class
 com\ecotrack\iam\config\SecurityConfig.class
 com\ecotrack\iam\entity\Notification.class
-com\ecotrack\iam\kafka\EcoTrackEvent.class
 com\ecotrack\iam\config\SwaggerConfig.class
 com\ecotrack\iam\repository\UserRepository.class
 com\ecotrack\iam\controller\NotificationController.class

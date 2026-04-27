@@ -31,7 +31,6 @@
         <springdoc.version>2.5.0</springdoc.version>
         <opencsv.version>5.9</opencsv.version>
         <lombok.version>1.18.42</lombok.version>
-        <kafka.version>3.6.1</kafka.version>
     </properties>
 
     <dependencyManagement>
@@ -83,6 +82,7 @@
                     <configuration>
                         <source>21</source>
                         <target>21</target>
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>

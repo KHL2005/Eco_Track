@@ -10,7 +10,6 @@ public class IndustryDocumentRequest {
     @NotNull(message = "Industry ID is required") private Long industryId;
     @NotBlank(message = "Industry name is required") private String industryName;
     @NotNull(message = "Doc type is required") private DocType docType;
-    @NotBlank(message = "File URI is required") private String fileUri;
     private String description;
+    // fileUri is auto-generated after PDF is stored in MongoDB GridFS — not sent by client
 }
-

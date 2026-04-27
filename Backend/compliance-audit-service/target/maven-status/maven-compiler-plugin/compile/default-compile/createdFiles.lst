@@ -4,13 +4,11 @@ com\ecotrack\compliance\dto\ComplianceRecordRequest.class
 com\ecotrack\compliance\enums\ComplianceType.class
 com\ecotrack\compliance\dto\AuditResponse$AuditResponseBuilder.class
 com\ecotrack\compliance\config\SecurityConfig$1.class
-com\ecotrack\compliance\kafka\EventProducer.class
 com\ecotrack\compliance\repository\ComplianceRecordRepository.class
 com\ecotrack\compliance\enums\ComplianceResult.class
 com\ecotrack\compliance\feign\IamServiceClientFallback.class
 com\ecotrack\compliance\entity\ComplianceRecord$ComplianceRecordBuilder.class
 com\ecotrack\compliance\feign\UserDto.class
-com\ecotrack\compliance\kafka\EcoTrackEvent$EcoTrackEventBuilder.class
 com\ecotrack\compliance\config\SecurityConfig.class
 com\ecotrack\compliance\feign\UserDto$UserDtoBuilder.class
 com\ecotrack\compliance\dto\ComplianceRecordResponse.class
@@ -26,5 +24,4 @@ com\ecotrack\compliance\dto\AuditRequest.class
 com\ecotrack\compliance\exception\GlobalExceptionHandler.class
 com\ecotrack\compliance\service\ComplianceService.class
 com\ecotrack\compliance\exception\ResourceNotFoundException.class
-com\ecotrack\compliance\kafka\EcoTrackEvent.class
 com\ecotrack\compliance\entity\Audit$AuditBuilder.class

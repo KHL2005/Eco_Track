@@ -24,16 +24,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: iam-notification-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-        spring.json.value.default.type: com.ecotrack.iam.kafka.EcoTrackEvent
 
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
@@ -51,5 +41,3 @@ management:
     web:
       exposure:
         include: health,info
-
-
