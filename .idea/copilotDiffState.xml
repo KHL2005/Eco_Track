@@ -12,6 +12,14 @@
             </PendingDiffInfo>
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/Frontend/src/main.jsx">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/Frontend/src/main.jsx" />
+              <option name="updatedContent" value="import { StrictMode } from 'react'&#10;import { createRoot } from 'react-dom/client'&#10;import './index.css'&#10;import App from './App.jsx'&#10;&#10;createRoot(document.getElementById('root')).render(&#10;  &lt;StrictMode&gt;&#10;    &lt;App /&gt;&#10;  &lt;/StrictMode&gt;,&#10;)&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
       </map>
     </option>
   </component>

@@ -1,8 +1,15 @@
-import axiosInstance from './axiosInstance';
+import axios from 'axios';
 
-export const login = (email, password) =>
-  axiosInstance.post('/api/v1/auth/login', { email, password });
+const api = axios.create({
+  baseURL: '/api/v1',
+  headers: { 'Content-Type': 'application/json' },
+});
 
-export const register = (data) =>
-  axiosInstance.post('/api/v1/auth/register', data);
+export const loginApi = (email, password) =>
+  api.post('/auth/login', { email, password });
+
+export const registerApi = (data) =>
+  api.post('/auth/register', data);
+
+export default api;
 
