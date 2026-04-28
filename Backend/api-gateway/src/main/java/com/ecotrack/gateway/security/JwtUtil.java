@@ -1,6 +1,7 @@
 package com.ecotrack.gateway.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -13,6 +14,9 @@ import javax.crypto.SecretKey;
  * Stateless JWT utility used exclusively by the API Gateway.
  * Validates tokens and extracts claims (userId, role, email).
  * No Spring Security dependency — pure JJWT parsing.
+ *
+ * {@link TokenValidationResult} distinguishes three failure modes so the
+ * filter can return precise WWW-Authenticate error messages.
  */
 @Component
 public class JwtUtil {
@@ -20,17 +24,41 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
+    // ── Typed validation result ───────────────────────────────────────────────
+
+    public enum TokenValidationResult {
+        /** Token is well-formed, correctly signed, and not expired. */
+        VALID,
+        /** Token was well-formed and signed but the expiry time has passed. */
+        EXPIRED,
+        /** Token is missing, structurally malformed, or has a bad signature. */
+        INVALID
+    }
+
     /**
-     * Validate the token signature and expiry.
-     * Returns true if the token is well-formed, signed correctly, and not expired.
+     * Returns a typed result rather than a plain boolean so the filter can
+     * emit precise error messages and WWW-Authenticate error codes.
+     */
+    public TokenValidationResult getValidationResult(String token) {
+        if (token == null || token.isBlank()) {
+            return TokenValidationResult.INVALID;
+        }
+        try {
+            extractAllClaims(token);
+            return TokenValidationResult.VALID;
+        } catch (ExpiredJwtException e) {
+            return TokenValidationResult.EXPIRED;
+        } catch (JwtException | IllegalArgumentException e) {
+            return TokenValidationResult.INVALID;
+        }
+    }
+
+    /**
+     * Convenience wrapper kept for backward compatibility.
+     * Returns true only when the token is VALID (not expired, not malformed).
      */
     public boolean isTokenValid(String token) {
-        try {
-            extractAllClaims(token); // throws if invalid / expired
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
+        return getValidationResult(token) == TokenValidationResult.VALID;
     }
 
     /** Extract the subject (email / username) from the token. */
@@ -38,7 +66,7 @@ public class JwtUtil {
         return extractAllClaims(token).getSubject();
     }
 
-    /** Extract the role claim (e.g. "CITIZEN", "ADMIN"). */
+    /** Extract the role claim (e.g. "CITIZEN", "ADMINISTRATOR"). */
     public String extractRole(String token) {
         return extractAllClaims(token).get("role", String.class);
     }
@@ -73,4 +101,3 @@ public class JwtUtil {
         return data;
     }
 }
-
