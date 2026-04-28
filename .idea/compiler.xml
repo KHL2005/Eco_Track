@@ -14,17 +14,63 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
         </processorPath>
-        <module name="iam-service" />
-        <module name="project-management-service" />
-        <module name="compliance-audit-service" />
         <module name="config-server" />
         <module name="industry-compliance-service" />
         <module name="api-gateway" />
         <module name="environmental-monitoring-service" />
-        <module name="citizen-reporting-service" />
         <module name="eureka-server" />
       </profile>
+      <profile name="Annotation profile for citizen-reporting-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="citizen-reporting-service" />
+      </profile>
+      <profile name="Annotation profile for compliance-audit-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="compliance-audit-service" />
+      </profile>
+      <profile name="Annotation profile for iam-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="iam-service" />
+      </profile>
+      <profile name="Annotation profile for project-management-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="project-management-service" />
+      </profile>
     </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="api-gateway" options="-parameters" />
+      <module name="citizen-reporting-service" options="-parameters" />
+      <module name="compliance-audit-service" options="-parameters" />
+      <module name="config-server" options="-parameters" />
+      <module name="environmental-monitoring-service" options="-parameters" />
+      <module name="eureka-server" options="-parameters" />
+      <module name="iam-service" options="-parameters" />
+      <module name="industry-compliance-service" options="-parameters" />
+      <module name="project-management-service" options="-parameters" />
+    </option>
   </component>
 </project>

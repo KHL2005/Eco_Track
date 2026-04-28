@@ -1,0 +1,358 @@
+package com.ecotrack.project.service;
+
+import com.ecotrack.project.dto.*;
+import com.ecotrack.project.dto.ImpactMetrics;
+import com.ecotrack.project.entity.*;
+import com.ecotrack.project.enums.*;
+import com.ecotrack.project.exception.BadRequestException;
+import com.ecotrack.project.exception.ProjectNotFoundException;
+import com.ecotrack.project.exception.ResourceNotFoundException;
+import com.ecotrack.project.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+    private final MilestoneRepository milestoneRepository;
+    private final ImpactRepository impactRepository;
+
+    // ─── Project CRUD ─────────────────────────────────────────────
+
+    @Transactional
+    public ProjectResponse createProject(ProjectRequest request) {
+        if (request.getEndDate() != null && request.getStartDate() != null
+                && request.getEndDate().isBefore(request.getStartDate())) {
+            throw new BadRequestException("End date cannot be before start date");
+        }
+        Project project = Project.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .budget(request.getBudget())
+                .status(request.getStatus() != null ? request.getStatus() : ProjectStatus.PLANNED)
+                .build();
+        project = projectRepository.save(project);
+        return toProjectResponse(project);
+    }
+
+    public List<ProjectResponse> getAllProjects() {
+        return projectRepository.findAll().stream()
+                .map(this::toProjectResponse)
+                .collect(Collectors.toList());
+    }
+
+    public ProjectResponse getProjectById(Long id) {
+        return toProjectResponse(findProjectById(id));
+    }
+
+    public List<ProjectResponse> getProjectsByStatus(ProjectStatus status) {
+        if (status == null) throw new BadRequestException("Status is required");
+        return projectRepository.findByStatus(status).stream()
+                .map(this::toProjectResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ProjectResponse updateProject(Long id, ProjectRequest request) {
+        Project project = findProjectById(id);
+        // Partial update — only set provided fields
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            project.setTitle(request.getTitle());
+        }
+        if (request.getDescription() != null) {
+            project.setDescription(request.getDescription());
+        }
+        if (request.getStartDate() != null) {
+            project.setStartDate(request.getStartDate());
+        }
+        if (request.getEndDate() != null) {
+            if (request.getEndDate().isBefore(project.getStartDate())) {
+                throw new BadRequestException("End date cannot be before start date");
+            }
+            project.setEndDate(request.getEndDate());
+        }
+        if (request.getBudget() != null) {
+            project.setBudget(request.getBudget());
+        }
+        if (request.getStatus() != null) {
+            project.setStatus(request.getStatus());
+        }
+        return toProjectResponse(projectRepository.save(project));
+    }
+
+    @Transactional
+    public void deleteProject(Long id) {
+        findProjectById(id); // throws ProjectNotFoundException if not found
+        // Cascade delete milestones and impact linked to this project
+        milestoneRepository.deleteAllByProjectId(id);
+        impactRepository.deleteByProjectId(id);
+        projectRepository.deleteById(id);
+        log.info("Project {} and all linked milestones/impact deleted", id);
+    }
+
+    // ─── Milestone CRUD ──────────────────────────────────────────
+
+    @Transactional
+    public MilestoneResponse addMilestone(Long projectId, MilestoneRequest request) {
+        findProjectById(projectId); // validates project exists, throws ProjectNotFoundException
+        Milestone milestone = Milestone.builder()
+                .projectId(projectId)
+                .title(request.getTitle())
+                .date(request.getDate())
+                .status(request.getStatus() != null ? request.getStatus() : MilestoneStatus.PENDING)
+                .build();
+        return toMilestoneResponse(milestoneRepository.save(milestone));
+    }
+
+    public MilestoneResponse getMilestoneById(Long milestoneId) {
+        return toMilestoneResponse(findMilestoneById(milestoneId));
+    }
+
+    public List<MilestoneResponse> getMilestonesByProject(Long projectId) {
+        findProjectById(projectId); // validate project exists
+        return milestoneRepository.findByProjectId(projectId).stream()
+                .map(this::toMilestoneResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<MilestoneResponse> getMilestonesByStatus(MilestoneStatus status) {
+        if (status == null) throw new BadRequestException("Status is required");
+        return milestoneRepository.findByStatus(status).stream()
+                .map(this::toMilestoneResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MilestoneResponse updateMilestone(Long milestoneId, MilestoneRequest request) {
+        Milestone milestone = findMilestoneById(milestoneId);
+        // Partial update — only update provided fields
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            milestone.setTitle(request.getTitle());
+        }
+        if (request.getDate() != null) {
+            milestone.setDate(request.getDate());
+        }
+        if (request.getStatus() != null) {
+            milestone.setStatus(request.getStatus());
+        }
+        Milestone saved = milestoneRepository.save(milestone);
+        return toMilestoneResponse(saved);
+    }
+
+    @Transactional
+    public void deleteMilestone(Long milestoneId) {
+        findMilestoneById(milestoneId); // validates existence
+        milestoneRepository.deleteById(milestoneId);
+    }
+
+    // ─── Impact CRUD ──────────────────────────────────────────────
+
+    @Transactional
+    public ImpactResponse addOrUpdateImpact(Long projectId, ImpactRequest request) {
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElse(Impact.builder().projectId(projectId).build());
+
+        impact.setMetrics(request.getMetrics());
+        if (request.getStatus() != null) {
+            impact.setStatus(request.getStatus());
+        }
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    /**
+     * Partially update predefined metric fields.
+     * Only fields that are non-null in the request will be updated.
+     * customMetrics entries in the request are MERGED into existing ones (not replaced).
+     *
+     * Example — pollution project adds treesPlanted later:
+     *   PATCH /projects/1/impact/metrics
+     *   { "treesPlanted": 200, "pollutionIncidentsResolved": 15 }
+     */
+    @Transactional
+    public ImpactResponse patchMetrics(Long projectId, ImpactMetrics patch) {
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+
+        ImpactMetrics existing = impact.getMetrics();
+        if (existing == null) existing = new ImpactMetrics();
+
+        // Predefined fields — only overwrite if non-null in patch
+        if (patch.getTreesPlanted()                != null) existing.setTreesPlanted(patch.getTreesPlanted());
+        if (patch.getAreaRestoredHectares()        != null) existing.setAreaRestoredHectares(patch.getAreaRestoredHectares());
+        if (patch.getCo2ReducedTons()              != null) existing.setCo2ReducedTons(patch.getCo2ReducedTons());
+        if (patch.getRenewableEnergyKwh()          != null) existing.setRenewableEnergyKwh(patch.getRenewableEnergyKwh());
+        if (patch.getWasteCollectedKg()            != null) existing.setWasteCollectedKg(patch.getWasteCollectedKg());
+        if (patch.getWaterBodiesCleaned()          != null) existing.setWaterBodiesCleaned(patch.getWaterBodiesCleaned());
+        if (patch.getPollutionIncidentsResolved()  != null) existing.setPollutionIncidentsResolved(patch.getPollutionIncidentsResolved());
+        if (patch.getPeopleBenefited()             != null) existing.setPeopleBenefited(patch.getPeopleBenefited());
+        if (patch.getAwarenessSessionsConducted()  != null) existing.setAwarenessSessionsConducted(patch.getAwarenessSessionsConducted());
+        if (patch.getVolunteerEngagements()        != null) existing.setVolunteerEngagements(patch.getVolunteerEngagements());
+        if (patch.getNotes()                       != null) existing.setNotes(patch.getNotes());
+
+        // Custom metrics — MERGE new entries into existing map
+        if (patch.getCustomMetrics() != null && !patch.getCustomMetrics().isEmpty()) {
+            if (existing.getCustomMetrics() == null) {
+                existing.setCustomMetrics(new java.util.HashMap<>());
+            }
+            existing.getCustomMetrics().putAll(patch.getCustomMetrics());
+        }
+
+        impact.setMetrics(existing);
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    /**
+     * Add or update individual custom metric entries (key-value pairs).
+     * Merges into existing customMetrics — does not replace the whole map.
+     *
+     * Example — pollution project adds AQI readings:
+     *   PATCH /projects/1/impact/metrics/custom
+     *   { "aqiBefore": 180, "aqiAfter": 95, "treesPlantedNearFactory": 50 }
+     */
+    @Transactional
+    public ImpactResponse addOrUpdateCustomMetrics(Long projectId, java.util.Map<String, Object> customEntries) {
+        if (customEntries == null || customEntries.isEmpty()) {
+            throw new BadRequestException("At least one custom metric key-value pair is required");
+        }
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+
+        ImpactMetrics metrics = impact.getMetrics();
+        if (metrics == null) metrics = new ImpactMetrics();
+        if (metrics.getCustomMetrics() == null) metrics.setCustomMetrics(new java.util.HashMap<>());
+
+        metrics.getCustomMetrics().putAll(customEntries);
+        impact.setMetrics(metrics);
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    /**
+     * Remove a single custom metric key from an impact.
+     *
+     * Example: DELETE /projects/1/impact/metrics/custom/aqiBefore
+     */
+    @Transactional
+    public ImpactResponse removeCustomMetric(Long projectId, String key) {
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+
+        ImpactMetrics metrics = impact.getMetrics();
+        if (metrics == null || metrics.getCustomMetrics() == null
+                || !metrics.getCustomMetrics().containsKey(key)) {
+            throw new ResourceNotFoundException("Custom metric key not found: " + key);
+        }
+
+        metrics.getCustomMetrics().remove(key);
+        impact.setMetrics(metrics);
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    public ImpactResponse getImpactById(Long impactId) {
+        return toImpactResponse(impactRepository.findById(impactId)
+                .orElseThrow(() -> new ResourceNotFoundException("Impact", impactId)));
+    }
+
+    public ImpactResponse getImpactByProject(Long projectId) {
+        findProjectById(projectId); // validate project exists
+        return impactRepository.findByProjectId(projectId)
+                .map(this::toImpactResponse)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+    }
+
+    public List<ImpactResponse> getImpactsByStatus(ImpactStatus status) {
+        if (status == null) throw new BadRequestException("Status is required");
+        return impactRepository.findByStatus(status).stream()
+                .map(this::toImpactResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ImpactResponse updateImpactStatus(Long projectId, ImpactStatus status) {
+        findProjectById(projectId);
+        Impact impact = impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+        impact.setStatus(status);
+        return toImpactResponse(impactRepository.save(impact));
+    }
+
+    @Transactional
+    public void deleteImpact(Long projectId) {
+        findProjectById(projectId);
+        impactRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Impact not found for project: " + projectId));
+        impactRepository.deleteByProjectId(projectId);
+    }
+
+    // ─── Private Helpers ─────────────────────────────────────────
+
+    private Project findProjectById(Long id) {
+        return projectRepository.findById(id)
+                .orElseThrow(() -> new ProjectNotFoundException(id));
+    }
+
+    private Milestone findMilestoneById(Long id) {
+        return milestoneRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Milestone", id));
+    }
+
+    // ─── Mappers ─────────────────────────────────────────────────
+
+    private ProjectResponse toProjectResponse(Project p) {
+        return ProjectResponse.builder()
+                .projectId(p.getProjectId())
+                .title(p.getTitle())
+                .description(p.getDescription())
+                .startDate(p.getStartDate())
+                .endDate(p.getEndDate())
+                .budget(p.getBudget())
+                .status(p.getStatus())
+                .createdAt(p.getCreatedAt())
+                .updatedAt(p.getUpdatedAt())
+                .build();
+    }
+
+    private MilestoneResponse toMilestoneResponse(Milestone m) {
+        return MilestoneResponse.builder()
+                .milestoneId(m.getMilestoneId())
+                .projectId(m.getProjectId())
+                .title(m.getTitle())
+                .date(m.getDate())
+                .status(m.getStatus())
+                .createdAt(m.getCreatedAt())
+                .updatedAt(m.getUpdatedAt())
+                .build();
+    }
+
+    private ImpactResponse toImpactResponse(Impact i) {
+        return ImpactResponse.builder()
+                .impactId(i.getImpactId())
+                .projectId(i.getProjectId())
+                .metrics(i.getMetrics())
+                .date(i.getDate())
+                .status(i.getStatus())
+                .createdAt(i.getCreatedAt())
+                .updatedAt(i.getUpdatedAt())
+                .build();
+    }
+}
+
