@@ -16,3 +16,11 @@ export function GuestRoute({ children }) {
   return children;
 }
 
+export function RoleRoute({ children, allowed }) {
+  const { isAuthenticated, role, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!allowed.includes(role)) return <Navigate to={getDashboardPath(role)} replace />;
+  return children;
+}
+
