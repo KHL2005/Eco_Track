@@ -1,5 +1,7 @@
 com\ecotrack\iam\controller\AuthController.class
+com\ecotrack\iam\dto\UpdateProfileRequest.class
 com\ecotrack\iam\dto\NotificationResponse$NotificationResponseBuilder.class
+com\ecotrack\iam\response\ApiResponse.class
 com\ecotrack\iam\entity\AuditLog$AuditLogBuilder.class
 com\ecotrack\iam\enums\UserRole.class
 com\ecotrack\iam\controller\UserController.class

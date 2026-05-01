@@ -74,6 +74,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private static final List<String> OPEN_PATH_PREFIXES = List.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
+            // NOTE: change-password is NOT here — it still requires a valid JWT.
+            //       It is in ANY_AUTHENTICATED_PATHS below instead.
             "/api/v1/internal/",      // service-to-service internal endpoints
 
             // ── Swagger / OpenAPI ──────────────────────────────────────────
@@ -98,6 +100,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/compliance/swagger-ui"
     );
 
+    /**
+     * Paths that any authenticated user may access regardless of role.
+     * JWT is still validated; only the role-restriction check is skipped.
+     */
+    private static final List<String> ANY_AUTHENTICATED_PATHS = List.of(
+            "/api/v1/users/change-password",  // every role can change their own password,
+            "/api/v1/users/update-profile"
+    );
+
     // ── Role → allowed path prefixes ─────────────────────────────────────────
 
     private static final Map<String, List<String>> ROLE_PERMISSIONS = Map.ofEntries(
@@ -119,6 +130,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     "/api/v1/analysis",         "/api/v1/upload-csv",
                     "/api/v1/projects",         "/api/v1/reports",
                     "/api/v1/notifications"
+
             )),
             Map.entry("INDUSTRY", List.of(
                     "/api/v1/emissions",        "/api/v1/industry-documents",
@@ -240,6 +252,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPathAllowedForRole(String role, String path) {
+        // Any authenticated user (regardless of role) may access these paths
+        if (ANY_AUTHENTICATED_PATHS.stream().anyMatch(path::startsWith)) return true;
+
         if (role == null || role.isBlank()) return false;
         List<String> allowed = ROLE_PERMISSIONS.get(role);
         if (allowed == null) return false;
