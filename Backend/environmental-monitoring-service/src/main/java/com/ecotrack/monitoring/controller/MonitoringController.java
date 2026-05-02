@@ -53,15 +53,31 @@ public class MonitoringController {
 
     @PatchMapping("/api/v1/sensors/{id}/status")
     @Operation(summary = "Update sensor status (ACTIVE, INACTIVE, MAINTENANCE)")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorResponse> updateSensorStatus(@PathVariable("id") Long id,
                                                               @RequestParam("status") SensorStatus status) {
         return ResponseEntity.ok(monitoringService.updateSensorStatus(id, status));
     }
 
+    @PatchMapping("/api/v1/sensors/{id}/location")
+    @Operation(summary = "Update sensor location")
+    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    public ResponseEntity<SensorResponse> updateSensorLocation(@PathVariable("id") Long id,
+                                                                @RequestParam("location") String location) {
+        return ResponseEntity.ok(monitoringService.updateSensorLocation(id, location));
+    }
+
+    @PatchMapping("/api/v1/sensors/{id}/type")
+    @Operation(summary = "Update sensor type")
+    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    public ResponseEntity<SensorResponse> updateSensorType(@PathVariable("id") Long id,
+                                                            @RequestParam("type") SensorType type) {
+        return ResponseEntity.ok(monitoringService.updateSensorType(id, type));
+    }
+
     @DeleteMapping("/api/v1/sensors/{id}")
     @Operation(summary = "Delete sensor and all its data")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<Void> deleteSensor(@PathVariable("id") Long id) {
         monitoringService.deleteSensor(id);
         return ResponseEntity.noContent().build();
@@ -99,7 +115,7 @@ public class MonitoringController {
 
     @DeleteMapping("/api/v1/sensor-data/{dataId}")
     @Operation(summary = "Delete sensor data and linked analyses")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<Void> deleteSensorData(@PathVariable("dataId") Long dataId) {
         monitoringService.deleteSensorData(dataId);
         return ResponseEntity.noContent().build();
@@ -172,7 +188,7 @@ public class MonitoringController {
 
     @DeleteMapping("/api/v1/analysis/{id}")
     @Operation(summary = "Delete an analysis record")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<Void> deleteAnalysis(@PathVariable("id") Long id) {
         monitoringService.deleteAnalysis(id);
         return ResponseEntity.noContent().build();

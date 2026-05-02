@@ -3,6 +3,7 @@ package com.ecotrack.iam.service;
 import com.ecotrack.iam.dto.ChangePasswordRequest;
 import com.ecotrack.iam.dto.CreateUserRequest;
 import com.ecotrack.iam.dto.UpdateUserRequest;
+import com.ecotrack.iam.dto.UpdateProfileRequest;
 import com.ecotrack.iam.dto.UserResponse;
 import com.ecotrack.iam.entity.User;
 import com.ecotrack.iam.enums.UserRole;
@@ -111,6 +112,19 @@ public class UserService {
         userRepository.save(user);
     }
 
+    /**
+     * Update profile for the authenticated user (name, phone only).
+     */
+    @Transactional
+    public UserResponse updateProfile(String email, UpdateProfileRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (request.getName() != null) user.setName(request.getName());
+        if (request.getPhoneNumber() != null) user.setPhone(request.getPhoneNumber());
+        // Email cannot be changed here
+        return toResponse(userRepository.save(user));
+    }
+
     public UserResponse toResponse(User user) {
         return UserResponse.builder()
                 .userId(user.getUserId())
@@ -121,5 +135,9 @@ public class UserService {
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    public java.util.Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
 }

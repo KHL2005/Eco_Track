@@ -12,13 +12,21 @@ import java.time.LocalDateTime;
 public class Sensor {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "sensor_id") private Long sensorId;
-    @Column(nullable = false, length = 255) private String location;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private SensorType type;
+    @Column(nullable = true, length = 255) private String name;
+    @Column(nullable = true, length = 500) private String location;
+    @Enumerated(EnumType.STRING) @Column(nullable = true) private SensorType type;
     @Enumerated(EnumType.STRING) @Column(nullable = false) @Builder.Default
     private SensorStatus status = SensorStatus.ACTIVE;
+    @Column(name = "latitude") private Double latitude;
+    @Column(name = "longitude") private Double longitude;
+    @Column(name = "installed_at") private LocalDateTime installedAt;
     @Column(name = "created_at") private LocalDateTime createdAt;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
-    @PrePersist protected void onCreate() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
+    @PrePersist protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.installedAt == null) this.installedAt = LocalDateTime.now();
+    }
     @PreUpdate protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
 }
 

@@ -3,6 +3,8 @@ package com.ecotrack.iam.controller;
 import com.ecotrack.iam.dto.ChangePasswordRequest;
 import com.ecotrack.iam.dto.CreateUserRequest;
 import com.ecotrack.iam.dto.UpdateUserRequest;
+import com.ecotrack.iam.dto.UpdateProfileRequest;
+import com.ecotrack.iam.response.ApiResponse;
 import com.ecotrack.iam.dto.UserResponse;
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.service.UserService;
@@ -15,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 
@@ -60,10 +63,23 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update user")
-    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMINISTRATOR')")
+    @Operation(summary = "Update user (self or admin)")
     public ResponseEntity<UserResponse> updateUser(@PathVariable("id") Long id,
-                                                    @RequestBody UpdateUserRequest request) {
+                                                  @RequestBody UpdateUserRequest request) {
+        // Get authenticated user's details
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String authEmail = authentication.getName();
+        // You may want to fetch user by email to get their ID and role
+        var userOpt = userService.findByEmail(authEmail);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        var authUser = userOpt.get();
+        boolean isAdmin = authUser.getRole() == UserRole.SUPER_ADMIN || authUser.getRole() == UserRole.ADMINISTRATOR;
+        boolean isSelf = authUser.getUserId().equals(id);
+        if (!isSelf && !isAdmin) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(userService.updateUser(id, request));
     }
 
@@ -84,4 +100,12 @@ public class UserController {
         return ResponseEntity.ok("Password changed successfully");
     }
 
+    @PutMapping("/update-profile")
+    @Operation(summary = "Update own profile (name, phone only)")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+            Authentication authentication,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        UserResponse updated = userService.updateProfile(authentication.getName(), request);
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
+    }
 }

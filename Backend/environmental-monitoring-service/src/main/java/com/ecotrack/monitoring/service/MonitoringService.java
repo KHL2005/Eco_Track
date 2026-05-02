@@ -6,6 +6,7 @@ import com.ecotrack.monitoring.entity.Sensor;
 import com.ecotrack.monitoring.entity.SensorData;
 import com.ecotrack.monitoring.enums.AnalysisStatus;
 import com.ecotrack.monitoring.enums.SensorStatus;
+import com.ecotrack.monitoring.enums.SensorType;
 import com.ecotrack.monitoring.exception.BadRequestException;
 import com.ecotrack.monitoring.exception.ResourceNotFoundException;
 import com.ecotrack.monitoring.exception.ScientistNotFoundException;
@@ -39,8 +40,12 @@ public class MonitoringService {
     @Transactional
     public SensorResponse createSensor(SensorRequest request) {
         Sensor sensor = Sensor.builder()
+                .name(request.getName())
                 .location(request.getLocation())
                 .type(request.getType())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .installedAt(request.getInstalledAt())
                 .status(SensorStatus.ACTIVE)
                 .build();
         return toSensorResponse(sensorRepository.save(sensor));
@@ -68,6 +73,26 @@ public class MonitoringService {
     }
 
     @Transactional
+    public SensorResponse updateSensorLocation(Long id, String location) {
+        if (location == null || location.trim().isEmpty()) {
+            throw new BadRequestException("Location is required");
+        }
+        Sensor sensor = findSensorById(id);
+        sensor.setLocation(location);
+        return toSensorResponse(sensorRepository.save(sensor));
+    }
+
+    @Transactional
+    public SensorResponse updateSensorType(Long id, SensorType type) {
+        if (type == null) {
+            throw new BadRequestException("Type is required");
+        }
+        Sensor sensor = findSensorById(id);
+        sensor.setType(type);
+        return toSensorResponse(sensorRepository.save(sensor));
+    }
+
+    @Transactional
     public void deleteSensor(Long id) {
         findSensorById(id); // validates existence
         sensorDataRepository.findBySensorId(id).forEach(data -> {
@@ -87,7 +112,11 @@ public class MonitoringService {
 
         SensorData data = SensorData.builder()
                 .sensorId(request.getSensorId())
+                .value(request.getValue())
+                .unit(request.getUnit())
                 .parametersJson(request.getParametersJson())
+                .recordedAt(request.getRecordedAt())
+                .notes(request.getNotes())
                 .build();
         data = sensorDataRepository.save(data);
 
@@ -142,15 +171,12 @@ public class MonitoringService {
         String findings = (request.getFindings() != null && !request.getFindings().isBlank())
                 ? request.getFindings()
                 : generateFindings(data.getParametersJson());
-
-        // Assign scientistId: from request → IAM fetch → default 1L
+        // Assign scientistId: from request → IAM fetch → null default
         Long scientistId = request.getScientistId();
         if (scientistId == null) {
             scientistId = assignScientist();
         }
-        if (scientistId == null) {
-            scientistId = 1L; // fallback default
-        }
+        // Keep as null if no scientist available
 
         // Determine status based on whether findings contain issues
         AnalysisStatus status = request.getStatus();
@@ -262,9 +288,7 @@ public class MonitoringService {
             boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
 
             Long scientistId = assignScientist();
-            if (scientistId == null) {
-                scientistId = 1L; // fallback default
-            }
+            // Keep as null if no scientist available
 
             Analysis analysis = Analysis.builder()
                     .dataId(data.getDataId())
@@ -392,9 +416,13 @@ public class MonitoringService {
     private SensorResponse toSensorResponse(Sensor s) {
         return SensorResponse.builder()
                 .sensorId(s.getSensorId())
+                .name(s.getName())
                 .location(s.getLocation())
                 .type(s.getType())
                 .status(s.getStatus())
+                .latitude(s.getLatitude())
+                .longitude(s.getLongitude())
+                .installedAt(s.getInstalledAt())
                 .createdAt(s.getCreatedAt())
                 .updatedAt(s.getUpdatedAt())
                 .build();
@@ -402,10 +430,15 @@ public class MonitoringService {
 
     private SensorDataResponse toSensorDataResponse(SensorData d) {
         return SensorDataResponse.builder()
+                .id(d.getDataId())
                 .dataId(d.getDataId())
                 .sensorId(d.getSensorId())
+                .value(d.getValue())
+                .unit(d.getUnit())
                 .parametersJson(d.getParametersJson())
+                .recordedAt(d.getRecordedAt())
                 .timestamp(d.getTimestamp())
+                .notes(d.getNotes())
                 .build();
     }
 
