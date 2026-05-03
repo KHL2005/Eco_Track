@@ -65,7 +65,7 @@ public class UserController {
     @PutMapping("/{id}")
     @Operation(summary = "Update user (self or admin)")
     public ResponseEntity<UserResponse> updateUser(@PathVariable("id") Long id,
-                                                  @RequestBody UpdateUserRequest request) {
+                                                   @Valid @RequestBody UpdateUserRequest request) {
         // Get authenticated user's details
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         String authEmail = authentication.getName();

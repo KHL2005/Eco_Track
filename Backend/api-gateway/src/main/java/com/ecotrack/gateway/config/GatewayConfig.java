@@ -155,12 +155,14 @@ public class GatewayConfig {
             .route("iam-users",
                     r -> r.path("/api/v1/users/**")
                           .filters(f -> applyFilters(f, "iamCB", "/fallback/iam"))
-                          .uri("lb://iam-service"))
-
-            .route("iam-notifications",
-                    r -> r.path("/api/v1/notifications/**")
-                          .filters(f -> applyFilters(f, "iamCB", "/fallback/iam"))
                           .uri("lb://iam-service"));
+
+        // ── Notification Service  (port 8083) ──────────────────────────────────
+        b
+            .route("notification-notifications",
+                    r -> r.path("/api/v1/notifications/**")
+                          .filters(f -> applyFilters(f, "notificationCB", "/fallback/notification"))
+                          .uri("lb://notification-service"));
 
         // ── Citizen Reporting Service  (port 8083) ────────────────────────────
         b

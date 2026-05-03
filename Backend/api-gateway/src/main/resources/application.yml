@@ -65,6 +65,7 @@ resilience4j:
           - java.util.concurrent.TimeoutException
     instances:
       iamCB:        { base-config: default }
+      notificationCB: { base-config: default }
       citizenCB:    { base-config: default }
       monitoringCB: { base-config: default }
       industryCB:   { base-config: default }
@@ -80,6 +81,7 @@ resilience4j:
         cancel-running-future: true
     instances:
       iamCB:        { base-config: default }
+      notificationCB: { base-config: default }
       citizenCB:    { timeout-duration: 10s }   # media uploads ≤ 50 MB
       monitoringCB: { timeout-duration: 15s }   # CSV bulk ingestion
       industryCB:   { timeout-duration: 30s }   # PDF upload + GridFS write

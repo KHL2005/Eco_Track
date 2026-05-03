@@ -1,0 +1,7 @@
+*/target/
+**/target/
+../Frontend/node_modules/
+.idea/
+*.class
+*.log
+../.idea/
