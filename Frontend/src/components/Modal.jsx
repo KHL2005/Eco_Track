@@ -31,15 +31,15 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
-            className={`relative bg-white rounded-2xl shadow-xl w-full ${widths[size]} z-10`}
+            className={`relative bg-white rounded-2xl shadow-xl w-full ${widths[size]} z-10 max-h-[90vh] flex flex-col`}
           >
-            <div className="flex items-center justify-between p-6 border-b border-bark-400/20">
+            <div className="flex items-center justify-between p-6 border-b border-bark-400/20 flex-shrink-0">
               <h2 className="text-lg font-semibold text-bark-800">{title}</h2>
               <button onClick={onClose} className="p-1 rounded-lg hover:bg-earth-100 text-bark-400 hover:text-bark-600 transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-6 overflow-y-auto flex-1">{children}</div>
           </motion.div>
         </div>
       )}
@@ -54,4 +54,3 @@ Modal.propTypes = {
   children: PropTypes.node,
   size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
 };
-

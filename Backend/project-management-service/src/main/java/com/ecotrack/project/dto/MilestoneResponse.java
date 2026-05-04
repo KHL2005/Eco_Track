@@ -13,9 +13,9 @@ public class MilestoneResponse {
     private Long milestoneId;
     private Long projectId;
     private String title;
+    private String description;
     private LocalDate date;
     private MilestoneStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

@@ -13,6 +13,7 @@ public class Milestone {
     @Column(name = "milestone_id") private Long milestoneId;
     @Column(name = "project_id", nullable = false) private Long projectId;
     @Column(nullable = false, length = 200) private String title;
+    @Column(columnDefinition = "TEXT") private String description;
     @Column(nullable = false) private LocalDate date;
     @Enumerated(EnumType.STRING) @Column(nullable = false) @Builder.Default
     private MilestoneStatus status = MilestoneStatus.PENDING;
@@ -21,4 +22,3 @@ public class Milestone {
     @PrePersist protected void onCreate() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
     @PreUpdate protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
 }
-

@@ -11,6 +11,8 @@ public class MilestoneRequest {
     @NotBlank(message = "Title is required")
     private String title;
 
+    private String description;
+
     @NotNull(message = "Date is required")
     private LocalDate date;
 

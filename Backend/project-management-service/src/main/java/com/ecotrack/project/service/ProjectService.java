@@ -108,10 +108,16 @@ public class ProjectService {
         Milestone milestone = Milestone.builder()
                 .projectId(projectId)
                 .title(request.getTitle())
+                .description(request.getDescription())
                 .date(request.getDate())
                 .status(request.getStatus() != null ? request.getStatus() : MilestoneStatus.PENDING)
                 .build();
-        return toMilestoneResponse(milestoneRepository.save(milestone));
+        Milestone saved = milestoneRepository.save(milestone);
+        
+        // Auto-update project status based on milestones
+        updateProjectStatusBasedOnMilestones(projectId);
+        
+        return toMilestoneResponse(saved);
     }
 
     public MilestoneResponse getMilestoneById(Long milestoneId) {
@@ -135,9 +141,14 @@ public class ProjectService {
     @Transactional
     public MilestoneResponse updateMilestone(Long milestoneId, MilestoneRequest request) {
         Milestone milestone = findMilestoneById(milestoneId);
+        Long projectId = milestone.getProjectId();
+        
         // Partial update — only update provided fields
         if (request.getTitle() != null && !request.getTitle().isBlank()) {
             milestone.setTitle(request.getTitle());
+        }
+        if (request.getDescription() != null) {
+            milestone.setDescription(request.getDescription());
         }
         if (request.getDate() != null) {
             milestone.setDate(request.getDate());
@@ -146,13 +157,22 @@ public class ProjectService {
             milestone.setStatus(request.getStatus());
         }
         Milestone saved = milestoneRepository.save(milestone);
+        
+        // Auto-update project status based on milestones
+        updateProjectStatusBasedOnMilestones(projectId);
+        
         return toMilestoneResponse(saved);
     }
 
     @Transactional
     public void deleteMilestone(Long milestoneId) {
-        findMilestoneById(milestoneId); // validates existence
+        Milestone milestone = findMilestoneById(milestoneId);
+        Long projectId = milestone.getProjectId();
+        
         milestoneRepository.deleteById(milestoneId);
+        
+        // Auto-update project status after milestone deletion
+        updateProjectStatusBasedOnMilestones(projectId);
     }
 
     // ─── Impact CRUD ──────────────────────────────────────────────
@@ -305,6 +325,53 @@ public class ProjectService {
 
     // ─── Private Helpers ─────────────────────────────────────────
 
+    /**
+     * Auto-update project status based on milestone conditions:
+     * - If project has incomplete milestones → IN_PROGRESS
+     * - If progress % is 100 (all milestones COMPLETED) → COMPLETED
+     * - If new milestone added and progress % != 100 → IN_PROGRESS
+     */
+    private void updateProjectStatusBasedOnMilestones(Long projectId) {
+        List<Milestone> milestones = milestoneRepository.findByProjectId(projectId);
+        
+        if (milestones.isEmpty()) {
+            // No milestones - keep current status (usually PLANNED)
+            return;
+        }
+        
+        Project project = findProjectById(projectId);
+        ProjectStatus currentStatus = project.getStatus();
+        
+        // Calculate progress percentage
+        long totalMilestones = milestones.size();
+        long completedMilestones = milestones.stream()
+                .filter(m -> m.getStatus() == MilestoneStatus.COMPLETED)
+                .count();
+        
+        int progressPercent = (int) Math.round((completedMilestones * 100.0) / totalMilestones);
+        
+        ProjectStatus newStatus;
+        
+        if (progressPercent == 100) {
+            // All milestones completed - project is COMPLETED
+            newStatus = ProjectStatus.COMPLETED;
+        } else if (progressPercent > 0 || totalMilestones > 0) {
+            // Has milestones and some work started - project is IN_PROGRESS
+            newStatus = ProjectStatus.IN_PROGRESS;
+        } else {
+            // No progress yet - keep current status
+            return;
+        }
+        
+        // Only update if status actually changes
+        if (currentStatus != newStatus) {
+            project.setStatus(newStatus);
+            projectRepository.save(project);
+            log.info("Project {} status auto-updated from {} to {} (progress: {}%)", 
+                    projectId, currentStatus, newStatus, progressPercent);
+        }
+    }
+
     private Project findProjectById(Long id) {
         return projectRepository.findById(id)
                 .orElseThrow(() -> new ProjectNotFoundException(id));
@@ -336,6 +403,7 @@ public class ProjectService {
                 .milestoneId(m.getMilestoneId())
                 .projectId(m.getProjectId())
                 .title(m.getTitle())
+                .description(m.getDescription())
                 .date(m.getDate())
                 .status(m.getStatus())
                 .createdAt(m.getCreatedAt())
