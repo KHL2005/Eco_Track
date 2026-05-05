@@ -17,7 +17,7 @@ import { ANALYSIS_STATUSES } from '../utils/constants';
 import { toast } from 'sonner';
 
 export default function AnalysisPage() {
-  const { isScientist, isAdmin, isOfficer } = useRole();
+  const { isScientist, isAdmin, isAgencyOfficer } = useRole();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [createModal, setCreateModal] = useState(false);
@@ -133,10 +133,10 @@ export default function AnalysisPage() {
       <PageHeader title="Sensor Analysis" description="Environmental data analysis and findings"
         action={
           <div className="flex gap-2">
-            {(isOfficer || isScientist || isAdmin) && (
+            {(isAgencyOfficer || isScientist || isAdmin) && (
               <Button variant="outline" size="sm" onClick={() => setCsvModal(true)}><Upload size={14} /> Upload CSV</Button>
             )}
-            {(isOfficer || isScientist || isAdmin) && (
+            {(isAgencyOfficer || isScientist || isAdmin) && (
               <Button size="sm" onClick={() => setCreateModal(true)}><Plus size={14} /> New Analysis</Button>
             )}
           </div>

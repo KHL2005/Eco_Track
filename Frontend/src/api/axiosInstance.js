@@ -65,14 +65,19 @@ axiosInstance.interceptors.response.use(
 
       // List of endpoint patterns to exclude from showing the toast
       const excluded403Patterns = [
-        /\/auth\//, // login, register, etc.
-        /\/me$/,    // /me
-        /\/profile$/, // /profile
-        /\/user(s)?\//, // /user/, /users/
-        /\/current[-_]user/, // /current-user, /current_user
-        /\/info$/, // /info
-        /\/issues$/, // /issues
-        /\/emissions$/, // /emissions
+        /\/auth\//,
+        /\/me$/,
+        /\/profile$/,
+        /\/user(s)?\//,
+        /\/current[-_]user/,
+        /\/info$/,
+        /\/issues$/,
+        /\/emissions$/,
+        /\/projects$/,
+        /\/sensors$/,
+        /\/compliance$/,
+        /\/audits$/,
+        /\/industry-documents$/,
       ];
       const shouldSuppress = excluded403Patterns.some((pattern) => pattern.test(url));
       if (!shouldSuppress) {

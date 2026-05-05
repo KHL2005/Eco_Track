@@ -6,19 +6,22 @@ import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
 import Modal from '../components/Modal';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import * as emissionsApi from '../api/emissionsApi';
 import { useRole } from '../hooks/useRole';
 import { useAuth } from '../context/AuthContext';
-import { formatDateTime, labelify } from '../utils/formatters';
-import { EMISSION_TYPES, EMISSION_STATUSES } from '../utils/constants';
+import { formatDateTime } from '../utils/formatters';
+import { EMISSION_TYPES } from '../utils/constants';
 import { toast } from 'sonner';
 
+const EMISSION_STATUS_OPTIONS = ['SUBMITTED', 'APPROVED', 'REJECTED'];
+
 export default function EmissionsPage() {
-  const { isIndustry, isAdmin, isOfficer } = useRole();
+  const { isIndustry, isAdmin, isComplianceOfficer } = useRole();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
   const [form, setForm] = useState({ industryId: '', industryName: '', emissionType: 'CO2', value: '', unit: 'tonnes', notes: '' });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -26,6 +29,8 @@ export default function EmissionsPage() {
     queryKey: ['emissions'],
     queryFn: () => emissionsApi.getEmissions().then(r => r.data).catch(() => []),
   });
+
+  const filtered = statusFilter ? emissions.filter(e => e.status === statusFilter) : emissions;
 
   const createMut = useMutation({
     mutationFn: (d) => emissionsApi.logEmission(d),
@@ -39,21 +44,39 @@ export default function EmissionsPage() {
     onError: () => toast.error('Failed to update status'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (id) => emissionsApi.deleteEmission(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['emissions'] }); toast.success('Emission deleted'); },
+    onError: () => toast.error('Failed to delete emission'),
+  });
+
   const columns = [
-    { key: 'id', label: '#', render: r => <span className="text-xs text-bark-400">#{r.id}</span> },
+    { key: 'logId', label: 'ID', render: r => <span className="text-xs text-bark-400">{r.logId}</span> },
     { key: 'industryName', label: 'Industry', sortable: true },
-    { key: 'emissionType', label: 'Type', render: r => <span className="text-xs font-medium">{r.emissionType}</span> },
-    { key: 'value', label: 'Value', sortable: true, render: r => <span>{r.value} {r.unit}</span> },
+    { key: 'type', label: 'Type', render: r => <span className="text-xs font-medium">{r.type}</span> },
+    { key: 'quantity', label: 'Value', sortable: true, render: r => <span>{r.quantity}</span> },
     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
-    { key: 'recordedAt', label: 'Date', render: r => <span className="text-xs text-bark-400">{formatDateTime(r.recordedAt)}</span> },
+    { key: 'date', label: 'Date', render: r => <span className="text-xs text-bark-400">{formatDateTime(r.date)}</span> },
     {
       label: 'Actions', render: (r) => (
-        (isAdmin || isOfficer) && r.status === 'SUBMITTED' ? (
-          <div className="flex gap-1">
-            <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: r.id, status: 'APPROVED' })}>Approve</Button>
-            <Button size="sm" variant="danger" className="text-xs" onClick={() => updateStatus.mutate({ id: r.id, status: 'REJECTED' })}>Reject</Button>
-          </div>
-        ) : null
+        <div className="flex gap-1">
+          {(isAdmin || isComplianceOfficer) && r.status === 'SUBMITTED' && (
+            <>
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: r.logId, status: 'APPROVED' })}>Approve</Button>
+              <Button size="sm" variant="danger" className="text-xs" onClick={() => updateStatus.mutate({ id: r.logId, status: 'REJECTED' })}>Reject</Button>
+            </>
+          )}
+          {isIndustry && r.status === 'SUBMITTED' && (
+            <button
+              onClick={() => deleteMut.mutate(r.logId)}
+              className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete emission"
+              disabled={deleteMut.isPending}
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       )
     },
   ];
@@ -61,11 +84,25 @@ export default function EmissionsPage() {
   return (
     <DashboardLayout>
       <PageHeader title="Emissions" description="Industry emission logs and approvals"
-        action={(isIndustry || isAdmin) && <Button onClick={() => setModal(true)}><Plus size={16} /> Log Emission</Button>}
+        action={
+          <div className="flex gap-2 items-center">
+            <select
+              className="border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              {EMISSION_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {(isIndustry || isAdmin) && (
+              <Button onClick={() => setModal(true)}><Plus size={16} /> Log Emission</Button>
+            )}
+          </div>
+        }
       />
 
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
-        <DataTable columns={columns} data={emissions} loading={isLoading} searchPlaceholder="Search emissions…" />
+        <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search emissions…" />
       </div>
 
       <Modal open={modal} onClose={() => setModal(false)} title="Log Emission">
@@ -91,11 +128,10 @@ export default function EmissionsPage() {
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setModal(false)}>Cancel</Button>
-            <Button onClick={() => createMut.mutate({ ...form, industryId: parseInt(form.industryId), value: parseFloat(form.value) })} loading={createMut.isPending}>Submit</Button>
+            <Button onClick={() => createMut.mutate({ industryId: parseInt(form.industryId), industryName: form.industryName, type: form.emissionType, quantity: parseFloat(form.value) })} loading={createMut.isPending}>Submit</Button>
           </div>
         </div>
       </Modal>
     </DashboardLayout>
   );
 }
-

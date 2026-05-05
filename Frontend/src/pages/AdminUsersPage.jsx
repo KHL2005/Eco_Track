@@ -20,7 +20,7 @@ export default function AdminUsersPage() {
   const [createModal, setCreateModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', role: 'OFFICER' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', role: 'AGENCY_OFFICER' });
   const [showCreatePw, setShowCreatePw] = useState(false);
   const [pwFocused, setPwFocused] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', phone: '', status: 'ACTIVE' });
@@ -34,7 +34,7 @@ export default function AdminUsersPage() {
 
   const createMut = useMutation({
     mutationFn: (d) => usersApi.createUser(d, role),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User created'); setCreateModal(false); setShowCreatePw(false); setPwFocused(false); setForm({ name: '', email: '', password: '', phone: '', role: 'OFFICER' }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User created'); setCreateModal(false); setShowCreatePw(false); setPwFocused(false); setForm({ name: '', email: '', password: '', phone: '', role: 'AGENCY_OFFICER' }); },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to create user'),
   });
 

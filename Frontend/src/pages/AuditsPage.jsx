@@ -20,8 +20,9 @@ export default function AuditsPage() {
   const qc = useQueryClient();
   const [createModal, setCreateModal] = useState(false);
   const [updateModal, setUpdateModal] = useState(null);
-  const [form, setForm] = useState({ entityId: '', entityName: '', scheduledDate: '', findings: '' });
-  const [updateForm, setUpdateForm] = useState({ status: 'SCHEDULED', findings: '' });
+  const [statusFilter, setStatusFilter] = useState('');
+  const [form, setForm] = useState({ officerId: '', scope: '', findings: '' });
+  const [updateForm, setUpdateForm] = useState({ status: 'PLANNED', findings: '' });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const setU = (k) => (e) => setUpdateForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -30,53 +31,133 @@ export default function AuditsPage() {
     queryFn: () => complianceApi.getAudits().then(r => r.data).catch(() => []),
   });
 
+  const filtered = statusFilter ? audits.filter(a => a.status === statusFilter) : audits;
+
   const createMut = useMutation({
     mutationFn: (d) => complianceApi.createAudit(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['audits'] }); toast.success('Audit created'); setCreateModal(false); },
-    onError: () => toast.error('Failed to create audit'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['audits'] });
+      toast.success('Audit created');
+      setCreateModal(false);
+      setForm({ officerId: '', scope: '', findings: '' });
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || 'Failed to create audit';
+      toast.error(msg);
+    },
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, status, findings }) => complianceApi.updateAuditStatus(id, status, findings),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['audits'] }); toast.success('Audit updated'); setUpdateModal(null); },
-    onError: () => toast.error('Failed to update audit'),
+    mutationFn: ({ id, status, findings }) => complianceApi.updateAuditStatus(id, status, findings || undefined),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['audits'] });
+      toast.success('Audit updated');
+      setUpdateModal(null);
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message || 'Failed to update audit';
+      toast.error(msg);
+    },
   });
 
+  const openUpdate = (r) => {
+    setUpdateModal(r);
+    setUpdateForm({ status: r.status, findings: r.findings || '' });
+  };
+
+  const openCreate = () => {
+    setForm({ officerId: user?.userId?.toString() || '', scope: '', findings: '' });
+    setCreateModal(true);
+  };
+
   const columns = [
-    { key: 'id', label: '#', render: r => <span className="text-xs text-bark-400">#{r.id}</span> },
-    { key: 'entityName', label: 'Entity', sortable: true },
-    { key: 'officerName', label: 'Officer' },
+    { key: 'auditId', label: 'ID', render: r => <span className="text-xs text-bark-400">{r.auditId}</span> },
+    { key: 'officerId', label: 'Officer ID', render: r => <span className="text-xs font-medium">{r.officerId}</span> },
+    { key: 'scope', label: 'Scope', sortable: true, render: r => <span className="text-xs max-w-[200px] truncate block">{r.scope}</span> },
     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
-    { key: 'scheduledDate', label: 'Scheduled', render: r => <span className="text-xs text-bark-400">{formatDateTime(r.scheduledDate)}</span> },
+    { key: 'date', label: 'Date', render: r => <span className="text-xs text-bark-400">{formatDateTime(r.date)}</span> },
     { key: 'findings', label: 'Findings', render: r => <span className="text-xs text-bark-400 truncate max-w-[150px] block">{r.findings || '—'}</span> },
     {
       label: 'Actions', render: (r) => canManageCompliance ? (
-        <Button size="sm" variant="outline" onClick={() => { setUpdateModal(r); setUpdateForm({ status: r.status, findings: r.findings || '' }); }}>Update</Button>
+        <Button size="sm" variant="outline" onClick={() => openUpdate(r)}>Update</Button>
       ) : null
     },
   ];
 
   return (
     <DashboardLayout>
-      <PageHeader title="Audits" description="Environmental compliance audits"
-        action={canManageCompliance && <Button onClick={() => setCreateModal(true)}><Plus size={16} /> Create Audit</Button>}
+      <PageHeader
+        title="Audits"
+        description="Environmental compliance audits"
+        action={
+          <div className="flex gap-2 items-center">
+            <select
+              className="border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              {AUDIT_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
+            </select>
+            {canManageCompliance && (
+              <Button onClick={openCreate}><Plus size={16} /> Create Audit</Button>
+            )}
+          </div>
+        }
       />
 
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
-        <DataTable columns={columns} data={audits} loading={isLoading} />
+        <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search audits…" />
       </div>
 
       <Modal open={createModal} onClose={() => setCreateModal(false)} title="Create Audit">
         <div className="space-y-4">
-          {[['entityId', 'Entity ID', 'number'], ['entityName', 'Entity Name', 'text'], ['scheduledDate', 'Scheduled Date', 'datetime-local']].map(([k, label, type]) => (
-            <div key={k}>
-              <label className="block text-sm font-medium text-bark-600 mb-1">{label}</label>
-              <input type={type} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={form[k]} onChange={set(k)} />
-            </div>
-          ))}
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Officer ID</label>
+            <input
+              type="number"
+              min="1"
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={form.officerId}
+              onChange={set('officerId')}
+              placeholder="Your user ID"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Scope</label>
+            <input
+              type="text"
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={form.scope}
+              onChange={set('scope')}
+              placeholder="Describe the audit scope…"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">
+              Initial Findings <span className="text-bark-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              rows={3}
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={form.findings}
+              onChange={set('findings')}
+              placeholder="Initial findings or notes…"
+            />
+          </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setCreateModal(false)}>Cancel</Button>
-            <Button onClick={() => createMut.mutate({ ...form, entityId: parseInt(form.entityId), officerId: user?.userId, officerName: user?.name })} loading={createMut.isPending}>Create</Button>
+            <Button
+              onClick={() => createMut.mutate({
+                officerId: parseInt(form.officerId),
+                scope: form.scope.trim(),
+                findings: form.findings.trim() || null,
+              })}
+              loading={createMut.isPending}
+              disabled={!form.officerId || isNaN(parseInt(form.officerId)) || !form.scope.trim()}
+            >
+              Create
+            </Button>
           </div>
         </div>
       </Modal>
@@ -85,21 +166,35 @@ export default function AuditsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Status</label>
-            <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={updateForm.status} onChange={setU('status')}>
+            <select
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={updateForm.status}
+              onChange={setU('status')}
+            >
               {AUDIT_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Findings</label>
-            <textarea rows={3} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={updateForm.findings} onChange={setU('findings')} />
+            <textarea
+              rows={4}
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={updateForm.findings}
+              onChange={setU('findings')}
+              placeholder="Audit findings…"
+            />
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setUpdateModal(null)}>Cancel</Button>
-            <Button onClick={() => updateMut.mutate({ id: updateModal?.id, ...updateForm })} loading={updateMut.isPending}>Update</Button>
+            <Button
+              onClick={() => updateMut.mutate({ id: updateModal?.auditId, ...updateForm })}
+              loading={updateMut.isPending}
+            >
+              Update
+            </Button>
           </div>
         </div>
       </Modal>
     </DashboardLayout>
   );
 }
-

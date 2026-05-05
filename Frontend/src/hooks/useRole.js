@@ -5,25 +5,25 @@ export function useRole() {
   const { role, user } = useAuth();
 
   const isAdmin = role === ROLES.ADMINISTRATOR || role === ROLES.SUPER_ADMIN;
-  const isOfficer = role === ROLES.OFFICER;
+  const isAgencyOfficer = role === ROLES.AGENCY_OFFICER;
   const isCitizen = role === ROLES.CITIZEN;
   const isScientist = role === ROLES.SCIENTIST;
   const isIndustry = role === ROLES.INDUSTRY;
   const isComplianceOfficer = role === ROLES.COMPLIANCE_OFFICER;
 
   const hasRole = (...roles) => roles.includes(role);
-  const canManageIssues = isAdmin || isOfficer;
-  const canManageSensors = isAdmin || isOfficer || isScientist;
-  const canManageProjects = isAdmin || isOfficer;
-  const canManageCompliance = isAdmin || isOfficer || isComplianceOfficer;
-  const canManageEmissions = isAdmin || isOfficer || isIndustry;
-  const canViewSensors = isAdmin || isOfficer || isScientist;
+  const canManageIssues = isAdmin || isAgencyOfficer;
+  const canManageSensors = isAdmin || isAgencyOfficer || isScientist;
+  const canManageProjects = isAdmin || isAgencyOfficer;
+  const canManageCompliance = isAdmin || isComplianceOfficer;
+  const canManageEmissions = isAdmin || isComplianceOfficer || isIndustry;
+  const canViewSensors = isAdmin || isAgencyOfficer || isScientist;
 
   return {
     role,
     user,
     isAdmin,
-    isOfficer,
+    isAgencyOfficer,
     isCitizen,
     isScientist,
     isIndustry,
@@ -37,4 +37,3 @@ export function useRole() {
     canViewSensors,
   };
 }
-

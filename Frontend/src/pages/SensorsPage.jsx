@@ -30,7 +30,7 @@ const statusColors = { ACTIVE: '#16a34a', INACTIVE: '#78716c', MAINTENANCE: '#f5
 export default function SensorsPage() {
   const { canManageSensors, isAdmin, isOfficer, isScientist } = useRole();
   const qc = useQueryClient();
-  const [view, setView] = useState(isScientist ? 'list' : 'map');
+  const [view, setView] = useState('list');
   const [createModal, setCreateModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -219,7 +219,7 @@ export default function SensorsPage() {
               <option value="">All Status</option>
               {SENSOR_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            {!isScientist && (
+            {isScientist && (
               <Button variant={view === 'map' ? 'primary' : 'secondary'} size="sm" onClick={() => setView('map')}><MapPin size={14} /> Map</Button>
             )}
             {canManageSensors && <Button size="sm" onClick={() => setCreateModal(true)}><Plus size={14} /> Add Sensor</Button>}
@@ -227,7 +227,7 @@ export default function SensorsPage() {
         }
       />
 
-      {view === 'map' && !isScientist ? (
+      {view === 'map' && isScientist ? (
         <div className="h-[500px] rounded-2xl overflow-hidden border border-bark-400/10">
           <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -235,9 +235,12 @@ export default function SensorsPage() {
               <Marker key={s.id} position={[s.latitude, s.longitude]}>
                 <Popup>
                   <div className="text-sm">
-                    <strong>{s.name}</strong><br />
-                    Type: {s.type}<br />
-                    Status: <span style={{ color: statusColors[s.status] }}>{s.status}</span><br />
+                    <strong>{s.name}</strong>
+
+                    Type: {s.type}
+
+                    Status: <span style={{ color: statusColors[s.status] }}>{s.status}</span>
+
                     <Link to={`/sensors/${s.id}`} className="text-forest-600 hover:underline">View details →</Link>
                   </div>
                 </Popup>
@@ -258,10 +261,12 @@ export default function SensorsPage() {
             <input type="text" className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               placeholder="e.g., New Delhi" value={form.location} onChange={set('location')} />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Sensor Type <span className="text-red-500">*</span></label>
             <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               value={form.type} onChange={set('type')}>
+              <option value="">Select a type</option>
               {SENSOR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>

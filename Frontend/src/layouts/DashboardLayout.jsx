@@ -21,14 +21,13 @@ const navByRole = {
     { label: 'Projects', icon: FolderKanban, to: '/projects' },
     { label: 'Notifications', icon: Bell, to: '/notifications' },
   ],
-  OFFICER: [
+  AGENCY_OFFICER: [
     { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Issues', icon: AlertTriangle, to: '/issues' },
     { label: 'Sensors', icon: Activity, to: '/sensors' },
     { label: 'Sensor Data', icon: Database, to: '/sensor-data' },
+    { label: 'Analysis', icon: FlaskConical, to: '/analysis' },
     { label: 'Projects', icon: FolderKanban, to: '/projects' },
-    { label: 'Compliance', icon: ShieldCheck, to: '/compliance' },
-    { label: 'Audits', icon: ClipboardList, to: '/audits' },
     { label: 'Reports', icon: FileText, to: '/reports' },
     { label: 'Notifications', icon: Bell, to: '/notifications' },
   ],
@@ -36,7 +35,6 @@ const navByRole = {
     { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Emissions', icon: Factory, to: '/emissions' },
     { label: 'Documents', icon: FileText, to: '/documents' },
-    { label: 'Projects', icon: FolderKanban, to: '/projects' },
     { label: 'Notifications', icon: Bell, to: '/notifications' },
   ],
   SCIENTIST: [
@@ -50,7 +48,9 @@ const navByRole = {
     { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Compliance', icon: ShieldCheck, to: '/compliance' },
     { label: 'Audits', icon: ClipboardList, to: '/audits' },
-    { label: 'Reports', icon: FileText, to: '/reports' },
+    { label: 'Emissions', icon: Factory, to: '/emissions' },
+    { label: 'Documents', icon: FileText, to: '/documents' },
+    { label: 'Reports', icon: ScrollText, to: '/reports' },
     { label: 'Notifications', icon: Bell, to: '/notifications' },
   ],
   ADMINISTRATOR: [

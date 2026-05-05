@@ -17,6 +17,10 @@ export const getDocumentsByIndustry = (industryName) =>
   axiosInstance.get('/industry-documents/industry', { params: { industryName } });
 export const getDocumentViewUrl = (docId) => `/api/v1/industry-documents/${docId}?view=true`;
 export const getDocumentDownloadUrl = (docId) => `/api/v1/industry-documents/${docId}?download=true`;
+export const fetchDocumentBlob = (docId) =>
+  axiosInstance.get(`/industry-documents/${docId}`, { params: { view: true }, responseType: 'blob' });
+export const downloadDocumentBlob = (docId) =>
+  axiosInstance.get(`/industry-documents/${docId}`, { params: { download: true }, responseType: 'blob' });
 export const submitDocument = (formData, onProgress) =>
   axiosInstance.post('/industry-documents', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

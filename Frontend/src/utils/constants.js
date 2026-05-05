@@ -1,19 +1,19 @@
 export const ROLES = {
   CITIZEN: 'CITIZEN',
-  OFFICER: 'OFFICER',
+  AGENCY_OFFICER: 'AGENCY_OFFICER',
+  COMPLIANCE_OFFICER: 'COMPLIANCE_OFFICER',
   INDUSTRY: 'INDUSTRY',
   SCIENTIST: 'SCIENTIST',
-  COMPLIANCE_OFFICER: 'COMPLIANCE_OFFICER',
   ADMINISTRATOR: 'ADMINISTRATOR',
   SUPER_ADMIN: 'SUPER_ADMIN',
 };
 
 export const ROLE_LABELS = {
   CITIZEN: 'Citizen',
-  OFFICER: 'Agency Officer',
+  AGENCY_OFFICER: 'Agency Officer',
+  COMPLIANCE_OFFICER: 'Compliance Officer',
   INDUSTRY: 'Industry Representative',
   SCIENTIST: 'Environmental Scientist',
-  COMPLIANCE_OFFICER: 'Compliance Officer',
   ADMINISTRATOR: 'Administrator',
   SUPER_ADMIN: 'Super Admin',
 };
@@ -48,9 +48,9 @@ export const PROJECT_STATUSES = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD
 export const MILESTONE_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'DELAYED'];
 export const IMPACT_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'];
 export const REPORT_SCOPES = ['ISSUE', 'EMISSION', 'PROJECT'];
-export const COMPLIANCE_TYPES = ['INDUSTRY', 'PROJECT', 'POLICY'];
-export const COMPLIANCE_RESULTS = ['COMPLIANT', 'NON_COMPLIANT', 'PENDING'];
-export const AUDIT_STATUSES = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+export const COMPLIANCE_TYPES = ['EMISSION', 'DOCUMENT', 'AUDIT', 'SAFETY', 'ENVIRONMENTAL'];
+export const COMPLIANCE_RESULTS = ['COMPLIANT', 'NON_COMPLIANT', 'PARTIALLY_COMPLIANT', 'PENDING'];
+export const AUDIT_STATUSES = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
 export const STATUS_COLORS = {
   // Issues
@@ -85,6 +85,7 @@ export const STATUS_COLORS = {
   // Compliance
   COMPLIANT: 'bg-green-100 text-green-700',
   NON_COMPLIANT: 'bg-red-100 text-red-700',
+  PARTIALLY_COMPLIANT: 'bg-yellow-100 text-yellow-700',
   // Audit
   SCHEDULED: 'bg-blue-100 text-blue-700',
   // Notifications

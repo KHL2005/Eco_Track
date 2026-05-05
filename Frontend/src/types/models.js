@@ -18,7 +18,7 @@
  * @property {string} name
  * @property {string} email
  * @property {string} phone
- * @property {'CITIZEN'|'OFFICER'|'INDUSTRY'|'SCIENTIST'|'COMPLIANCE_OFFICER'|'ADMINISTRATOR'|'SUPER_ADMIN'} role
+ * @property {'CITIZEN'|'AGENCY_OFFICER'|'COMPLIANCE_OFFICER'|'INDUSTRY'|'SCIENTIST'|'ADMINISTRATOR'|'SUPER_ADMIN'} role
  * @property {'ACTIVE'|'INACTIVE'} status
  * @property {string} createdAt
  */
