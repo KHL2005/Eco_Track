@@ -4,6 +4,7 @@ import com.ecotrack.iam.dto.ChangePasswordRequest;
 import com.ecotrack.iam.dto.CreateUserRequest;
 import com.ecotrack.iam.dto.UpdateUserRequest;
 import com.ecotrack.iam.dto.UpdateProfileRequest;
+import com.ecotrack.iam.exception.BadRequestException;
 import com.ecotrack.iam.response.ApiResponse;
 import com.ecotrack.iam.dto.UserResponse;
 import com.ecotrack.iam.enums.UserRole;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +28,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "User Management", description = "Admin user management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class UserController {
@@ -38,8 +41,17 @@ public class UserController {
     public ResponseEntity<UserResponse> createUser(
             @Valid @RequestBody CreateUserRequest request,
             @RequestHeader("X-User-Role") String callerRole) {
-        UserRole role = UserRole.valueOf(callerRole);
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request, role));
+        log.info("User creation request received: targetRole={}, callerRole={}", request.getRole(), callerRole);
+        UserRole resolvedCallerRole;
+        try {
+            resolvedCallerRole = UserRole.valueOf(callerRole);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid caller role in X-User-Role header: '{}'", callerRole);
+            throw new BadRequestException("Invalid caller role: '" + callerRole + "'");
+        }
+        UserResponse created = userService.createUser(request, resolvedCallerRole);
+        log.info("User created successfully: userId={}, role={}", created.getUserId(), created.getRole());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping

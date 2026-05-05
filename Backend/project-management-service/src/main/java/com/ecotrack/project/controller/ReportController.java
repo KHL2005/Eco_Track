@@ -25,7 +25,7 @@ public class ReportController {
 
     @PostMapping
     @Operation(summary = "Generate a new report")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
     public ResponseEntity<ReportResponse> createReport(@Valid @RequestBody ReportRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reportService.createReport(request));
     }

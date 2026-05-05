@@ -52,7 +52,7 @@ public class IndustryController {
 
     @PatchMapping("/api/v1/emissions/{id}/status")
     @Operation(summary = "Update emission status (SUBMITTED → APPROVED / REJECTED)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMIN')")
     public ResponseEntity<EmissionLogResponse> updateEmissionStatus(
             @PathVariable Long id, @RequestParam("status") EmissionStatus status) {
         return ResponseEntity.ok(industryService.updateEmissionStatus(id, status));
@@ -153,7 +153,7 @@ public class IndustryController {
 
     @PatchMapping("/api/v1/industry-documents/{docId}/verify")
     @Operation(summary = "Verify or reject a document (SUBMITTED → APPROVED / REJECTED)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMIN')")
     public ResponseEntity<IndustryDocumentResponse> verifyDocument(
             @PathVariable Long docId, @RequestParam("status") VerificationStatus status) {
         return ResponseEntity.ok(industryService.verifyDocument(docId, status));

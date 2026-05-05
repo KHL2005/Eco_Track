@@ -9,8 +9,8 @@ public class IamServiceClientFallback implements IamServiceClient {
     public UserDto getUserById(Long id) {
         return UserDto.builder()
                 .userId(id)
-                .name("Unknown Officer")
-                .role("OFFICER")
+                .name("Unknown Compliance Officer")
+                .role("COMPLIANCE_OFFICER")
                 .status("ACTIVE")
                 .build();
     }

@@ -116,12 +116,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     "/api/v1/issues",
                     "/api/v1/notifications"
             )),
-            Map.entry("OFFICER", List.of(
+            Map.entry("AGENCY_OFFICER", List.of(
                     "/api/v1/issues",
                     "/api/v1/sensors",          "/api/v1/sensor-data",
                     "/api/v1/analysis",         "/api/v1/upload-csv",
-                    "/api/v1/compliance",       "/api/v1/audits",
                     "/api/v1/projects",         "/api/v1/reports",
+                    "/api/v1/users",            "/api/v1/notifications"
+            )),
+            Map.entry("COMPLIANCE_OFFICER", List.of(
+                    "/api/v1/compliance",       "/api/v1/audits",
                     "/api/v1/emissions",        "/api/v1/industry-documents",
                     "/api/v1/users",            "/api/v1/notifications"
             )),

@@ -10,7 +10,7 @@ public class IamServiceClientFallback implements IamServiceClient {
         return UserDto.builder()
                 .userId(id)
                 .name("Unknown User")
-                .role("OFFICER")
+                .role("AGENCY_OFFICER")
                 .status("ACTIVE")
                 .build();
     }

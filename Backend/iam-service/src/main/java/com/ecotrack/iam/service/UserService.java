@@ -13,6 +13,7 @@ import com.ecotrack.iam.exception.DuplicateResourceException;
 import com.ecotrack.iam.exception.ResourceNotFoundException;
 import com.ecotrack.iam.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -69,18 +71,20 @@ public class UserService {
     /**
      * Admin user creation with role hierarchy enforcement.
      * - Only SUPER_ADMIN can assign SUPER_ADMIN or ADMINISTRATOR roles.
-     * - ADMINISTRATOR can create OFFICER, SCIENTIST, INDUSTRY, CITIZEN.
+     * - ADMINISTRATOR can create AGENCY_OFFICER, COMPLIANCE_OFFICER, SCIENTIST, INDUSTRY, CITIZEN.
      */
     @Transactional
     public UserResponse createUser(CreateUserRequest request, UserRole callerRole) {
+        UserRole targetRole = request.getRole();
+        log.info("createUser: email={}, targetRole={}, callerRole={}", request.getEmail(), targetRole, callerRole);
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Email already registered: " + request.getEmail());
         }
 
-        UserRole targetRole = request.getRole();
-
         // Enforce role hierarchy
         if (PRIVILEGED_ROLES.contains(targetRole) && callerRole != UserRole.SUPER_ADMIN) {
+            log.warn("createUser: role hierarchy violation — caller={} attempted to assign targetRole={}", callerRole, targetRole);
             throw new BadRequestException("Only SUPER_ADMIN can assign ADMINISTRATOR or SUPER_ADMIN roles");
         }
 

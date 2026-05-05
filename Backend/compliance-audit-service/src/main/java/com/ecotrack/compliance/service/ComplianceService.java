@@ -66,6 +66,15 @@ public class ComplianceService {
     }
 
     @Transactional
+    public ComplianceRecordResponse updateRecord(Long id, ComplianceResult result, String notes) {
+        ComplianceRecord record = complianceRecordRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("ComplianceRecord", id));
+        record.setResult(result);
+        if (notes != null) record.setNotes(notes);
+        return toRecordResponse(complianceRecordRepository.save(record));
+    }
+
+    @Transactional
     public void deleteRecord(Long id) {
         if (!complianceRecordRepository.existsById(id)) throw new ResourceNotFoundException("ComplianceRecord", id);
         complianceRecordRepository.deleteById(id);

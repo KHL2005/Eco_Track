@@ -30,7 +30,7 @@ public class ProjectController {
 
     @PostMapping
     @Operation(summary = "Create a sustainability project")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ProjectResponse> createProject(@Valid @RequestBody ProjectRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(projectService.createProject(request));
     }
@@ -55,7 +55,7 @@ public class ProjectController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Partially update a project (title, description, dates, budget, status)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ProjectResponse> updateProject(@PathVariable("id") Long id,
                                                           @RequestBody ProjectRequest request) {
         return ResponseEntity.ok(projectService.updateProject(id, request));
@@ -73,7 +73,7 @@ public class ProjectController {
 
     @PostMapping("/{projectId}/milestones")
     @Operation(summary = "Add a milestone to a project (projectId required)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<MilestoneResponse> addMilestone(@PathVariable("projectId") Long projectId,
                                                            @Valid @RequestBody MilestoneRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -100,7 +100,7 @@ public class ProjectController {
 
     @PatchMapping("/milestones/{milestoneId}")
     @Operation(summary = "Partially update a milestone (title, date, status)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<MilestoneResponse> updateMilestone(@PathVariable("milestoneId") Long milestoneId,
                                                               @RequestBody MilestoneRequest request) {
         return ResponseEntity.ok(projectService.updateMilestone(milestoneId, request));
@@ -108,7 +108,7 @@ public class ProjectController {
 
     @DeleteMapping("/milestones/{milestoneId}")
     @Operation(summary = "Delete a milestone by ID")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<Void> deleteMilestone(@PathVariable("milestoneId") Long milestoneId) {
         projectService.deleteMilestone(milestoneId);
         return ResponseEntity.noContent().build();
@@ -118,7 +118,7 @@ public class ProjectController {
 
     @PostMapping("/{projectId}/impact")
     @Operation(summary = "Add or update impact for a project (projectId required)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','SCIENTIST','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','SCIENTIST','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ImpactResponse> addOrUpdateImpact(@PathVariable("projectId") Long projectId,
                                                              @Valid @RequestBody ImpactRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -145,7 +145,7 @@ public class ProjectController {
 
     @PatchMapping("/{projectId}/impact/status")
     @Operation(summary = "Update impact status for a project (DRAFT, PUBLISHED, ARCHIVED)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ImpactResponse> updateImpactStatus(@PathVariable("projectId") Long projectId,
                                                               @RequestParam("status") ImpactStatus status) {
         return ResponseEntity.ok(projectService.updateImpactStatus(projectId, status));
@@ -155,7 +155,7 @@ public class ProjectController {
     @Operation(summary = "Partially update predefined impact metrics — only provided fields are updated, customMetrics are merged",
                description = "For a pollution project you can later add treesPlanted, co2ReducedTons etc. " +
                              "without resetting the existing metrics. Null fields are ignored.")
-    @PreAuthorize("hasAnyAuthority('OFFICER','SCIENTIST','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','SCIENTIST','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ImpactResponse> patchMetrics(@PathVariable("projectId") Long projectId,
                                                         @RequestBody ImpactMetrics patch) {
         return ResponseEntity.ok(projectService.patchMetrics(projectId, patch));
@@ -165,7 +165,7 @@ public class ProjectController {
     @Operation(summary = "Add or update custom metric key-value pairs — merged into existing custom metrics",
                description = "Use this to add any project-specific metric. " +
                              "Example: { \"aqiBefore\": 180, \"aqiAfter\": 95, \"treesPlantedNearFactory\": 50 }")
-    @PreAuthorize("hasAnyAuthority('OFFICER','SCIENTIST','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','SCIENTIST','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ImpactResponse> addOrUpdateCustomMetrics(@PathVariable("projectId") Long projectId,
                                                                     @RequestBody Map<String, Object> customEntries) {
         return ResponseEntity.ok(projectService.addOrUpdateCustomMetrics(projectId, customEntries));
@@ -174,7 +174,7 @@ public class ProjectController {
     @DeleteMapping("/{projectId}/impact/metrics/custom/{key}")
     @Operation(summary = "Remove a single custom metric key from an impact",
                description = "Example: DELETE /projects/1/impact/metrics/custom/aqiBefore")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ImpactResponse> removeCustomMetric(@PathVariable("projectId") Long projectId,
                                                               @PathVariable("key") String key) {
         return ResponseEntity.ok(projectService.removeCustomMetric(projectId, key));
@@ -182,7 +182,7 @@ public class ProjectController {
 
     @DeleteMapping("/{projectId}/impact")
     @Operation(summary = "Delete impact for a project")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<Void> deleteImpact(@PathVariable("projectId") Long projectId) {
         projectService.deleteImpact(projectId);
         return ResponseEntity.noContent().build();

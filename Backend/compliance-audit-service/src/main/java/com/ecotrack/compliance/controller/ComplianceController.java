@@ -25,7 +25,7 @@ public class ComplianceController {
 
     @PostMapping("/api/v1/compliance")
     @Operation(summary = "Create a compliance record")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ComplianceRecordResponse> create(@Valid @RequestBody ComplianceRecordRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(complianceService.createRecord(request));
     }
@@ -60,9 +60,18 @@ public class ComplianceController {
         return ResponseEntity.ok(complianceService.getByResult(result));
     }
 
+    @PatchMapping("/api/v1/compliance/{id}")
+    @Operation(summary = "Update compliance record result and notes")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    public ResponseEntity<ComplianceRecordResponse> update(@PathVariable("id") Long id,
+                                                            @RequestParam("result") ComplianceResult result,
+                                                            @RequestParam(name = "notes", required = false) String notes) {
+        return ResponseEntity.ok(complianceService.updateRecord(id, result, notes));
+    }
+
     @DeleteMapping("/api/v1/compliance/{id}")
     @Operation(summary = "Delete a compliance record")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         complianceService.deleteRecord(id);
         return ResponseEntity.noContent().build();
@@ -70,7 +79,7 @@ public class ComplianceController {
 
     @PostMapping("/api/v1/audits")
     @Operation(summary = "Create an audit")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<AuditResponse> createAudit(@Valid @RequestBody AuditRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(complianceService.createAudit(request));
     }
@@ -95,7 +104,7 @@ public class ComplianceController {
 
     @PatchMapping("/api/v1/audits/{id}/status")
     @Operation(summary = "Update audit status and findings")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<AuditResponse> updateStatus(@PathVariable("id") Long id,
                                                        @RequestParam("status") AuditStatus status,
                                                        @RequestParam(name = "findings", required = false) String findings) {

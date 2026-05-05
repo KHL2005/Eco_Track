@@ -31,21 +31,21 @@ public class MonitoringController {
 
     @PostMapping("/api/v1/sensors")
     @Operation(summary = "Register a new sensor")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorResponse> createSensor(@Valid @RequestBody SensorRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(monitoringService.createSensor(request));
     }
 
     @GetMapping("/api/v1/sensors")
     @Operation(summary = "Get all sensors")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<List<SensorResponse>> getAllSensors() {
         return ResponseEntity.ok(monitoringService.getAllSensors());
     }
 
     @GetMapping("/api/v1/sensors/{id}")
     @Operation(summary = "Get sensor by ID")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorResponse> getSensorById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(monitoringService.getSensorById(id));
     }
@@ -53,7 +53,7 @@ public class MonitoringController {
 
     @PatchMapping("/api/v1/sensors/{id}/status")
     @Operation(summary = "Update sensor status (ACTIVE, INACTIVE, MAINTENANCE)")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorResponse> updateSensorStatus(@PathVariable("id") Long id,
                                                               @RequestParam("status") SensorStatus status) {
         return ResponseEntity.ok(monitoringService.updateSensorStatus(id, status));
@@ -61,7 +61,7 @@ public class MonitoringController {
 
     @PatchMapping("/api/v1/sensors/{id}/location")
     @Operation(summary = "Update sensor location")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorResponse> updateSensorLocation(@PathVariable("id") Long id,
                                                                 @RequestParam("location") String location) {
         return ResponseEntity.ok(monitoringService.updateSensorLocation(id, location));
@@ -69,7 +69,7 @@ public class MonitoringController {
 
     @PatchMapping("/api/v1/sensors/{id}/type")
     @Operation(summary = "Update sensor type")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorResponse> updateSensorType(@PathVariable("id") Long id,
                                                             @RequestParam("type") SensorType type) {
         return ResponseEntity.ok(monitoringService.updateSensorType(id, type));
@@ -77,7 +77,7 @@ public class MonitoringController {
 
     @DeleteMapping("/api/v1/sensors/{id}")
     @Operation(summary = "Delete sensor and all its data")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<Void> deleteSensor(@PathVariable("id") Long id) {
         monitoringService.deleteSensor(id);
         return ResponseEntity.noContent().build();
@@ -87,35 +87,35 @@ public class MonitoringController {
 
     @PostMapping("/api/v1/sensor-data")
     @Operation(summary = "Submit sensor data reading (auto-triggers analysis)")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorDataResponse> addSensorData(@Valid @RequestBody SensorDataRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(monitoringService.addSensorData(request));
     }
 
     @GetMapping("/api/v1/sensor-data")
     @Operation(summary = "Get all sensor data readings")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<List<SensorDataResponse>> getAllSensorData() {
         return ResponseEntity.ok(monitoringService.getAllSensorData());
     }
 
     @GetMapping("/api/v1/sensor-data/{dataId}")
     @Operation(summary = "Get sensor data by ID")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<SensorDataResponse> getSensorDataById(@PathVariable("dataId") Long dataId) {
         return ResponseEntity.ok(monitoringService.getSensorDataById(dataId));
     }
 
     @GetMapping("/api/v1/sensor-data/sensor/{sensorId}")
     @Operation(summary = "Get all data readings for a specific sensor")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<List<SensorDataResponse>> getDataBySensor(@PathVariable("sensorId") Long sensorId) {
         return ResponseEntity.ok(monitoringService.getDataBySensor(sensorId));
     }
 
     @DeleteMapping("/api/v1/sensor-data/{dataId}")
     @Operation(summary = "Delete sensor data and linked analyses")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<Void> deleteSensorData(@PathVariable("dataId") Long dataId) {
         monitoringService.deleteSensorData(dataId);
         return ResponseEntity.noContent().build();
@@ -125,7 +125,7 @@ public class MonitoringController {
 
     @PostMapping(value = "/api/v1/upload-csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload CSV file for bulk sensor data ingestion")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<CsvUploadResponse> uploadCsv(
             @RequestParam("file") MultipartFile file,
             @RequestParam("sensorId") Long sensorId,
@@ -138,28 +138,28 @@ public class MonitoringController {
 
     @PostMapping("/api/v1/analysis")
     @Operation(summary = "Manually create an analysis record")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<AnalysisResponse> createAnalysis(@Valid @RequestBody AnalysisRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(monitoringService.createAnalysis(request));
     }
 
     @GetMapping("/api/v1/analysis")
     @Operation(summary = "Get all analysis records")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<List<AnalysisResponse>> getAllAnalyses() {
         return ResponseEntity.ok(monitoringService.getAllAnalyses());
     }
 
     @GetMapping("/api/v1/analysis/{id}")
     @Operation(summary = "Get analysis by ID")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<AnalysisResponse> getAnalysisById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(monitoringService.getAnalysisById(id));
     }
 
     @GetMapping("/api/v1/analysis/data/{dataId}")
     @Operation(summary = "Get all analyses for a sensor data record")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<List<AnalysisResponse>> getAnalysesByDataId(@PathVariable("dataId") Long dataId) {
         return ResponseEntity.ok(monitoringService.getAnalysesByDataId(dataId));
     }
@@ -167,7 +167,7 @@ public class MonitoringController {
 
     @GetMapping("/api/v1/analysis/scientist/{scientistId}")
     @Operation(summary = "Get all analyses assigned to a specific scientist")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<List<AnalysisResponse>> getAnalysisByScientistId(
             @PathVariable("scientistId") Long scientistId) {
         return ResponseEntity.ok(monitoringService.getAnalysisByScientistId(scientistId));
@@ -188,7 +188,7 @@ public class MonitoringController {
 
     @DeleteMapping("/api/v1/analysis/{id}")
     @Operation(summary = "Delete an analysis record")
-    @PreAuthorize("hasAnyAuthority('OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<Void> deleteAnalysis(@PathVariable("id") Long id) {
         monitoringService.deleteAnalysis(id);
         return ResponseEntity.noContent().build();
