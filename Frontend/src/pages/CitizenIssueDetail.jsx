@@ -4,7 +4,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
-import { ArrowLeft, MapPin, Calendar, User } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, File, Download } from 'lucide-react';
 import * as issuesApi from '../api/issuesApi';
 import { formatDateTime, labelify } from '../utils/formatters';
 
@@ -55,23 +55,63 @@ export default function CitizenIssueDetail() {
           <p className="text-bark-600 text-sm leading-relaxed">{issue.description}</p>
         </Card>
 
-        {/* Media */}
-        <Card className="mb-4">
-          <h3 className="font-semibold text-bark-800 mb-4">Media</h3>
-          {issue.mediaUrls?.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {issue.mediaUrls.map((url) => {
-                const fileName = url.split('/').pop();
-                const imgUrl = issuesApi.getMediaUrl(id, fileName);
-                return (
-                  <div key={url} className="aspect-video bg-earth-100 rounded-xl overflow-hidden">
-                    <img src={imgUrl} alt={fileName} className="w-full h-full object-cover" />
-                  </div>
-                );
-              })}
-            </div>
-          ) : <p className="text-sm text-bark-400">No media attached.</p>}
-        </Card>
+         {/* Media */}
+         <Card className="mb-4">
+           <h3 className="font-semibold text-bark-800 mb-4">Uploaded Media</h3>
+           {issue.mediaUrls?.length > 0 ? (
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+               {issue.mediaUrls.map((url) => {
+                 const fileName = url.split('/').pop();
+                 const mediaUrl = issuesApi.getMediaUrl(id, fileName);
+                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                 const isVideo = /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(fileName);
+
+                 return (
+                   <div key={url} className="rounded-xl overflow-hidden border border-bark-400/10 bg-bark-100">
+                     {isImage ? (
+                       <div className="aspect-video bg-earth-100 overflow-hidden">
+                         <img
+                           src={mediaUrl}
+                           alt={fileName}
+                           className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                         />
+                       </div>
+                     ) : isVideo ? (
+                       <video
+                         controls
+                         className="w-full h-auto"
+                         style={{ maxHeight: '400px' }}
+                       >
+                         <source src={mediaUrl} />
+                         Your browser does not support the video tag.
+                       </video>
+                     ) : (
+                       <div className="aspect-video bg-earth-100 rounded-xl overflow-hidden flex flex-col items-center justify-center p-4">
+                         <File size={40} className="text-bark-400 mb-2" />
+                       </div>
+                     )}
+                     <div className="p-3 flex items-center justify-between">
+                       <span className="text-xs text-bark-600 truncate flex-1">{fileName}</span>
+                       <a
+                         href={mediaUrl}
+                         download={fileName}
+                         className="ml-2 p-1 text-forest-600 hover:bg-forest-100 rounded transition-colors"
+                         title="Download media"
+                       >
+                         <Download size={16} />
+                       </a>
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
+           ) : (
+             <div className="text-center py-8 text-bark-400">
+               <File size={32} className="mx-auto mb-2 opacity-50" />
+               <p className="text-sm">No media attached to this issue.</p>
+             </div>
+           )}
+         </Card>
 
         {/* Resolution */}
         <Card>

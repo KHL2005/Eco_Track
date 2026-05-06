@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
-import { Eye } from 'lucide-react';
+import { Eye, Image, Film } from 'lucide-react';
 import * as issuesApi from '../api/issuesApi';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime, labelify } from '../utils/formatters';
@@ -29,23 +29,34 @@ export default function CitizenIssues() {
     return true;
   });
 
-  const columns = [
-    { key: 'id', label: '#', sortable: true, render: r => <span className="text-bark-400 text-xs">#{r.id}</span> },
-    { key: 'title', label: 'Title', sortable: true, render: r => (
-      <Link to={`/citizen/issues/${r.id}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">{r.title}</Link>
-    )},
-    { key: 'type', label: 'Type', render: r => <span className="text-xs text-bark-600">{labelify(r.type)}</span> },
-    { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
-    { key: 'createdAt', label: 'Date', sortable: true, render: r => <span className="text-xs text-bark-400">{formatDateTime(r.createdAt)}</span> },
-    {
-      label: 'Actions',
-      render: (r) => (
-        <div className="flex items-center gap-2">
-          <Link to={`/citizen/issues/${r.id}`}><Button size="sm" variant="ghost"><Eye size={14} /></Button></Link>
-        </div>
-      )
-    },
-  ];
+   const columns = [
+     { key: 'id', label: '#', sortable: true, render: r => <span className="text-bark-400 text-xs">#{r.id}</span> },
+     { key: 'title', label: 'Title', sortable: true, render: r => (
+       <Link to={`/citizen/issues/${r.id}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">{r.title}</Link>
+     )},
+     { key: 'type', label: 'Type', render: r => <span className="text-xs text-bark-600">{labelify(r.type)}</span> },
+     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
+     { key: 'media', label: 'Media', render: r => {
+       if (!r.mediaUrls || r.mediaUrls.length === 0) return <span className="text-xs text-bark-300">—</span>;
+       const images = r.mediaUrls.filter(url => /\.(jpg|jpeg|png|gif|webp)$/i.test(url));
+       const videos = r.mediaUrls.filter(url => /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(url));
+       return (
+         <div className="flex items-center gap-2">
+           {images.length > 0 && <span className="flex items-center gap-1 text-xs text-forest-600" title={`${images.length} image(s)`}><Image size={14} /> {images.length}</span>}
+           {videos.length > 0 && <span className="flex items-center gap-1 text-xs text-blue-600" title={`${videos.length} video(s)`}><Film size={14} /> {videos.length}</span>}
+         </div>
+       );
+     }},
+     { key: 'createdAt', label: 'Date', sortable: true, render: r => <span className="text-xs text-bark-400">{formatDateTime(r.createdAt)}</span> },
+     {
+       label: 'Actions',
+       render: (r) => (
+         <div className="flex items-center gap-2">
+           <Link to={`/citizen/issues/${r.id}`}><Button size="sm" variant="ghost"><Eye size={14} /></Button></Link>
+         </div>
+       )
+     },
+   ];
 
   return (
     <DashboardLayout>

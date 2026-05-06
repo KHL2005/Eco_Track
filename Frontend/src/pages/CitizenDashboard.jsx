@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Plus, FileText, Bell } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Plus, FileText, Bell, Image, Film } from 'lucide-react';
 import * as issuesApi from '../api/issuesApi';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/formatters';
@@ -155,26 +155,39 @@ export default function CitizenDashboard() {
                 <h4 className="text-lg font-medium text-bark-600 mb-2">No issues reported yet</h4>
                 <p className="text-bark-500">Start making a difference by reporting environmental issues in your community.</p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {recentIssues.map((issue) => (
-                  <div key={issue.id} className="flex items-center justify-between p-3 bg-earth-50 rounded-lg hover:bg-earth-100 transition-colors">
-                    <div className="flex-1">
-                      <Link to={`/citizen/issues/${issue.id}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">
-                        {issue.title}
-                      </Link>
-                      <p className="text-sm text-bark-500 mt-1">{issue.description?.substring(0, 100)}...</p>
-                      <p className="text-xs text-bark-400 mt-1">
-                        Reported on {formatDateTime(issue.createdAt)}
-                      </p>
-                    </div>
-                    <div className="ml-4">
-                      <StatusBadge status={issue.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+             ) : (
+               <div className="space-y-3">
+                 {recentIssues.map((issue) => (
+                   <div key={issue.id} className="flex items-center justify-between p-3 bg-earth-50 rounded-lg hover:bg-earth-100 transition-colors">
+                     <div className="flex-1">
+                       <Link to={`/citizen/issues/${issue.id}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">
+                         {issue.title}
+                       </Link>
+                       <p className="text-sm text-bark-500 mt-1">{issue.description?.substring(0, 100)}...</p>
+                       <div className="flex items-center gap-2 mt-1">
+                         <p className="text-xs text-bark-400">
+                           Reported on {formatDateTime(issue.createdAt)}
+                         </p>
+                         {issue.mediaUrls && issue.mediaUrls.length > 0 && (
+                           <span className="text-xs bg-forest-50 text-forest-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                             {(() => {
+                               const images = issue.mediaUrls.filter(url => /\.(jpg|jpeg|png|gif|webp)$/i.test(url)).length;
+                               const videos = issue.mediaUrls.filter(url => /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(url)).length;
+                               if (images && videos) return `${images} ${images === 1 ? 'image' : 'images'}, ${videos} ${videos === 1 ? 'video' : 'videos'}`;
+                               if (images) return `${images} ${images === 1 ? 'image' : 'images'}`;
+                               if (videos) return `${videos} ${videos === 1 ? 'video' : 'videos'}`;
+                             })()}
+                           </span>
+                         )}
+                       </div>
+                     </div>
+                     <div className="ml-4">
+                       <StatusBadge status={issue.status} />
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
           </Card>
         </div>
       )}
