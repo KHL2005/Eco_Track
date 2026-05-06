@@ -1,7 +1,7 @@
 import axiosInstance from './axiosInstance';
 
 // Mock data for development when backend is not available
-const mockIssues = [
+let mockIssues = [
   {
     id: 1,
     title: "Illegal dumping near Greenfield Park",
@@ -49,7 +49,8 @@ export const getIssueById = (id) =>
 export const getIssuesByCitizen = (citizenId) =>
   axiosInstance.get(`/issues/citizen/${citizenId}`)
     .catch(() => {
-      const userIssues = mockIssues.filter(i => i.citizenId === parseInt(citizenId));
+      // Filter issues by citizenId instead of mapping all to the current user
+      const userIssues = mockIssues.filter(issue => issue.citizenId === parseInt(citizenId));
       return Promise.resolve({ data: userIssues });
     });
 
@@ -83,7 +84,7 @@ export const createIssue = (data) =>
       return response;
     })
     .catch(() => {
-      // Create mock response
+      // Create mock response with proper citizen data
       const newIssue = {
         ...data,
         id: mockIssues.length + 1,
@@ -139,7 +140,11 @@ export const uploadMedia = (issueId, file, onProgress) => {
     onUploadProgress: onProgress,
   })
   .catch(() => {
-    // Mock successful upload for development
+    // Mock successful upload for development and update mock issue
+    const issue = mockIssues.find(i => i.id === parseInt(issueId));
+    if (issue) {
+      issue.mediaUrls.push(file.name);
+    }
     return Promise.resolve({ data: { message: 'Media uploaded successfully (mock)' } });
   });
 };

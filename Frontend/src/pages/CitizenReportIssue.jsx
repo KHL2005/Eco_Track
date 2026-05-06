@@ -25,7 +25,7 @@ export default function CitizenReportIssue() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [form, setForm] = useState({ title: '', description: '', type: '', location: '' });
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState({});
 
@@ -43,17 +43,25 @@ export default function CitizenReportIssue() {
   const createMut = useMutation({
     mutationFn: (data) => issuesApi.createIssue(data),
     onSuccess: async (res) => {
+      qc.invalidateQueries({ queryKey: ['issues', 'citizen', user?.userId] });
       qc.invalidateQueries({ queryKey: ['issues'] });
 
-      // Upload media if file was selected
-      if (selectedFile) {
-        try {
-          await issuesApi.uploadMedia(res.data.id, selectedFile, (progress) => {
-            setUploadProgress(Math.round(progress.loaded / progress.total * 100));
-          });
+      // Upload media if files were selected
+      if (selectedFiles.length > 0) {
+        let uploadSuccess = true;
+        for (const file of selectedFiles) {
+          try {
+            await issuesApi.uploadMedia(res.data.id, file, (progress) => {
+              setUploadProgress(Math.round(progress.loaded / progress.total * 100));
+            });
+          } catch (uploadError) {
+            uploadSuccess = false;
+          }
+        }
+        if (uploadSuccess) {
           toast.success('Issue reported with media successfully!');
-        } catch (uploadError) {
-          toast.warning('Issue reported but media upload failed. You can try uploading again from the issue details.');
+        } else {
+          toast.warning('Issue reported but some media uploads failed.');
         }
       } else {
         toast.success('Issue reported successfully!');
@@ -107,7 +115,7 @@ export default function CitizenReportIssue() {
               <FileUpload
                 accept="image/*,video/*"
                 label="Upload photo or video evidence"
-                onFile={setSelectedFile}
+                onFile={setSelectedFiles}
                 progress={uploadProgress}
               />
             </Field>
