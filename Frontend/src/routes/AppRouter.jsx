@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { GuestRoute, ProtectedRoute, CitizenGuard } from './Guards';
+import { GuestRoute, ProtectedRoute } from './Guards';
 
 // Public
 import HomePage from '../pages/HomePage';
@@ -38,12 +38,6 @@ import AuditsPage from '../pages/AuditsPage';
 
 // Admin
 import AdminUsersPage from '../pages/AdminUsersPage';
-
-// Citizen-specific pages
-import CitizenDashboard from '../pages/CitizenDashboard';
-import CitizenReportIssue from '../pages/CitizenReportIssue';
-import CitizenIssues from '../pages/CitizenIssues';
-import CitizenIssueDetail from '../pages/CitizenIssueDetail';
 
 export default function AppRouter() {
   return (
@@ -89,12 +83,6 @@ export default function AppRouter() {
 
         {/* Admin */}
         <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
-
-        {/* Citizen routes */}
-        <Route path="/citizen/dashboard" element={<CitizenGuard><CitizenDashboard /></CitizenGuard>} />
-        <Route path="/citizen/report" element={<CitizenGuard><CitizenReportIssue /></CitizenGuard>} />
-        <Route path="/citizen/issues" element={<CitizenGuard><CitizenIssues /></CitizenGuard>} />
-        <Route path="/citizen/issues/:id" element={<CitizenGuard><CitizenIssueDetail /></CitizenGuard>} />
 
         {/* Legacy dashboard paths → redirect to /dashboard */}
         {['super-admin', 'admin', 'officer', 'scientist', 'industry', 'citizen'].map((r) => (

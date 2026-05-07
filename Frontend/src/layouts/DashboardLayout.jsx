@@ -15,9 +15,10 @@ import {
 
 const navByRole = {
   CITIZEN: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/citizen/dashboard' },
-    { label: 'Report Issue', icon: AlertTriangle, to: '/citizen/report' },
-    { label: 'My Issues', icon: ClipboardList, to: '/citizen/issues' },
+    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Report Issue', icon: AlertTriangle, to: '/issues/new' },
+    { label: 'My Issues', icon: ClipboardList, to: '/issues/mine' },
+    { label: 'Projects', icon: FolderKanban, to: '/projects' },
     { label: 'Notifications', icon: Bell, to: '/notifications' },
   ],
   AGENCY_OFFICER: [
