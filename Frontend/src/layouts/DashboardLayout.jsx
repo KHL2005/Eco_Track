@@ -183,7 +183,11 @@ export default function DashboardLayout({ children }) {
   );
 
   return (
+<<<<<<< Updated upstream
     <div className="flex h-screen bg-earth-100 overflow-hidden">
+=======
+    <div className={`flex h-screen overflow-hidden ${role === 'CITIZEN' ? 'bg-forest-900' : 'bg-earth-100'}`}>
+>>>>>>> Stashed changes
       {/* Desktop sidebar */}
       <aside className={`hidden lg:flex flex-col bg-forest-900 flex-shrink-0 transition-all duration-200 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <SidebarContent collapsed={sidebarCollapsed} />

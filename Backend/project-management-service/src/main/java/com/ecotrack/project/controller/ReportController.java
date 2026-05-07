@@ -25,7 +25,7 @@ public class ReportController {
 
     @PostMapping
     @Operation(summary = "Generate a new report")
-    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR')")
     public ResponseEntity<ReportResponse> createReport(@Valid @RequestBody ReportRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reportService.createReport(request));
     }
@@ -50,7 +50,7 @@ public class ReportController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a report")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMINISTRATOR')")
     public ResponseEntity<Void> deleteReport(@PathVariable("id") Long id) {
         reportService.deleteReport(id);
         return ResponseEntity.noContent().build();
