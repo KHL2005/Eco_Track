@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useRole } from '../hooks/useRole';
 import DashboardLayout from '../layouts/DashboardLayout';
 import Card from '../components/Card';
 import {
   AlertTriangle, Activity, FolderKanban, ShieldCheck, Factory,
   CheckCircle, Clock, Database, FileText, ClipboardList, TrendingUp,
+  Layers, CircleDot, Loader2, BadgeCheck, Plus,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -48,13 +50,21 @@ function SectionHeading({ title, subtitle }) {
 export default function DashboardPage() {
   const { role, user } = useRole();
 
+  const isCitizen          = role === 'CITIZEN';
   const isComplianceOfficer = role === 'COMPLIANCE_OFFICER';
   const canSeeIssuesProjects = !['INDUSTRY', 'COMPLIANCE_OFFICER'].includes(role);
+
+  // Citizen fetches only their own issues
+  const { data: myIssues = [], isLoading: myIssuesLoading } = useQuery({
+    queryKey: ['issues', 'citizen', user?.userId],
+    queryFn: () => issuesApi.getIssuesByCitizen(user?.userId).then(r => r.data).catch(() => []),
+    enabled: isCitizen && !!user?.userId,
+  });
 
   const { data: issues = [] } = useQuery({
     queryKey: ['issues'],
     queryFn: () => issuesApi.getIssues().then(r => r.data).catch(() => []),
-    enabled: canSeeIssuesProjects,
+    enabled: canSeeIssuesProjects && !isCitizen,
   });
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -137,6 +147,71 @@ export default function DashboardPage() {
   const auditsByStatus = Object.entries(
     auditsList.reduce((acc, a) => { acc[a.status] = (acc[a.status] || 0) + 1; return acc; }, {})
   ).map(([name, value]) => ({ name, value }));
+
+  // ── CITIZEN HOME ──────────────────────────────────────────────
+  if (isCitizen) {
+    const total      = myIssues.length;
+    const open       = myIssues.filter(i => i.status === 'OPEN').length;
+    const inProgress = myIssues.filter(i => i.status === 'IN_PROGRESS').length;
+    const resolvedClosed = myIssues.filter(i => ['RESOLVED', 'CLOSED'].includes(i.status)).length;
+
+    const stats = [
+      { label: 'Total Issues',      value: total,         icon: Layers,     bg: 'bg-[#dbeafe]', color: 'text-[#2563eb]'  },
+      { label: 'Open',              value: open,          icon: CircleDot,  bg: 'bg-[#ffedd5]', color: 'text-[#ea580c]'  },
+      { label: 'In Progress',       value: inProgress,    icon: Loader2,    bg: 'bg-[#fef9c3]', color: 'text-[#ca8a04]'  },
+      { label: 'Resolved / Closed', value: resolvedClosed,icon: BadgeCheck, bg: 'bg-[#dcfce7]', color: 'text-[#16a34a]'  },
+    ];
+
+    return (
+      <DashboardLayout>
+        {/* Page title */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-[#14532d]">
+            Welcome, {user?.name} 👋
+          </h1>
+          <p className="text-[#64748b] text-sm mt-0.5">
+            Citizen Environmental Issue Tracker — track and report problems in your community
+          </p>
+        </div>
+
+        {/* Horizontal stats row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {stats.map(({ label, value, icon: Icon, bg, color }) => (
+            <div key={label} className="bg-white border border-[#bbf7d0] rounded-2xl p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-[#64748b] mb-1">{label}</p>
+                  <p className="text-3xl font-bold text-[#14532d]">
+                    {myIssuesLoading ? '—' : value}
+                  </p>
+                </div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg}`}>
+                  <Icon size={20} className={color} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick actions */}
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/issues/new"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#dcfce7] border border-[#86efac] hover:bg-[#bbf7d0] text-[#14532d] text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Plus size={16} /> Report New Issue
+          </Link>
+          <Link
+            to="/issues/mine"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#dcfce7] border border-[#86efac] hover:bg-[#bbf7d0] text-[#14532d] text-sm font-medium rounded-xl transition-colors"
+          >
+            <ClipboardList size={16} /> View My Issues
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
+  // ─────────────────────────────────────────────────────────────
 
   return (
     <DashboardLayout>

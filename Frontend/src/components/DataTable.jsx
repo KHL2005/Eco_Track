@@ -68,7 +68,7 @@ export default function DataTable({ columns, data, loading, searchable = true, s
           <div className="overflow-x-auto rounded-xl border border-bark-400/10">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-earth-100 border-b border-bark-400/10">
+                <tr className="bg-white border-b border-bark-400/10">
                   {columns.map((col) => (
                     <th
                       key={col.key || col.label}
@@ -88,7 +88,7 @@ export default function DataTable({ columns, data, loading, searchable = true, s
               </thead>
               <tbody className="divide-y divide-bark-400/10 bg-white">
                 {displayedData.map((row, i) => (
-                  <tr key={i} className="hover:bg-earth-100/60 transition-colors">
+                  <tr key={i} className="hover:bg-gray-50 transition-colors">
                     {columns.map((col) => (
                       <td key={col.key || col.label} className="px-4 py-3 text-bark-800">
                         {col.render ? col.render(row) : row[col.key]}
@@ -108,14 +108,14 @@ export default function DataTable({ columns, data, loading, searchable = true, s
                 <button
                   onClick={handlePrevPage}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-lg border border-bark-400/20 hover:bg-earth-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg border border-bark-400/20 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg border border-bark-400/20 hover:bg-earth-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg border border-bark-400/20 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight size={16} />
                 </button>

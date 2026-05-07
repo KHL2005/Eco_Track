@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { Plus, Trash2, Eye, Filter } from 'lucide-react';
+import { Plus, Trash2, Eye, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import * as issuesApi from '../api/issuesApi';
 import { useRole } from '../hooks/useRole';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,88 @@ import { formatDateTime, labelify } from '../utils/formatters';
 import { ISSUE_STATUSES, ISSUE_TYPES } from '../utils/constants';
 import { toast } from 'sonner';
 
+// ── Status filter pill ────────────────────────────────────────
+// Active (selected) styles
+const STATUS_PILL_STYLES = {
+  '':            'bg-[#f0fdf4] text-[#14532d] border-[#bbf7d0]',
+  OPEN:          'bg-orange-100 text-orange-700 border-orange-200',
+  IN_PROGRESS:   'bg-yellow-100 text-yellow-700 border-yellow-200',
+  RESOLVED:      'bg-green-100 text-green-700 border-green-200',
+  CLOSED:        'bg-gray-100  text-gray-600   border-gray-200',
+};
+
+// Hover styles for unselected pills
+const STATUS_PILL_HOVER = {
+  '':            'hover:bg-[#f0fdf4] hover:text-[#14532d] hover:border-[#bbf7d0]',
+  OPEN:          'hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200',
+  IN_PROGRESS:   'hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-200',
+  RESOLVED:      'hover:bg-green-50  hover:text-green-600  hover:border-green-200',
+  CLOSED:        'hover:bg-gray-50   hover:text-gray-500   hover:border-gray-200',
+};
+
+// ── Citizen card view ─────────────────────────────────────────
+const STATUS_HINT = {
+  OPEN:        { text: 'Awaiting officer review',    dot: 'bg-orange-400' },
+  IN_PROGRESS: { text: 'Officer is working on this', dot: 'bg-yellow-400' },
+  RESOLVED:    { text: 'Issue resolved by officer',  dot: 'bg-green-500'  },
+  CLOSED:      { text: 'Issue closed',               dot: 'bg-slate-400'  },
+};
+
+function CitizenIssueCard({ issue }) {
+  const issueId    = issue.issueId ?? issue.id;
+  const mediaUrls  = issue.mediaUrls ?? [];
+  const imageCount = mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length;
+  const videoCount = mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length;
+  const hint       = STATUS_HINT[issue.status] || STATUS_HINT.OPEN;
+
+  return (
+    <Link
+      to={`/issues/${issueId}`}
+      className="block bg-white border border-[#bbf7d0] rounded-2xl p-4 hover:shadow-md hover:border-[#86efac] transition-all group"
+    >
+      {/* Title + status */}
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-[#14532d] truncate group-hover:text-[#16a34a] transition-colors">
+            {issue.title || '(No title)'}
+          </p>
+          <span className="inline-block text-xs bg-[#dcfce7] text-[#15803d] font-medium px-2 py-0.5 rounded-full mt-1">
+            {labelify(issue.type)}
+          </span>
+        </div>
+        <StatusBadge status={issue.status} />
+      </div>
+
+      {/* Location + date */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-[#64748b] mt-2">
+        {issue.location && (
+          <span className="flex items-center gap-1"><MapPin size={11} /> {issue.location}</span>
+        )}
+        <span className="flex items-center gap-1"><Calendar size={11} /> {formatDateTime(issue.createdAt)}</span>
+      </div>
+
+      {/* Footer: hint + media badge + arrow */}
+      <div className="mt-3 pt-3 border-t border-[#dcfce7] flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-xs text-[#64748b]">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${hint.dot}`} />
+          {hint.text}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {mediaUrls.length > 0 && (
+            <span className="text-xs text-[#16a34a] bg-[#dcfce7] px-2 py-0.5 rounded-full font-medium">
+              {imageCount > 0 && `${imageCount} img`}
+              {imageCount > 0 && videoCount > 0 && ' · '}
+              {videoCount > 0 && `${videoCount} vid`}
+            </span>
+          )}
+          <ChevronRight size={14} className="text-[#94a3b8] group-hover:text-[#16a34a] transition-colors" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────
 export default function IssuesPage({ mine = false }) {
   const { canManageIssues, isCitizen } = useRole();
   const { user } = useAuth();
@@ -41,19 +123,84 @@ export default function IssuesPage({ mine = false }) {
 
   const filtered = issues.filter(i => {
     if (filterStatus && i.status !== filterStatus) return false;
-    if (filterType && i.type !== filterType) return false;
+    if (filterType   && i.type   !== filterType)   return false;
     return true;
   });
 
+  // ── CITIZEN "MY ISSUES" VIEW ──────────────────────────────
+  if (mine && isCitizen) {
+    return (
+      <DashboardLayout>
+        <PageHeader
+          title="My Reported Issues"
+          description="Track the status and officer resolution of your submitted reports"
+          action={
+            <Link to="/issues/new">
+              <Button><Plus size={16} /> Report Issue</Button>
+            </Link>
+          }
+        />
+
+        {/* Status filter pills */}
+        <div className="flex flex-wrap gap-2 mb-5">
+          {['', ...ISSUE_STATUSES].map(s => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                filterStatus === s
+                  ? STATUS_PILL_STYLES[s] + ' ring-2 ring-offset-1 ring-forest-600/30'
+                  : `bg-white text-[#64748b] border-[#cbd5e1] ${STATUS_PILL_HOVER[s]}`
+              }`}
+            >
+              {s === '' ? 'All' : labelify(s)}
+              {s !== '' && (
+                <span className="ml-1.5 font-bold">
+                  ({issues.filter(i => i.status === s).length})
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Issue cards */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(n => (
+              <div key={n} className="h-24 bg-earth-100 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-bark-400 gap-3">
+            <Plus size={36} className="opacity-20" />
+            <p className="text-sm font-medium">
+              {filterStatus ? `No issues with status "${labelify(filterStatus)}"` : 'You have not reported any issues yet'}
+            </p>
+            <Link to="/issues/new">
+              <Button size="sm"><Plus size={14} /> Report your first issue</Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map(issue => (
+              <CitizenIssueCard key={issue.issueId ?? issue.id} issue={issue} />
+            ))}
+          </div>
+        )}
+      </DashboardLayout>
+    );
+  }
+
+  // ── OFFICER / ADMIN TABLE VIEW ────────────────────────────
   const columns = [
     { key: 'id', label: '#', sortable: true, render: r => <span className="text-bark-400 text-xs">#{r.id}</span> },
     { key: 'title', label: 'Title', sortable: true, render: r => (
       <Link to={`/issues/${r.id}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">{r.title}</Link>
     )},
-    { key: 'type', label: 'Type', render: r => <span className="text-xs text-bark-600">{labelify(r.type)}</span> },
-    { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
-    { key: 'citizenName', label: 'Reported By', sortable: true },
-    { key: 'createdAt', label: 'Date', sortable: true, render: r => <span className="text-xs text-bark-400">{formatDateTime(r.createdAt)}</span> },
+    { key: 'type',       label: 'Type',        render: r => <span className="text-xs text-bark-600">{labelify(r.type)}</span> },
+    { key: 'status',     label: 'Status',      render: r => <StatusBadge status={r.status} /> },
+    { key: 'citizenName',label: 'Reported By', sortable: true },
+    { key: 'createdAt',  label: 'Date',        sortable: true, render: r => <span className="text-xs text-bark-400">{formatDateTime(r.createdAt)}</span> },
     {
       label: 'Actions',
       render: (r) => (
@@ -113,4 +260,3 @@ export default function IssuesPage({ mine = false }) {
     </DashboardLayout>
   );
 }
-

@@ -15,14 +15,33 @@
   --color-sky-500: #0ea5e9;
   --color-sky-200: #bae6fd;
   --color-earth-100: #d4f1a4;
-  --color-earth-50: #f0f9e8;
-  --color-bark-800: #000000;
-  --color-bark-600: #000000;
-  --color-bark-400: #000000;
-  --color-warning: #f59e0b;
-  --color-danger: #dc2626;
+  --color-earth-50:  #f0f9e8;
+  --color-bark-800:  #1e293b;
+  --color-bark-700:  #334155;
+  --color-bark-600:  #475569;
+  --color-bark-500:  #64748b;
+  --color-bark-400:  #94a3b8;
+  --color-bark-300:  #cbd5e1;
+  --color-warning:   #f59e0b;
+  --color-danger:    #dc2626;
   --color-danger-light: #fee2e2;
   --color-deep-brown: #3d2817;
+
+  /* ── Citizen Module Palette ────────────────────────────────── */
+  --color-cit-bg:         #f0fdf4;   /* page background  – green-50   */
+  --color-cit-surface:    #ffffff;   /* card face        – white       */
+  --color-cit-panel:      #f0fdf4;   /* inner panel      – green-50    */
+  --color-cit-border:     #bbf7d0;   /* card border      – green-200   */
+  --color-cit-border-mid: #86efac;   /* stronger border  – green-300   */
+  --color-cit-heading:    #14532d;   /* h1/h2            – forest-900  */
+  --color-cit-body:       #1e293b;   /* body text        – slate-800   */
+  --color-cit-muted:      #64748b;   /* labels/meta      – slate-500   */
+  --color-cit-subtle:     #94a3b8;   /* placeholder/sub  – slate-400   */
+  --color-cit-accent:     #16a34a;   /* primary action   – green-600   */
+  --color-cit-accent-h:   #15803d;   /* hover            – green-700   */
+  --color-cit-accent-bg:  #dcfce7;   /* accent light bg  – green-100   */
+  --color-cit-sidebar:    #14532d;   /* sidebar bg       – forest-900  */
+  --color-cit-topbar:     #ffffff;   /* top bar bg       – white       */
 
   /* Legacy aliases for backward compat */
   --color-primary: #16a34a;
@@ -31,8 +50,8 @@
   --color-accent-light: #bbf7d0;
   --color-bg: #f0f9e8;
   --color-surface: #d4f1a4;
-  --color-text: #000000;
-  --color-text-muted: #000000;
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
   --color-error: #dc2626;
   --color-error-light: #fee2e2;
 }

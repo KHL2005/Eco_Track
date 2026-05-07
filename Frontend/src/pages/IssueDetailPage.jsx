@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
@@ -6,8 +7,9 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
-import { ArrowLeft, MapPin, Calendar, User, Upload, Trash2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, Upload, Trash2, CheckCircle, ImageIcon, Video, X, ZoomIn } from 'lucide-react';
 import * as issuesApi from '../api/issuesApi';
+import { AuthenticatedImage, AuthenticatedVideo } from '../components/AuthenticatedMedia';
 import { useRole } from '../hooks/useRole';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime, labelify } from '../utils/formatters';
@@ -25,7 +27,15 @@ export default function IssueDetailPage() {
   const [newStatus, setNewStatus] = useState('');
   const [resForm, setResForm] = useState({ actions: '', status: 'PENDING' });
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileRef = useRef();
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setLightboxUrl(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const { data: issue, isLoading } = useQuery({
     queryKey: ['issue', id],
@@ -55,24 +65,32 @@ export default function IssueDetailPage() {
     onError: () => { toast.error('Upload failed'); setUploadProgress(0); },
   });
 
-  if (isLoading) return <DashboardLayout><div className="animate-pulse h-64 bg-earth-100 rounded-2xl" /></DashboardLayout>;
-  if (!issue) return <DashboardLayout><p className="text-bark-400">Issue not found.</p></DashboardLayout>;
+  if (isLoading) return <DashboardLayout><div className="animate-pulse h-64 bg-green-50 rounded-2xl" /></DashboardLayout>;
+  if (!issue) return <DashboardLayout><p className="text-slate-400">Issue not found.</p></DashboardLayout>;
 
   return (
     <DashboardLayout>
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}><ArrowLeft size={16} /> Back</Button>
+
+        {/* Back */}
+        <div className="flex items-center gap-3 mb-5">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#16a34a] hover:text-[#15803d] transition-colors"
+          >
+            <ArrowLeft size={15} /> Back
+          </button>
         </div>
 
-        <Card className="mb-4">
+        {/* ── Issue header card ── */}
+        <div className="bg-white rounded-2xl border border-[#bbf7d0] shadow-sm p-5 mb-4">
           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-bark-800">{issue.title}</h1>
-              <div className="flex items-center gap-4 mt-2 text-sm text-bark-400">
-                <span className="flex items-center gap-1"><User size={14} />{issue.citizenName}</span>
-                <span className="flex items-center gap-1"><Calendar size={14} />{formatDateTime(issue.createdAt)}</span>
-                {issue.location && <span className="flex items-center gap-1"><MapPin size={14} />{issue.location}</span>}
+              <h1 className="text-xl font-bold text-[#14532d]">{issue.title}</h1>
+              <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-[#64748b]">
+                <span className="flex items-center gap-1"><User size={13} />{issue.citizenName}</span>
+                <span className="flex items-center gap-1"><Calendar size={13} />{formatDateTime(issue.createdAt)}</span>
+                {issue.location && <span className="flex items-center gap-1"><MapPin size={13} />{issue.location}</span>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -85,58 +103,181 @@ export default function IssueDetailPage() {
             </div>
           </div>
 
-          <div className="bg-earth-100 rounded-xl p-4 mb-4">
-            <span className="text-xs font-semibold text-bark-400 uppercase tracking-wide">Type</span>
-            <p className="text-sm text-bark-800 mt-0.5">{labelify(issue.type)}</p>
+          {/* Issue type pill */}
+          <div className="inline-flex items-center gap-2 bg-[#dcfce7] text-[#14532d] text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+            <span className="uppercase tracking-wide">Type:</span>
+            <span>{labelify(issue.type)}</span>
           </div>
 
-          <p className="text-bark-600 text-sm leading-relaxed">{issue.description}</p>
-        </Card>
+          {/* Description */}
+          <p className="text-[#334155] text-sm leading-relaxed">{issue.description}</p>
+        </div>
 
-        {/* Media */}
-        <Card className="mb-4">
+        {/* ── Attached Media ── */}
+        <div className="bg-white rounded-2xl border border-[#bbf7d0] shadow-sm p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-bark-800">Media</h3>
             <div>
-              <input ref={fileRef} type="file" className="hidden" accept="image/*,video/*"
-                onChange={e => e.target.files[0] && uploadMedia.mutate(e.target.files[0])} />
-              <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} loading={uploadMedia.isPending}>
-                <Upload size={14} /> Upload
-              </Button>
+              <h3 className="font-semibold text-[#14532d]">Attached Media</h3>
+              {issue.mediaUrls?.length > 0 && (
+                <p className="text-xs text-[#64748b] mt-0.5 flex items-center gap-3">
+                  {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <ImageIcon size={11} />
+                      {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length} image(s)
+                    </span>
+                  )}
+                  {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <Video size={11} />
+                      {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length} video(s)
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
+            {canManageIssues && (
+              <div>
+                <input ref={fileRef} type="file" className="hidden" accept="image/*,video/*"
+                  onChange={e => e.target.files[0] && uploadMedia.mutate(e.target.files[0])} />
+                <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} loading={uploadMedia.isPending}>
+                  <Upload size={14} /> Upload
+                </Button>
+              </div>
+            )}
           </div>
+
           {uploadProgress > 0 && uploadProgress < 100 && (
-            <div className="h-1.5 bg-earth-100 rounded-full mb-3 overflow-hidden">
-              <div className="h-full bg-forest-600 transition-all rounded-full" style={{ width: `${uploadProgress}%` }} />
+            <div className="h-1.5 bg-[#dcfce7] rounded-full mb-3 overflow-hidden">
+              <div className="h-full bg-[#16a34a] transition-all rounded-full" style={{ width: `${uploadProgress}%` }} />
             </div>
           )}
-          {issue.mediaUrls?.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {issue.mediaUrls.map((url) => {
-                const fileName = url.split('/').pop();
-                const imgUrl = issuesApi.getMediaUrl(id, fileName);
-                return (
-                  <div key={url} className="relative group aspect-video bg-earth-100 rounded-xl overflow-hidden">
-                    <img src={imgUrl} alt={fileName} className="w-full h-full object-cover" />
-                    {canManageIssues && (
-                      <button
-                        className="absolute top-1 right-1 bg-white/80 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-danger"
-                        onClick={() => {/* deleteMedia */}}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : <p className="text-sm text-bark-400">No media attached.</p>}
-        </Card>
 
-        {/* Resolution */}
-        <Card>
+          {issue.mediaUrls?.length > 0 ? (
+            <div className="space-y-5">
+
+              {/* Images */}
+              {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-[#16a34a] uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <ImageIcon size={12} /> Images
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {issue.mediaUrls
+                      .filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop()))
+                      .map((url) => {
+                        const fileName = url.split('/').pop();
+                        const mediaUrl = issuesApi.getMediaUrl(id, fileName);
+                        return (
+                          <div
+                            key={url}
+                            className="relative group aspect-video bg-[#f0fdf4] rounded-xl overflow-hidden cursor-zoom-in border border-[#bbf7d0]"
+                          >
+                            <AuthenticatedImage
+                              src={mediaUrl}
+                              alt={fileName}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                              onClick={(blobUrl) => setLightboxUrl(blobUrl)}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+                              <ZoomIn size={22} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                            </div>
+                            {canManageIssues && (
+                              <button
+                                className="absolute top-1 right-1 bg-white/90 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 z-10"
+                                onClick={e => { e.stopPropagation(); }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Videos */}
+              {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-[#16a34a] uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Video size={12} /> Videos
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {issue.mediaUrls
+                      .filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop()))
+                      .map((url) => {
+                        const fileName = url.split('/').pop();
+                        const mediaUrl = issuesApi.getMediaUrl(id, fileName);
+                        return (
+                          <div key={url} className="relative group rounded-xl overflow-hidden bg-[#0f172a] border border-[#bbf7d0]">
+                            <AuthenticatedVideo
+                              src={mediaUrl}
+                              className="w-full max-h-64 object-contain"
+                            />
+                            <p className="text-xs text-[#94a3b8] px-3 py-1.5 truncate bg-[#1e293b] border-t border-white/10">
+                              {fileName}
+                            </p>
+                            {canManageIssues && (
+                              <button
+                                className="absolute top-1 right-1 bg-white/80 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
+                                onClick={() => {}}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <div className="w-12 h-12 bg-[#dcfce7] rounded-full flex items-center justify-center">
+                <ImageIcon size={22} className="text-[#16a34a]" />
+              </div>
+              <p className="text-sm text-[#64748b]">No media attached to this issue</p>
+            </div>
+          )}
+        </div>
+
+        {/* Image lightbox — rendered via Portal directly on document.body */}
+        {lightboxUrl && createPortal(
+          <div
+            className="fixed inset-0 bg-black/95 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+            onClick={() => setLightboxUrl(null)}
+          >
+            {/* Close button */}
+            <button
+              className="absolute top-4 right-4 text-white bg-white/15 hover:bg-white/30 rounded-full p-2 transition-colors"
+              style={{ zIndex: 10000 }}
+              onClick={() => setLightboxUrl(null)}
+            >
+              <X size={22} />
+            </button>
+
+            {/* ESC hint */}
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-xs">
+              Press ESC or click anywhere to close
+            </span>
+
+            {/* Image */}
+            <img
+              src={lightboxUrl}
+              alt="Full view"
+              className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl select-none"
+              onClick={e => e.stopPropagation()}
+            />
+          </div>,
+          document.body
+        )}
+
+        {/* ── Resolution ── */}
+        <div className="bg-white rounded-2xl border border-[#bbf7d0] shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-bark-800">Resolution</h3>
+            <h3 className="font-semibold text-[#14532d]">Resolution</h3>
             {canManageIssues && !resolution && (
               <Button size="sm" variant="outline" onClick={() => setResolutionModal(true)}>
                 <CheckCircle size={14} /> Add Resolution
@@ -144,17 +285,25 @@ export default function IssueDetailPage() {
             )}
           </div>
           {resolution ? (
-            <div>
-              <div className="flex items-center gap-3 mb-3">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
                 <StatusBadge status={resolution.status} />
-                <span className="text-sm text-bark-400">by {resolution.officerName}</span>
+                <span className="text-sm text-[#64748b]">by Officer</span>
               </div>
-              <p className="text-sm text-bark-600 leading-relaxed">{resolution.actions}</p>
+              <div className="bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl p-4">
+                <p className="text-sm text-[#1e293b] leading-relaxed">{resolution.actions}</p>
+              </div>
             </div>
           ) : (
-            <p className="text-sm text-bark-400">No resolution recorded yet.</p>
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <div className="w-10 h-10 bg-[#fef9c3] rounded-full flex items-center justify-center">
+                <CheckCircle size={18} className="text-[#ca8a04]" />
+              </div>
+              <p className="text-sm text-[#64748b]">No resolution recorded yet</p>
+              <p className="text-xs text-[#94a3b8]">An officer will review and respond to your report</p>
+            </div>
           )}
-        </Card>
+        </div>
       </div>
 
       {/* Status Modal */}

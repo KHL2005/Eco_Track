@@ -10,15 +10,14 @@ import {
   Leaf, LayoutDashboard, AlertTriangle, Activity, FolderKanban,
   ShieldCheck, ClipboardList, FileText, Bell, User, LogOut, Menu,
   Factory, FlaskConical, Users, ScrollText, ChevronRight,
-  PanelLeftClose, PanelLeftOpen, ChevronDown, Database
+  PanelLeftClose, PanelLeftOpen, ChevronDown, Database, Home
 } from 'lucide-react';
 
 const navByRole = {
   CITIZEN: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Home', icon: Home, to: '/dashboard' },
     { label: 'Report Issue', icon: AlertTriangle, to: '/issues/new' },
     { label: 'My Issues', icon: ClipboardList, to: '/issues/mine' },
-    { label: 'Projects', icon: FolderKanban, to: '/projects' },
     { label: 'Notifications', icon: Bell, to: '/notifications' },
   ],
   AGENCY_OFFICER: [
@@ -185,7 +184,7 @@ export default function DashboardLayout({ children }) {
   return (
 
 
-    <div className={`flex h-screen overflow-hidden ${role === 'CITIZEN' ? 'bg-forest-900' : 'bg-earth-100'}`}>
+    <div className={`flex h-screen overflow-hidden ${role === 'CITIZEN' ? 'bg-[#f0fdf4]' : 'bg-white'}`}>
 
       {/* Desktop sidebar */}
       <aside className={`hidden lg:flex flex-col bg-forest-900 flex-shrink-0 transition-all duration-200 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
@@ -205,18 +204,29 @@ export default function DashboardLayout({ children }) {
       {/* Main */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="bg-white border-b border-bark-400/10 px-4 lg:px-6 h-16 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <button className="lg:hidden p-2 rounded-lg hover:bg-earth-100 text-bark-600" onClick={() => setSidebarOpen(true)}>
+        <header className={`border-b px-4 lg:px-6 h-16 flex items-center justify-between flex-shrink-0 ${role === 'CITIZEN' ? 'bg-[#dcfce7] border-[#bbf7d0]' : 'bg-white border-bark-400/10'}`}>
+          <div className="flex items-center gap-3">
+            <button className={`lg:hidden p-2 rounded-lg transition-colors ${role === 'CITIZEN' ? 'hover:bg-[#bbf7d0] text-[#14532d]' : 'hover:bg-gray-100 text-bark-600'}`} onClick={() => setSidebarOpen(true)}>
               <Menu size={20} />
             </button>
             <button
-              className="hidden lg:inline-flex p-2 rounded-lg hover:bg-earth-100 text-bark-600"
+              className={`hidden lg:inline-flex p-2 rounded-lg transition-colors ${role === 'CITIZEN' ? 'hover:bg-[#bbf7d0] text-[#14532d]' : 'hover:bg-gray-100 text-bark-600'}`}
               onClick={toggleSidebarCollapsed}
               title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
+
+            {/* Citizen module title */}
+            {role === 'CITIZEN' && (
+              <div className="hidden sm:flex items-center gap-2 pl-1 border-l border-[#bbf7d0] ml-1">
+                <Leaf size={14} className="text-[#16a34a]" />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-xs font-bold text-[#14532d] tracking-wide">Citizen Portal</span>
+                  <span className="text-[10px] text-[#64748b]">Environmental Issue Tracker</span>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
@@ -225,7 +235,7 @@ export default function DashboardLayout({ children }) {
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-earth-100 transition-colors"
+                className={`flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors ${role === 'CITIZEN' ? 'hover:bg-[#bbf7d0]' : 'hover:bg-gray-100'}`}
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
