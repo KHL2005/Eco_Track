@@ -21,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,12 +39,8 @@ public class MonitoringService {
     @Transactional
     public SensorResponse createSensor(SensorRequest request) {
         Sensor sensor = Sensor.builder()
-                .name(request.getName())
                 .location(request.getLocation())
                 .type(request.getType())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .installedAt(request.getInstalledAt())
                 .status(SensorStatus.ACTIVE)
                 .build();
         return toSensorResponse(sensorRepository.save(sensor));
@@ -416,13 +411,9 @@ public class MonitoringService {
     private SensorResponse toSensorResponse(Sensor s) {
         return SensorResponse.builder()
                 .sensorId(s.getSensorId())
-                .name(s.getName())
                 .location(s.getLocation())
                 .type(s.getType())
                 .status(s.getStatus())
-                .latitude(s.getLatitude())
-                .longitude(s.getLongitude())
-                .installedAt(s.getInstalledAt())
                 .createdAt(s.getCreatedAt())
                 .updatedAt(s.getUpdatedAt())
                 .build();

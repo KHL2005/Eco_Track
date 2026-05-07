@@ -4,7 +4,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
-import { ArrowLeft, MapPin, Calendar } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import * as sensorsApi from '../api/sensorsApi';
 import { formatDateTime } from '../utils/formatters';
@@ -47,11 +47,10 @@ export default function SensorDetailPage() {
         <Card className="mb-4">
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-xl font-bold text-bark-800">{sensor.name}</h1>
+              <h1 className="text-xl font-bold text-bark-800">Sensor #{sensor.sensorId}</h1>
               <div className="flex items-center gap-4 mt-2 text-sm text-bark-400">
                 <span>Type: <strong className="text-bark-600">{sensor.type}</strong></span>
                 {sensor.location && <span className="flex items-center gap-1"><MapPin size={13} />{sensor.location}</span>}
-                {sensor.installedAt && <span className="flex items-center gap-1"><Calendar size={13} />{formatDateTime(sensor.installedAt)}</span>}
               </div>
             </div>
             <StatusBadge status={sensor.status} />

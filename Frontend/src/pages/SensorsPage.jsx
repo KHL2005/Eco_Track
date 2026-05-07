@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
@@ -8,29 +7,15 @@ import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DataTable from '../components/DataTable';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 import * as sensorsApi from '../api/sensorsApi';
 import { useRole } from '../hooks/useRole';
-import { formatDateTime, labelify } from '../utils/formatters';
-import { SENSOR_TYPES, SENSOR_STATUSES } from '../utils/constants';
+import { SENSOR_TYPES } from '../utils/constants';
 import { toast } from 'sonner';
-import { Plus, MapPin, Eye, Edit, Trash2 } from 'lucide-react';
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-const statusColors = { ACTIVE: '#16a34a', INACTIVE: '#78716c', MAINTENANCE: '#f59e0b' };
+import { Plus, Edit, Trash2 } from 'lucide-react';
 
 export default function SensorsPage() {
   const { canManageSensors, isAdmin, isOfficer, isScientist } = useRole();
   const qc = useQueryClient();
-  const [view, setView] = useState('list');
   const [createModal, setCreateModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -161,8 +146,6 @@ export default function SensorsPage() {
   // Map sensorId to id for DataTable compatibility
   const sensorsWithId = sensors.map(s => ({ ...s, id: s.sensorId }));
 
-  const validSensors = sensors.filter(s => s.latitude && s.longitude);
-
   // Only allow these statuses for filtering
   const SENSOR_STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'MAINTENANCE'];
   // Only allow sensor types (exclude SOIL)
@@ -219,40 +202,14 @@ export default function SensorsPage() {
               <option value="">All Status</option>
               {SENSOR_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            {isScientist && (
-              <Button variant={view === 'map' ? 'primary' : 'secondary'} size="sm" onClick={() => setView('map')}><MapPin size={14} /> Map</Button>
-            )}
             {canManageSensors && <Button size="sm" onClick={() => setCreateModal(true)}><Plus size={14} /> Add Sensor</Button>}
           </div>
         }
       />
 
-      {view === 'map' && isScientist ? (
-        <div className="h-[500px] rounded-2xl overflow-hidden border border-bark-400/10">
-          <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%' }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {validSensors.map(s => (
-              <Marker key={s.id} position={[s.latitude, s.longitude]}>
-                <Popup>
-                  <div className="text-sm">
-                    <strong>{s.name}</strong>
-
-                    Type: {s.type}
-
-                    Status: <span style={{ color: statusColors[s.status] }}>{s.status}</span>
-
-                    <Link to={`/sensors/${s.id}`} className="text-forest-600 hover:underline">View details →</Link>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
-          <DataTable columns={columns} data={filteredSensors} loading={isLoading} searchable={false} />
-        </div>
-      )}
+      <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
+        <DataTable columns={columns} data={filteredSensors} loading={isLoading} searchable={false} />
+      </div>
 
       <Modal open={createModal} onClose={() => setCreateModal(false)} title="Register New Sensor">
         <div className="space-y-4">
