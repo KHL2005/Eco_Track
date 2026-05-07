@@ -45,4 +45,4 @@ app:
   upload:
     dir: uploads/citizen-media
     allowed-types: image/jpeg,image/png,image/gif,video/mp4,video/avi,video/quicktime
-    max-files-per-issue: 5
+    max-files-per-issue: 10

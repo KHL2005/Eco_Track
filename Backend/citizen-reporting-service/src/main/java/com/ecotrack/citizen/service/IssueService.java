@@ -36,6 +36,7 @@ public class IssueService {
     public IssueResponse createIssue(IssueRequest request) {
         Issue issue = Issue.builder()
                 .citizenId(request.getCitizenId())
+                .title(request.getTitle())
                 .type(request.getType())
                 .location(request.getLocation())
                 .description(request.getDescription())
@@ -87,6 +88,9 @@ public class IssueService {
     public IssueResponse updateIssue(Long id, IssueRequest request) {
         Issue issue = findIssueById(id);
         // Partial update — only update provided fields
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            issue.setTitle(request.getTitle());
+        }
         if (request.getLocation() != null && !request.getLocation().isBlank()) {
             issue.setLocation(request.getLocation());
         }
@@ -309,6 +313,7 @@ public class IssueService {
         return IssueResponse.builder()
                 .issueId(issue.getIssueId())
                 .citizenId(issue.getCitizenId())
+                .title(issue.getTitle())
                 .type(issue.getType())
                 .location(issue.getLocation())
                 .description(issue.getDescription())

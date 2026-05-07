@@ -13,6 +13,7 @@ import java.util.List;
 public class IssueResponse {
     private Long issueId;
     private Long citizenId;
+    private String title;
     private IssueType type;
     private String location;
     private String description;

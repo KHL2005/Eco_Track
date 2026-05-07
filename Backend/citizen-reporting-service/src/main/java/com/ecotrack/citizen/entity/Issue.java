@@ -21,6 +21,9 @@ public class Issue {
     @Column(name = "citizen_id", nullable = false)
     private Long citizenId;
 
+    @Column(nullable = false, length = 200)
+    private String title;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private IssueType type;
