@@ -21,7 +21,8 @@
   --color-bark-400: #000000;
   --color-warning: #f59e0b;
   --color-danger: #dc2626;
-  --color-danger-light: #fee2e2;-= --color-deep-brown: #3d2817;
+  --color-danger-light: #fee2e2;
+  --color-deep-brown: #3d2817;
 
   /* Legacy aliases for backward compat */
   --color-primary: #16a34a;
