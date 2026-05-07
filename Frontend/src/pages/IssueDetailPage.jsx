@@ -86,7 +86,7 @@ export default function IssueDetailPage() {
         <div className="bg-white rounded-2xl border border-[#bbf7d0] shadow-sm p-5 mb-4">
           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-[#14532d]">{issue.title}</h1>
+              <h1 className="text-xl font-bold text-[#14532d] flex items-center gap-2"><span aria-hidden="true">⚠️</span> <span>{issue.title}</span></h1>
               <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-[#64748b]">
                 <span className="flex items-center gap-1"><User size={13} />{issue.citizenName}</span>
                 <span className="flex items-center gap-1"><Calendar size={13} />{formatDateTime(issue.createdAt)}</span>

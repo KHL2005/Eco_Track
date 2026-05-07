@@ -83,7 +83,7 @@ export default function EmissionsPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Emissions" description="Industry emission logs and approvals"
+      <PageHeader emoji="🏭" title="Emissions" description="Industry emission logs and approvals"
         action={
           <div className="flex gap-2 items-center">
             <select

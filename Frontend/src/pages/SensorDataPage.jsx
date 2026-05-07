@@ -151,6 +151,7 @@ export default function SensorDataPage() {
   return (
     <DashboardLayout>
       <PageHeader
+        emoji="💧"
         title="Sensor Data Readings"
         description="Record and manage environmental sensor readings"
         action={

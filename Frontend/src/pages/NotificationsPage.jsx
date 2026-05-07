@@ -47,14 +47,14 @@ export default function NotificationsPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Notifications" description={`${unread.length} unread`}
+      <PageHeader emoji="🔔" title="Notifications" description={`${unread.length} unread`}
         action={unread.length > 0 && <Button variant="outline" size="sm" onClick={() => markAll.mutate()}>Mark all read</Button>}
       />
 
       {isLoading ? (
         <LoadingSkeleton rows={5} cols={1} />
       ) : notifications.length === 0 ? (
-        <EmptyState title="No notifications" description="You're all caught up!" />
+        <EmptyState emoji="🎉" title="No notifications" description="You're all caught up — nothing needs your attention right now." hint="New issues, audit results, and emission approvals will show up here." />
       ) : (
         <div className="space-y-2">
           {notifications.map(n => (

@@ -21,7 +21,7 @@ export const ROLE_LABELS = {
 export const ISSUE_TYPES = [
   'AIR_POLLUTION',
   'WATER_POLLUTION',
-  'NOISE',
+  'NOISE_POLLUTION',
   'DEFORESTATION',
   'WASTE_DUMPING',
   'OTHER',
@@ -30,7 +30,7 @@ export const ISSUE_TYPES = [
 export const ISSUE_TYPE_LABELS = {
   AIR_POLLUTION: 'Air Pollution',
   WATER_POLLUTION: 'Water Pollution',
-  NOISE: 'Noise Pollution',
+  NOISE_POLLUTION: 'Noise Pollution',
   DEFORESTATION: 'Deforestation',
   WASTE_DUMPING: 'Waste Dumping',
   OTHER: 'Other',

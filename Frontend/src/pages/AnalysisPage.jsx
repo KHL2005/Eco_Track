@@ -130,7 +130,7 @@ export default function AnalysisPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Sensor Analysis" description="Environmental data analysis and findings"
+      <PageHeader emoji="🔬" title="Sensor Analysis" description="Environmental data analysis and findings"
         action={
           <div className="flex gap-2">
             {(isAgencyOfficer || isScientist || isAdmin) && (

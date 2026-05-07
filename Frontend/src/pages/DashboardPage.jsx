@@ -1,12 +1,15 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useRole } from '../hooks/useRole';
 import DashboardLayout from '../layouts/DashboardLayout';
+import PageHeader from '../components/PageHeader';
 import Card from '../components/Card';
 import {
   AlertTriangle, Activity, FolderKanban, ShieldCheck, Factory,
   CheckCircle, Clock, Database, FileText, ClipboardList, TrendingUp,
-  Layers, CircleDot, Loader2, BadgeCheck, Plus,
+  Layers, CircleDot, Loader2, BadgeCheck, Plus, Lightbulb, ArrowRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -21,28 +24,75 @@ import { ROLE_LABELS } from '../utils/constants';
 
 const COLORS = ['#16a34a', '#0ea5e9', '#f59e0b', '#dc2626', '#8b5cf6'];
 
-function KpiCard({ icon: Icon, label, value, sub, color = 'text-forest-600', bg = 'bg-green-50' }) {
+function CountUp({ end = 0, duration = 1200 }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!Number.isFinite(end) || end === 0) { setCount(end || 0); return; }
+    let raf;
+    let startTs = null;
+    const step = (ts) => {
+      if (startTs === null) startTs = ts;
+      const progress = Math.min((ts - startTs) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * end));
+      if (progress < 1) raf = requestAnimationFrame(step);
+      else setCount(end);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [end, duration]);
+  return <>{count.toLocaleString()}</>;
+}
+
+function KpiCard({ icon: Icon, emoji, label, value, sub, color = 'text-forest-600', bg = 'bg-green-50', glow = 'hover:shadow-leaf-200/60' }) {
+  const numeric = typeof value === 'number';
   return (
-    <Card>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className={`bg-white rounded-2xl p-5 border border-bark-300/20 shadow-sm hover:-translate-y-1 hover:shadow-lg ${glow} transition-all`}
+    >
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-bark-400 mb-1">{label}</p>
-          <p className="text-3xl font-bold text-bark-800">{value ?? '—'}</p>
-          {sub && <p className="text-xs text-bark-400 mt-1">{sub}</p>}
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-bark-500 uppercase tracking-wide mb-1.5">{label}</p>
+          <p className="text-3xl font-extrabold text-bark-800 leading-none">
+            {value === null || value === undefined ? '—' : numeric ? <CountUp end={value} /> : value}
+          </p>
+          {sub && <p className="text-xs text-bark-400 mt-2">{sub}</p>}
         </div>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg}`}>
-          <Icon size={20} className={color} />
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${bg} ring-1 ring-inset ring-black/5`}>
+          {emoji ? <span className="text-xl" aria-hidden="true">{emoji}</span> : <Icon size={20} className={color} />}
         </div>
       </div>
-    </Card>
+    </motion.div>
   );
 }
 
-function SectionHeading({ title, subtitle }) {
+function SectionHeading({ emoji, title, subtitle, action }) {
   return (
-    <div className="mb-4">
-      <h2 className="text-base font-semibold text-bark-800">{title}</h2>
-      {subtitle && <p className="text-xs text-bark-400 mt-0.5">{subtitle}</p>}
+    <div className="mb-4 flex items-end justify-between gap-3">
+      <div>
+        <h2 className="text-base font-semibold text-bark-800 flex items-center gap-2">
+          {emoji && <span aria-hidden="true">{emoji}</span>}
+          <span>{title}</span>
+        </h2>
+        {subtitle && <p className="text-xs text-bark-500 mt-0.5">{subtitle}</p>}
+      </div>
+      {action && <div className="flex-shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+function TipCard({ emoji = '💡', title, body, action }) {
+  return (
+    <div className="bg-gradient-to-br from-leaf-200/60 to-earth-50 rounded-2xl p-5 border border-leaf-200 flex items-start gap-4">
+      <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center text-xl shadow-sm shrink-0" aria-hidden="true">{emoji}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-forest-900">{title}</p>
+        {body && <p className="text-xs text-bark-600 mt-1 leading-relaxed">{body}</p>}
+        {action && <div className="mt-3">{action}</div>}
+      </div>
     </div>
   );
 }
@@ -156,69 +206,72 @@ export default function DashboardPage() {
     const resolvedClosed = myIssues.filter(i => ['RESOLVED', 'CLOSED'].includes(i.status)).length;
 
     const stats = [
-      { label: 'Total Issues',      value: total,         icon: Layers,     bg: 'bg-[#dbeafe]', color: 'text-[#2563eb]'  },
-      { label: 'Open',              value: open,          icon: CircleDot,  bg: 'bg-[#ffedd5]', color: 'text-[#ea580c]'  },
-      { label: 'In Progress',       value: inProgress,    icon: Loader2,    bg: 'bg-[#fef9c3]', color: 'text-[#ca8a04]'  },
-      { label: 'Resolved / Closed', value: resolvedClosed,icon: BadgeCheck, bg: 'bg-[#dcfce7]', color: 'text-[#16a34a]'  },
+      { label: 'Total Issues',      value: total,          emoji: '📋', bg: 'bg-blue-50',   glow: 'hover:shadow-blue-200/60'   },
+      { label: 'Open',              value: open,           emoji: '🟠', bg: 'bg-orange-50', glow: 'hover:shadow-orange-200/60' },
+      { label: 'In Progress',       value: inProgress,     emoji: '⏳', bg: 'bg-yellow-50', glow: 'hover:shadow-yellow-200/60' },
+      { label: 'Resolved / Closed', value: resolvedClosed, emoji: '✅', bg: 'bg-leaf-200/40', glow: 'hover:shadow-leaf-200/80'  },
     ];
 
     return (
       <DashboardLayout>
-        {/* Page title */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#14532d]">
-            Welcome, {user?.name} 👋
-          </h1>
-          <p className="text-[#64748b] text-sm mt-0.5">
-            Citizen Environmental Issue Tracker — track and report problems in your community
-          </p>
-        </div>
+        <PageHeader
+          emoji="🌿"
+          title={`Welcome, ${user?.name || 'Citizen'} 👋`}
+          description="Citizen Environmental Issue Tracker — track and report problems in your community"
+        />
 
-        {/* Horizontal stats row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {stats.map(({ label, value, icon: Icon, bg, color }) => (
-            <div key={label} className="bg-white border border-[#bbf7d0] rounded-2xl p-5 shadow-sm">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-medium text-[#64748b] mb-1">{label}</p>
-                  <p className="text-3xl font-bold text-[#14532d]">
-                    {myIssuesLoading ? '—' : value}
-                  </p>
-                </div>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg}`}>
-                  <Icon size={20} className={color} />
-                </div>
-              </div>
-            </div>
+        {/* Stats row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {stats.map(({ label, value, emoji, bg, glow }) => (
+            <KpiCard key={label} emoji={emoji} label={label} value={myIssuesLoading ? null : value} bg={bg} glow={glow} />
           ))}
         </div>
 
-        {/* Quick actions */}
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to="/issues/new"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#dcfce7] border border-[#86efac] hover:bg-[#bbf7d0] text-[#14532d] text-sm font-semibold rounded-xl transition-colors"
-          >
-            <Plus size={16} /> Report New Issue
-          </Link>
-          <Link
-            to="/issues/mine"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#dcfce7] border border-[#86efac] hover:bg-[#bbf7d0] text-[#14532d] text-sm font-medium rounded-xl transition-colors"
-          >
-            <ClipboardList size={16} /> View My Issues
-          </Link>
+        {/* Tip + Quick actions row */}
+        <div className="grid lg:grid-cols-3 gap-4 mb-6">
+          <div className="lg:col-span-2">
+            <TipCard
+              emoji="💡"
+              title="Did you know?"
+              body="A clear photo and accurate location can cut response time on environmental reports by up to 60%. Take a moment to add both when you submit."
+            />
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-bark-300/20 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-forest-600 mb-3">⚡ Quick actions</p>
+            <div className="flex flex-col gap-2">
+              <Link to="/issues/new"
+                className="inline-flex items-center justify-between gap-2 px-4 py-2.5 bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold rounded-xl transition-colors group">
+                <span className="flex items-center gap-2">📸 Report new issue</span>
+                <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+              <Link to="/issues/mine"
+                className="inline-flex items-center justify-between gap-2 px-4 py-2.5 bg-leaf-200/60 hover:bg-leaf-200 text-forest-900 text-sm font-medium rounded-xl transition-colors group">
+                <span className="flex items-center gap-2">📋 View my issues</span>
+                <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
+          </div>
         </div>
       </DashboardLayout>
     );
   }
   // ─────────────────────────────────────────────────────────────
 
+  // Role-specific header emoji
+  const roleEmoji =
+    isComplianceOfficer ? '🛡️' :
+    role === 'SCIENTIST' ? '🔬' :
+    role === 'INDUSTRY' ? '🏭' :
+    role === 'AGENCY_OFFICER' ? '🌍' :
+    role === 'ADMINISTRATOR' || role === 'SUPER_ADMIN' ? '📊' : '📊';
+
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-bark-800">Welcome back, {user?.name}</h1>
-        <p className="text-bark-400 text-sm mt-0.5">{ROLE_LABELS[role] || role} Dashboard</p>
-      </div>
+      <PageHeader
+        emoji={roleEmoji}
+        title={`Welcome back, ${user?.name || ''}`}
+        description={`${ROLE_LABELS[role] || role} Dashboard`}
+      />
 
       {/* ── COMPLIANCE OFFICER ── */}
       {isComplianceOfficer ? (
@@ -247,22 +300,22 @@ export default function DashboardPage() {
 
           {/* KPI row */}
           <div>
-            <SectionHeading title="Key Metrics" subtitle="Live compliance and audit summary" />
+            <SectionHeading emoji="📊" title="Key Metrics" subtitle="Live compliance and audit summary" />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard icon={ShieldCheck} label="Compliance Records" value={complianceRecords.length} sub={`${compliantCount} compliant`} color="text-forest-600" bg="bg-green-50" />
-              <KpiCard icon={CheckCircle} label="Compliant Entities" value={compliantCount} sub="Passed all checks" color="text-emerald-600" bg="bg-emerald-50" />
-              <KpiCard icon={ClipboardList} label="Total Audits" value={auditsList.length} sub={`${completedAudits} completed · ${inProgressAudits} in progress`} color="text-sky-500" bg="bg-sky-50" />
-              <KpiCard icon={Clock} label="Pending Emissions" value={pendingEmissions} sub="Awaiting your review" color="text-orange-500" bg="bg-orange-50" />
+              <KpiCard emoji="🛡️" label="Compliance Records" value={complianceRecords.length} sub={`${compliantCount} compliant`} bg="bg-green-50" />
+              <KpiCard emoji="✅" label="Compliant Entities" value={compliantCount} sub="Passed all checks" bg="bg-emerald-50" glow="hover:shadow-emerald-200/60" />
+              <KpiCard emoji="📋" label="Total Audits" value={auditsList.length} sub={`${completedAudits} completed · ${inProgressAudits} in progress`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
+              <KpiCard emoji="⏳" label="Pending Emissions" value={pendingEmissions} sub="Awaiting your review" bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
             </div>
           </div>
 
           {/* Charts */}
           <div>
-            <SectionHeading title="Analytics" subtitle="Distribution of compliance outcomes and audit progress" />
+            <SectionHeading emoji="📈" title="Analytics" subtitle="Distribution of compliance outcomes and audit progress" />
             <div className="grid lg:grid-cols-2 gap-6">
               {complianceByResult.length > 0 ? (
                 <Card>
-                  <h3 className="font-semibold text-bark-800 mb-4">Compliance by Result</h3>
+                  <h3 className="font-semibold text-bark-800 mb-4">🛡️ Compliance by Result</h3>
                   <ResponsiveContainer width="100%" height={260}>
                     <PieChart>
                       <Pie data={complianceByResult} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={85} innerRadius={35}>
@@ -275,7 +328,7 @@ export default function DashboardPage() {
                 </Card>
               ) : (
                 <Card>
-                  <h3 className="font-semibold text-bark-800 mb-4">Compliance by Result</h3>
+                  <h3 className="font-semibold text-bark-800 mb-4">🛡️ Compliance by Result</h3>
                   <div className="flex flex-col items-center justify-center h-[260px] text-bark-400 text-sm gap-2">
                     <ShieldCheck size={32} className="opacity-30" />
                     No compliance records yet
@@ -285,7 +338,7 @@ export default function DashboardPage() {
 
               {auditsByStatus.length > 0 ? (
                 <Card>
-                  <h3 className="font-semibold text-bark-800 mb-4">Audits by Status</h3>
+                  <h3 className="font-semibold text-bark-800 mb-4">📋 Audits by Status</h3>
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={auditsByStatus} barCategoryGap="30%">
                       <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -297,7 +350,7 @@ export default function DashboardPage() {
                 </Card>
               ) : (
                 <Card>
-                  <h3 className="font-semibold text-bark-800 mb-4">Audits by Status</h3>
+                  <h3 className="font-semibold text-bark-800 mb-4">📋 Audits by Status</h3>
                   <div className="flex flex-col items-center justify-center h-[260px] text-bark-400 text-sm gap-2">
                     <ClipboardList size={32} className="opacity-30" />
                     No audits yet
@@ -326,16 +379,25 @@ export default function DashboardPage() {
         </div>
       ) : role === 'SCIENTIST' ? (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <KpiCard icon={Activity} label="Active Sensors" value={activeSensors} sub={`${sensors.length} total`} color="text-sky-500" bg="bg-sky-50" />
-            <KpiCard icon={Database} label="Sensor Data Records" value={sensorData.length} sub="Total readings" color="text-blue-500" bg="bg-blue-50" />
-            <KpiCard icon={ShieldCheck} label="Maintenance Sensors" value={sensors.filter(s => s.status === 'MAINTENANCE').length} sub="Under maintenance" color="text-yellow-500" bg="bg-yellow-50" />
-            <KpiCard icon={CheckCircle} label="Inactive Sensors" value={sensors.filter(s => s.status === 'INACTIVE').length} sub="Not operational" color="text-red-500" bg="bg-red-50" />
+          <SectionHeading emoji="📊" title="Sensor network at a glance" subtitle="Live status across the deployed sensor fleet" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <KpiCard emoji="📡" label="Active Sensors" value={activeSensors} sub={`${sensors.length} total`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
+            <KpiCard emoji="💧" label="Sensor Data Records" value={sensorData.length} sub="Total readings" bg="bg-blue-50" glow="hover:shadow-blue-200/60" />
+            <KpiCard emoji="🛠️" label="Maintenance Sensors" value={sensors.filter(s => s.status === 'MAINTENANCE').length} sub="Under maintenance" bg="bg-yellow-50" glow="hover:shadow-yellow-200/60" />
+            <KpiCard emoji="🚫" label="Inactive Sensors" value={sensors.filter(s => s.status === 'INACTIVE').length} sub="Not operational" bg="bg-red-50" glow="hover:shadow-red-200/60" />
           </div>
+          <div className="mb-6">
+            <TipCard
+              emoji="🔬"
+              title="Tip: cross-reference anomalies"
+              body="When a sensor shows a sudden spike, jump to Analysis to compare against neighboring sensors and historical baselines before flagging."
+            />
+          </div>
+          <SectionHeading emoji="📈" title="Analytics" subtitle="Sensor distribution and operational status" />
           <div className="grid lg:grid-cols-2 gap-6">
             {sensorsByType.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Sensors by Type</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">📡 Sensors by Type</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={sensorsByType}>
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -348,7 +410,7 @@ export default function DashboardPage() {
             )}
             {sensorsByStatus.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Sensors by Status</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">🟢 Sensors by Status</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie data={sensorsByStatus} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={85} innerRadius={35}>
@@ -364,16 +426,25 @@ export default function DashboardPage() {
         </>
       ) : role === 'INDUSTRY' ? (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <KpiCard icon={Factory} label="Emissions Logged" value={emissions.length} sub={`${approvedEmissions} approved`} color="text-purple-500" bg="bg-purple-50" />
-            <KpiCard icon={CheckCircle} label="Approved Emissions" value={approvedEmissions} sub="Verified by compliance" color="text-forest-600" bg="bg-green-50" />
-            <KpiCard icon={Clock} label="Pending Review" value={pendingEmissions} sub="Awaiting verification" color="text-orange-500" bg="bg-orange-50" />
-            <KpiCard icon={FileText} label="Documents" value={documents.length} sub={`${approvedDocs} verified`} color="text-sky-500" bg="bg-sky-50" />
+          <SectionHeading emoji="📊" title="Compliance overview" subtitle="Your emissions and document submission status" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <KpiCard emoji="🏭" label="Emissions Logged" value={emissions.length} sub={`${approvedEmissions} approved`} bg="bg-purple-50" glow="hover:shadow-purple-200/60" />
+            <KpiCard emoji="✅" label="Approved Emissions" value={approvedEmissions} sub="Verified by compliance" bg="bg-green-50" />
+            <KpiCard emoji="⏳" label="Pending Review" value={pendingEmissions} sub="Awaiting verification" bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
+            <KpiCard emoji="📄" label="Documents" value={documents.length} sub={`${approvedDocs} verified`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
           </div>
+          <div className="mb-6">
+            <TipCard
+              emoji="📌"
+              title="Stay ahead of audits"
+              body="Submit emissions and supporting documents promptly. Pending items can hold up your quarterly compliance score."
+            />
+          </div>
+          <SectionHeading emoji="📈" title="Analytics" subtitle="Distribution of your emissions" />
           <div className="grid lg:grid-cols-2 gap-6">
             {emissionsByType.length > 0 ? (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Emissions by Type</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">🏭 Emissions by Type</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={emissionsByType}>
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -385,13 +456,13 @@ export default function DashboardPage() {
               </Card>
             ) : (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Emissions by Type</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">🏭 Emissions by Type</h3>
                 <div className="flex items-center justify-center h-[260px] text-bark-400 text-sm">No emissions logged yet</div>
               </Card>
             )}
             {emissionsByStatus.length > 0 ? (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Emissions by Status</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">🟢 Emissions by Status</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie data={emissionsByStatus} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={85} innerRadius={35}>
@@ -404,7 +475,7 @@ export default function DashboardPage() {
               </Card>
             ) : (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Emissions by Status</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">🟢 Emissions by Status</h3>
                 <div className="flex items-center justify-center h-[260px] text-bark-400 text-sm">No data available</div>
               </Card>
             )}
@@ -412,18 +483,35 @@ export default function DashboardPage() {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <KpiCard icon={AlertTriangle} label="Open Issues" value={openIssues} sub={`${resolvedIssues} resolved`} color="text-orange-500" bg="bg-orange-50" />
-            <KpiCard icon={FolderKanban} label="Active Projects" value={activeProjects} sub={`${projects.length} total`} color="text-forest-600" bg="bg-green-50" />
+          <SectionHeading emoji="📊" title="At a glance" subtitle="Live operational metrics across the platform" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <KpiCard emoji="⚠️" label="Open Issues" value={openIssues} sub={`${resolvedIssues} resolved`} bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
+            <KpiCard emoji="🌳" label="Active Projects" value={activeProjects} sub={`${projects.length} total`} bg="bg-green-50" />
             {['AGENCY_OFFICER', 'SCIENTIST', 'ADMINISTRATOR', 'SUPER_ADMIN'].includes(role) && (
-              <KpiCard icon={Activity} label="Active Sensors" value={activeSensors} sub={`${sensors.length} total`} color="text-sky-500" bg="bg-sky-50" />
+              <KpiCard emoji="📡" label="Active Sensors" value={activeSensors} sub={`${sensors.length} total`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
             )}
-            <KpiCard icon={Factory} label="Emissions Logged" value={emissions.length} sub={`${emissions.filter(e => e.status === 'APPROVED').length} approved`} color="text-purple-500" bg="bg-purple-50" />
+            <KpiCard emoji="🏭" label="Emissions Logged" value={emissions.length} sub={`${emissions.filter(e => e.status === 'APPROVED').length} approved`} bg="bg-purple-50" glow="hover:shadow-purple-200/60" />
           </div>
+          <div className="mb-6">
+            <TipCard
+              emoji="🌍"
+              title="Today's focus"
+              body={openIssues > 0
+                ? `${openIssues} issue${openIssues > 1 ? 's' : ''} are still open. Triage the highest-impact reports first.`
+                : 'All caught up! Use this time to review project milestones and audit upcoming compliance deadlines.'}
+              action={
+                <Link to={openIssues > 0 ? '/issues' : '/projects'}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-forest-700 hover:text-forest-800">
+                  {openIssues > 0 ? 'Go to Issues' : 'Go to Projects'} <ArrowRight size={14} />
+                </Link>
+              }
+            />
+          </div>
+          <SectionHeading emoji="📈" title="Analytics" subtitle="Issue and project distributions" />
           <div className="grid lg:grid-cols-2 gap-6">
             {issueByType.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Issues by Type</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">⚠️ Issues by Type</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={issueByType}>
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -436,7 +524,7 @@ export default function DashboardPage() {
             )}
             {projByStatus.length > 0 && (
               <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">Projects by Status</h3>
+                <h3 className="font-semibold text-bark-800 mb-4">🌳 Projects by Status</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie data={projByStatus} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={85} innerRadius={35}>

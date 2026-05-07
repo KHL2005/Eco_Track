@@ -35,7 +35,7 @@ export default function CitizenIssueDetail() {
         <Card className="mb-4">
           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-bark-800">{issue.title}</h1>
+              <h1 className="text-xl font-bold text-bark-800 flex items-center gap-2"><span aria-hidden="true">⚠️</span> <span>{issue.title}</span></h1>
               <div className="flex items-center gap-4 mt-2 text-sm text-bark-400">
                 <span className="flex items-center gap-1"><User size={14} />{issue.citizenName}</span>
                 <span className="flex items-center gap-1"><Calendar size={14} />{formatDateTime(issue.createdAt)}</span>

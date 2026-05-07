@@ -50,10 +50,10 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // Any other 401 means session expired.
+      // Any other 401 means session expired — bounce to home (which has the inline login).
       localStorage.removeItem('ecotrack_auth');
       toastErrorOnce('Session expired. Please sign in again.', 'auth-401');
-      window.location.href = '/login';
+      window.location.href = '/';
       return Promise.reject(error);
     }
 
@@ -83,11 +83,11 @@ axiosInstance.interceptors.response.use(
       if (!shouldSuppress) {
         toastErrorOnce('Access denied. Insufficient permissions.', 'http-403');
       }
-    } else if (error.response?.status >= 500) {
-      toastErrorOnce('Server error. Please try again later.', 'http-5xx');
-    } else if (!error.response) {
-      toastErrorOnce('Network error. Check your connection and try again.', 'network');
     }
+    // 5xx and network errors are intentionally NOT toasted globally — they were
+    // firing on every page load when any backend service was unreachable. Page
+    // components surface their own errors via mutation.onError / query.onError
+    // and the rejected promise still propagates so per-call handlers run.
 
     return Promise.reject(error);
   }

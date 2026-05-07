@@ -76,7 +76,7 @@ export default function AdminUsersPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="User Management" description="Create and manage staff accounts"
+      <PageHeader emoji="👥" title="User Management" description="Create and manage staff accounts"
         action={<Button onClick={() => setCreateModal(true)}><Plus size={16} /> Create User</Button>}
       />
 

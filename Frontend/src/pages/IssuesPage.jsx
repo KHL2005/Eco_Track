@@ -132,6 +132,7 @@ export default function IssuesPage({ mine = false }) {
     return (
       <DashboardLayout>
         <PageHeader
+          emoji="📋"
           title="My Reported Issues"
           description="Track the status and officer resolution of your submitted reports"
           action={
@@ -219,6 +220,7 @@ export default function IssuesPage({ mine = false }) {
   return (
     <DashboardLayout>
       <PageHeader
+        emoji="⚠️"
         title={mine ? 'My Reported Issues' : 'All Issues'}
         description="Environmental issues reported by citizens"
         action={

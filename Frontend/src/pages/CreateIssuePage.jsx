@@ -124,8 +124,8 @@ export default function CreateIssuePage() {
         {/* Citizen-themed page header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#14532d]">Report an Issue</h1>
-            <p className="text-sm text-[#64748b] mt-0.5">Help your community by reporting environmental problems</p>
+            <h1 className="text-2xl font-bold text-[#14532d] flex items-center gap-2">📸 Report an Issue</h1>
+            <p className="text-sm text-[#64748b] mt-0.5">Help your community by reporting environmental problems 🌍</p>
           </div>
         </div>
 

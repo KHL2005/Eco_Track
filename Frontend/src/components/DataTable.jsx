@@ -62,7 +62,12 @@ export default function DataTable({ columns, data, loading, searchable = true, s
       {loading ? (
         <LoadingSkeleton rows={5} cols={columns.length} />
       ) : sorted.length === 0 ? (
-        <EmptyState title="No results" description={search ? 'Try a different search term.' : 'Nothing here yet.'} />
+        <EmptyState
+          emoji={search ? '🔍' : '📭'}
+          title={search ? 'No matches found' : 'Nothing here yet'}
+          description={search ? `No rows match "${search}".` : 'Records will appear here once they are added.'}
+          hint={search ? 'Try clearing the search or using broader keywords.' : undefined}
+        />
       ) : (
         <>
           <div className="overflow-x-auto rounded-xl border border-bark-400/10">

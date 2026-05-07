@@ -265,7 +265,7 @@ export default function ProjectDetailPage() {
           <Card className="mb-6">
             <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-bark-800 mb-2">{project.title}</h1>
+                <h1 className="text-2xl font-bold text-bark-800 mb-2 flex items-center gap-2"><span aria-hidden="true">🌳</span> <span>{project.title}</span></h1>
                 <p className="text-sm text-bark-600 leading-relaxed max-w-2xl">{project.description}</p>
               </div>
               <StatusBadge status={project.status} />

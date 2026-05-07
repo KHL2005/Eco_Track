@@ -47,7 +47,7 @@ export default function SensorDetailPage() {
         <Card className="mb-4">
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-xl font-bold text-bark-800">Sensor #{sensor.sensorId}</h1>
+              <h1 className="text-xl font-bold text-bark-800 flex items-center gap-2"><span aria-hidden="true">📡</span> Sensor #{sensor.sensorId}</h1>
               <div className="flex items-center gap-4 mt-2 text-sm text-bark-400">
                 <span>Type: <strong className="text-bark-600">{sensor.type}</strong></span>
                 {sensor.location && <span className="flex items-center gap-1"><MapPin size={13} />{sensor.location}</span>}

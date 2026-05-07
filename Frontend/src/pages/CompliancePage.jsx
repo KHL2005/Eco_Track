@@ -114,6 +114,7 @@ export default function CompliancePage() {
   return (
     <DashboardLayout>
       <PageHeader
+        emoji="🛡️"
         title="Compliance Records"
         description="Regulatory compliance tracking"
         action={

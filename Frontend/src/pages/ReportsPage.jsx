@@ -47,7 +47,7 @@ export default function ReportsPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Reports" description="Analytics and sustainability reports"
+      <PageHeader emoji="📜" title="Reports" description="Analytics and sustainability reports"
         action={canManageIssues && <Button onClick={() => setModal(true)}><Plus size={16} /> Generate Report</Button>}
       />
 

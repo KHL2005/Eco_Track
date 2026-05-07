@@ -15,72 +15,72 @@ import {
 
 const navByRole = {
   CITIZEN: [
-    { label: 'Home', icon: Home, to: '/dashboard' },
-    { label: 'Report Issue', icon: AlertTriangle, to: '/issues/new' },
-    { label: 'My Issues', icon: ClipboardList, to: '/issues/mine' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Home', emoji: '🏠', icon: Home, to: '/dashboard' },
+    { label: 'Report Issue', emoji: '⚠️', icon: AlertTriangle, to: '/issues/new' },
+    { label: 'My Issues', emoji: '📋', icon: ClipboardList, to: '/issues/mine' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   AGENCY_OFFICER: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Issues', icon: AlertTriangle, to: '/issues' },
-    { label: 'Sensors', icon: Activity, to: '/sensors' },
-    { label: 'Sensor Data', icon: Database, to: '/sensor-data' },
-    { label: 'Analysis', icon: FlaskConical, to: '/analysis' },
-    { label: 'Projects', icon: FolderKanban, to: '/projects' },
-    { label: 'Reports', icon: FileText, to: '/reports' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Issues', emoji: '⚠️', icon: AlertTriangle, to: '/issues' },
+    { label: 'Sensors', emoji: '📡', icon: Activity, to: '/sensors' },
+    { label: 'Sensor Data', emoji: '💧', icon: Database, to: '/sensor-data' },
+    { label: 'Analysis', emoji: '🔬', icon: FlaskConical, to: '/analysis' },
+    { label: 'Projects', emoji: '🌳', icon: FolderKanban, to: '/projects' },
+    { label: 'Reports', emoji: '📄', icon: FileText, to: '/reports' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   INDUSTRY: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Emissions', icon: Factory, to: '/emissions' },
-    { label: 'Documents', icon: FileText, to: '/documents' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Emissions', emoji: '🏭', icon: Factory, to: '/emissions' },
+    { label: 'Documents', emoji: '📄', icon: FileText, to: '/documents' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   SCIENTIST: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Sensors', icon: Activity, to: '/sensors' },
-    { label: 'Sensor Data', icon: Database, to: '/sensor-data' },
-    { label: 'Analysis', icon: FlaskConical, to: '/analysis' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Sensors', emoji: '📡', icon: Activity, to: '/sensors' },
+    { label: 'Sensor Data', emoji: '💧', icon: Database, to: '/sensor-data' },
+    { label: 'Analysis', emoji: '🔬', icon: FlaskConical, to: '/analysis' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   COMPLIANCE_OFFICER: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Compliance', icon: ShieldCheck, to: '/compliance' },
-    { label: 'Audits', icon: ClipboardList, to: '/audits' },
-    { label: 'Emissions', icon: Factory, to: '/emissions' },
-    { label: 'Documents', icon: FileText, to: '/documents' },
-    { label: 'Reports', icon: ScrollText, to: '/reports' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Compliance', emoji: '🛡️', icon: ShieldCheck, to: '/compliance' },
+    { label: 'Audits', emoji: '✅', icon: ClipboardList, to: '/audits' },
+    { label: 'Emissions', emoji: '🏭', icon: Factory, to: '/emissions' },
+    { label: 'Documents', emoji: '📄', icon: FileText, to: '/documents' },
+    { label: 'Reports', emoji: '📜', icon: ScrollText, to: '/reports' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   ADMINISTRATOR: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Issues', icon: AlertTriangle, to: '/issues' },
-    { label: 'Sensors', icon: Activity, to: '/sensors' },
-    { label: 'Sensor Data', icon: Database, to: '/sensor-data' },
-    { label: 'Analysis', icon: FlaskConical, to: '/analysis' },
-    { label: 'Emissions', icon: Factory, to: '/emissions' },
-    { label: 'Documents', icon: FileText, to: '/documents' },
-    { label: 'Projects', icon: FolderKanban, to: '/projects' },
-    { label: 'Compliance', icon: ShieldCheck, to: '/compliance' },
-    { label: 'Audits', icon: ClipboardList, to: '/audits' },
-    { label: 'Reports', icon: ScrollText, to: '/reports' },
-    { label: 'Users', icon: Users, to: '/admin/users' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Issues', emoji: '⚠️', icon: AlertTriangle, to: '/issues' },
+    { label: 'Sensors', emoji: '📡', icon: Activity, to: '/sensors' },
+    { label: 'Sensor Data', emoji: '💧', icon: Database, to: '/sensor-data' },
+    { label: 'Analysis', emoji: '🔬', icon: FlaskConical, to: '/analysis' },
+    { label: 'Emissions', emoji: '🏭', icon: Factory, to: '/emissions' },
+    { label: 'Documents', emoji: '📄', icon: FileText, to: '/documents' },
+    { label: 'Projects', emoji: '🌳', icon: FolderKanban, to: '/projects' },
+    { label: 'Compliance', emoji: '🛡️', icon: ShieldCheck, to: '/compliance' },
+    { label: 'Audits', emoji: '✅', icon: ClipboardList, to: '/audits' },
+    { label: 'Reports', emoji: '📜', icon: ScrollText, to: '/reports' },
+    { label: 'Users', emoji: '👥', icon: Users, to: '/admin/users' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   SUPER_ADMIN: [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'Issues', icon: AlertTriangle, to: '/issues' },
-    { label: 'Sensors', icon: Activity, to: '/sensors' },
-    { label: 'Sensor Data', icon: Database, to: '/sensor-data' },
-    { label: 'Analysis', icon: FlaskConical, to: '/analysis' },
-    { label: 'Emissions', icon: Factory, to: '/emissions' },
-    { label: 'Documents', icon: FileText, to: '/documents' },
-    { label: 'Projects', icon: FolderKanban, to: '/projects' },
-    { label: 'Compliance', icon: ShieldCheck, to: '/compliance' },
-    { label: 'Audits', icon: ClipboardList, to: '/audits' },
-    { label: 'Reports', icon: ScrollText, to: '/reports' },
-    { label: 'Users', icon: Users, to: '/admin/users' },
-    { label: 'Notifications', icon: Bell, to: '/notifications' },
+    { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Issues', emoji: '⚠️', icon: AlertTriangle, to: '/issues' },
+    { label: 'Sensors', emoji: '📡', icon: Activity, to: '/sensors' },
+    { label: 'Sensor Data', emoji: '💧', icon: Database, to: '/sensor-data' },
+    { label: 'Analysis', emoji: '🔬', icon: FlaskConical, to: '/analysis' },
+    { label: 'Emissions', emoji: '🏭', icon: Factory, to: '/emissions' },
+    { label: 'Documents', emoji: '📄', icon: FileText, to: '/documents' },
+    { label: 'Projects', emoji: '🌳', icon: FolderKanban, to: '/projects' },
+    { label: 'Compliance', emoji: '🛡️', icon: ShieldCheck, to: '/compliance' },
+    { label: 'Audits', emoji: '✅', icon: ClipboardList, to: '/audits' },
+    { label: 'Reports', emoji: '📜', icon: ScrollText, to: '/reports' },
+    { label: 'Users', emoji: '👥', icon: Users, to: '/admin/users' },
+    { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
 };
 
@@ -105,7 +105,7 @@ export default function DashboardLayout({ children }) {
   const handleLogout = () => {
     logout();
     toast.success('Signed out successfully');   // ← add this line
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   const toggleSidebarCollapsed = () => {
@@ -158,7 +158,7 @@ export default function DashboardLayout({ children }) {
 
       {/* Nav */}
       <nav className={`flex-1 overflow-y-auto ${collapsed ? 'px-2 py-4' : 'px-3 py-4'} space-y-1`}>
-        {navItems.map(({ label, icon: Icon, to }) => {
+        {navItems.map(({ label, emoji, icon: Icon, to }) => {
           const active = location.pathname === to || (to !== '/dashboard' && location.pathname.startsWith(to));
           return (
             <Link
@@ -168,12 +168,19 @@ export default function DashboardLayout({ children }) {
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl text-sm font-medium transition-all
                 ${active
-                  ? 'bg-white/15 text-white'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  ? 'bg-white/15 text-white border-l-2 border-leaf-400'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white border-l-2 border-transparent'
                 }`}
             >
-              <Icon size={18} />
-              {!collapsed && <>{label}{active && <ChevronRight size={14} className="ml-auto" />}</>}
+              {collapsed ? (
+                <Icon size={18} />
+              ) : (
+                <>
+                  <span className="text-base leading-none w-5 text-center" aria-hidden="true">{emoji}</span>
+                  <span className="flex-1">{label}</span>
+                  {active && <ChevronRight size={14} />}
+                </>
+              )}
             </Link>
           );
         })}

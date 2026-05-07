@@ -81,7 +81,7 @@ export default function ProfilePage() {
   return (
     <DashboardLayout>
       <div className="max-w-xl mx-auto">
-        <PageHeader title="My Profile" description="Account information and settings" />
+        <PageHeader emoji="👤" title="My Profile" description="Account information and settings" />
 
         <Card className="mb-4">
           <div className="flex items-center gap-4 mb-6">

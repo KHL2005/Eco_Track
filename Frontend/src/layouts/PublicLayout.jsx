@@ -7,6 +7,7 @@ export default function PublicLayout({ children }) {
   const { isAuthenticated, user } = useAuth();
   const isLogin = location.pathname === '/login';
   const isRegister = location.pathname === '/register';
+  const isHome = location.pathname === '/';
 
   return (
     <div className="min-h-screen bg-earth-100 flex flex-col">
@@ -29,7 +30,10 @@ export default function PublicLayout({ children }) {
               </Link>
             ) : (
               /* Logged out — show context-appropriate link */
-              isRegister ? (
+              isHome ? (
+                /* Home page — login form is inline on the page itself */
+                null
+              ) : isRegister ? (
                 <Link to="/login" className="text-sm font-medium text-forest-600 hover:text-forest-700 transition-colors">
                   Sign in
                 </Link>
@@ -38,7 +42,7 @@ export default function PublicLayout({ children }) {
                   Create citizen account
                 </Link>
               ) : (
-                /* Home page or other public pages */
+                /* Other public pages */
                 <>
                   <Link to="/login" className="text-sm font-medium text-bark-600 hover:text-bark-800 transition-colors">
                     Sign in

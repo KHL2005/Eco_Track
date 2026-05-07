@@ -87,6 +87,7 @@ export default function AuditsPage() {
   return (
     <DashboardLayout>
       <PageHeader
+        emoji="✅"
         title="Audits"
         description="Environmental compliance audits"
         action={

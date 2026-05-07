@@ -124,7 +124,7 @@ export default function DocumentsPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Industry Documents" description="Permits, compliance documents, and certificates"
+      <PageHeader emoji="📄" title="Industry Documents" description="Permits, compliance documents, and certificates"
         action={(isIndustry || isAdmin) && <Button onClick={() => setModal(true)}><Plus size={16} /> Upload Document</Button>}
       />
 

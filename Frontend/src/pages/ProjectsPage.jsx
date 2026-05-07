@@ -94,6 +94,7 @@ export default function ProjectsPage() {
   return (
     <DashboardLayout>
       <PageHeader
+        emoji="🌳"
         title="Sustainability Projects"
         description="Track green initiatives and their impact"
         action={
@@ -115,7 +116,7 @@ export default function ProjectsPage() {
       {isLoading ? (
         <LoadingSkeleton rows={3} cols={3} />
       ) : projects.length === 0 ? (
-        <EmptyState title="No projects yet" description="Create the first sustainability project." />
+        <EmptyState emoji="🌳" title="No projects yet" description="Create the first sustainability project — reforestation, water conservation, waste reduction, and more." hint="Projects with measurable impact metrics attract 3× more agency funding." />
        ) : (
          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
            {projects.map((p, i) => (

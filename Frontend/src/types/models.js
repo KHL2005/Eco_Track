@@ -65,14 +65,12 @@
 
 /**
  * @typedef {Object} SensorResponse
- * @property {number} id
- * @property {string} name
- * @property {'AIR'|'WATER'|'NOISE'|'SOIL'} type
+ * @property {number} sensorId
+ * @property {'AIR'|'WATER'|'NOISE'} type
  * @property {'ACTIVE'|'INACTIVE'|'MAINTENANCE'} status
- * @property {number} latitude
- * @property {number} longitude
  * @property {string} location
- * @property {string} installedAt
+ * @property {string} createdAt
+ * @property {string} updatedAt
  */
 
 /**

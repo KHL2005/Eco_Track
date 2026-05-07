@@ -5,7 +5,7 @@ export default function Sidebar({ items, activeKey, onSelect, collapsed, onToggl
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate('/'); };
 
   return (
     <>

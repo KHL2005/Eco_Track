@@ -161,7 +161,7 @@ export default function SensorsPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Sensors"
+      <PageHeader emoji="📡" title="Sensors" description="Live environmental sensor network"
         action={
           <div className="flex gap-2 items-center">
             <form onSubmit={(e) => {
