@@ -173,6 +173,22 @@ public class MonitoringController {
         return ResponseEntity.ok(monitoringService.getAnalysisByScientistId(scientistId));
     }
 
+    @GetMapping("/api/v1/analysis/status/{status}")
+    @Operation(summary = "Get all analyses filtered by status (PENDING, REVIEWED, FLAGGED)")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    public ResponseEntity<List<AnalysisResponse>> getAnalysisByStatus(
+            @PathVariable("status") AnalysisStatus status) {
+        return ResponseEntity.ok(monitoringService.getAnalysisByStatus(status));
+    }
+
+    @GetMapping("/api/v1/analysis/sensor/{sensorId}")
+    @Operation(summary = "Get all analyses for a specific sensor")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    public ResponseEntity<List<AnalysisResponse>> getAnalysisBySensorId(
+            @PathVariable("sensorId") Long sensorId) {
+        return ResponseEntity.ok(monitoringService.getAnalysisBySensorId(sensorId));
+    }
+
     @PatchMapping("/api/v1/analysis/{id}/review")
     @Operation(summary = "Review analysis — SCIENTIST only. Status: REVIEWED or FLAGGED. ScientistId is auto-read from your login token.")
     @PreAuthorize("hasAnyAuthority('SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")

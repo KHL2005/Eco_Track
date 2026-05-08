@@ -37,6 +37,10 @@ export const getAnalysisById = (id) => axiosInstance.get(`/analysis/${id}`);
 export const getAnalysesByData = (dataId) => axiosInstance.get(`/analysis/data/${dataId}`);
 export const getAnalysesByScientist = (scientistId) =>
   axiosInstance.get(`/analysis/scientist/${scientistId}`);
+export const getAnalysesByStatus = (status) =>
+  axiosInstance.get(`/analysis/status/${status}`);
+export const getAnalysesBySensor = (sensorId) =>
+  axiosInstance.get(`/analysis/sensor/${sensorId}`);
 export const createAnalysis = (data) => axiosInstance.post('/analysis', data);
 export const reviewAnalysis = (id, status, findings) =>
   axiosInstance.patch(

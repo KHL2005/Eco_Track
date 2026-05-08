@@ -11,8 +11,6 @@ public class SensorData {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "data_id") private Long dataId;
     @Column(name = "sensor_id", nullable = false) private Long sensorId;
-    @Column(name = "value") private Double value;
-    @Column(name = "unit", length = 50) private String unit;
     @Column(name = "parameters_json", columnDefinition = "TEXT") private String parametersJson;
     @Column(name = "recorded_at") private LocalDateTime recordedAt;
     @Column(nullable = false) private LocalDateTime timestamp;

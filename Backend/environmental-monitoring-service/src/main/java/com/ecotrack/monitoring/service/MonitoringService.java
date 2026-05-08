@@ -262,6 +262,28 @@ public class MonitoringService {
                 .collect(Collectors.toList());
     }
 
+    public List<AnalysisResponse> getAnalysisByStatus(AnalysisStatus status) {
+        List<Analysis> results = analysisRepository.findByStatus(status);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No analysis records found with status: " + status);
+        }
+        return results.stream()
+                .map(this::toAnalysisResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<AnalysisResponse> getAnalysisBySensorId(Long sensorId) {
+        // Validate sensor exists
+        findSensorById(sensorId);
+        List<Analysis> results = analysisRepository.findBySensorId(sensorId);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No analysis records found for sensor id: " + sensorId);
+        }
+        return results.stream()
+                .map(this::toAnalysisResponse)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public void deleteAnalysis(Long id) {
         if (!analysisRepository.existsById(id)) {

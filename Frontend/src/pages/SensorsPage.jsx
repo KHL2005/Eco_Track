@@ -9,6 +9,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import DataTable from '../components/DataTable';
 import * as sensorsApi from '../api/sensorsApi';
 import { useRole } from '../hooks/useRole';
+import { formatSensorId } from '../utils/idFormatters';
 import { SENSOR_TYPES } from '../utils/constants';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2 } from 'lucide-react';
@@ -37,7 +38,16 @@ export default function SensorsPage() {
   const createMut = useMutation({
     mutationFn: (d) => sensorsApi.createSensor(d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['sensors'] }); toast.success('Sensor registered'); setCreateModal(false); setForm({ type: 'AIR', location: '' }); },
-    onError: () => toast.error('Failed to register sensor'),
+    onError: (error) => {
+      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to register sensor';
+      const details = error?.response?.data?.details || '';
+      const fullError = details ? `${errorMsg}: ${details}` : errorMsg;
+      toast.error('Failed to register sensor', {
+        description: fullError,
+        duration: 5000
+      });
+      console.error('Sensor creation error:', error);
+    },
   });
 
   const updateStatus = useMutation({
@@ -104,7 +114,7 @@ export default function SensorsPage() {
   });
 
   const columns = [
-    { key: 'id', label: 'ID', render: r => <span className="text-bark-800 text-xs">{r.id}</span> },
+    { key: 'id', label: 'ID', render: r => <span className="text-bark-800 text-xs font-semibold">{formatSensorId(r.id)}</span> },
     { key: 'type', label: 'Type', render: r => <span className="text-xs">{r.type}</span> },
     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
     { key: 'location', label: 'Location' },
@@ -213,10 +223,19 @@ export default function SensorsPage() {
 
       <Modal open={createModal} onClose={() => setCreateModal(false)} title="Register New Sensor">
         <div className="space-y-4">
+          {createMut.error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm font-medium text-red-900">Registration Failed</p>
+              <p className="text-xs text-red-700 mt-1">
+                {createMut.error?.response?.data?.message || 'Please check your input and try again'}
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Location <span className="text-red-500">*</span></label>
             <input type="text" className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               placeholder="e.g., New Delhi" value={form.location} onChange={set('location')} />
+            {form.location && form.location.length < 2 && <p className="text-xs text-orange-600 mt-1">Location should be at least 2 characters</p>}
           </div>
 
           <div>
@@ -226,13 +245,24 @@ export default function SensorsPage() {
               <option value="">Select a type</option>
               {SENSOR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+            {!form.type && <p className="text-xs text-orange-600 mt-1">Sensor type is required</p>}
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setCreateModal(false)}>Cancel</Button>
-            <Button onClick={() => createMut.mutate({
-              location: form.location,
-              type: form.type
-            })} loading={createMut.isPending}>Register</Button>
+            <Button onClick={() => {
+              if (!form.location.trim()) {
+                toast.error('Location is required');
+                return;
+              }
+              if (!form.type) {
+                toast.error('Sensor type is required');
+                return;
+              }
+              createMut.mutate({
+                location: form.location,
+                type: form.type
+              });
+            }} loading={createMut.isPending}>Register</Button>
           </div>
         </div>
       </Modal>

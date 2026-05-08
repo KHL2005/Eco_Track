@@ -10,6 +10,7 @@ import { Plus, Trash2, Eye } from 'lucide-react';
 import * as sensorsApi from '../api/sensorsApi';
 import { useRole } from '../hooks/useRole';
 import { formatDateTime } from '../utils/formatters';
+import { formatDataId, formatSensorId, formatParameterWithRange } from '../utils/idFormatters';
 import { toast } from 'sonner';
 
 export default function SensorDataPage() {
@@ -58,7 +59,7 @@ export default function SensorDataPage() {
       setCurrentPage(1);
       setSearchDataId('');
       setSearchSensorId('');
-      setForm({ sensorId: '', value: '', unit: '', parametersJson: '', notes: '' });
+      setForm({ sensorId: '', parametersJson: '' });
     },
     onError: (error) => {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to record sensor data';
@@ -97,13 +98,13 @@ export default function SensorDataPage() {
       key: 'id',
       label: 'Data ID',
       sortable: true,
-      render: r => <span className="text-xs font-semibold text-bark-700">{r.id || r.dataId || '—'}</span>
+      render: r => <span className="text-xs font-semibold text-forest-700">{formatDataId(r.id || r.dataId)}</span>
     },
     {
       key: 'sensorId',
       label: 'Sensor ID',
       sortable: true,
-      render: r => <span className="text-xs font-semibold text-black">{r.sensorId || '—'}</span>
+      render: r => <span className="text-xs font-semibold text-bark-800">{formatSensorId(r.sensorId)}</span>
     },
     {
       key: 'parametersJson',
@@ -120,7 +121,7 @@ export default function SensorDataPage() {
               <button
                 onClick={() => setDetailsModal(r)}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-forest-600 hover:bg-forest-50 rounded-lg transition-colors"
-                title="View details"
+                title="View parameters and ideal ranges"
               >
                 <Eye size={14} />
                 View
@@ -227,7 +228,7 @@ export default function SensorDataPage() {
       <Modal
         open={!!detailsModal}
         onClose={() => setDetailsModal(null)}
-        title="Parameter Details"
+        title="Parameter Details & Ideal Ranges"
         size="lg"
       >
         <div className="space-y-4">
@@ -237,13 +238,37 @@ export default function SensorDataPage() {
                 <label className="block text-sm font-semibold text-bark-700">Parameters</label>
                 <div className="p-3 bg-bark-50 rounded-xl border border-bark-300/30 max-h-64 overflow-y-auto">
                   {Object.keys(parseParameters(detailsModal.parametersJson)).length > 0 ? (
-                    <div className="space-y-2">
-                      {Object.entries(parseParameters(detailsModal.parametersJson)).map(([key, value]) => (
-                        <div key={key} className="flex justify-between items-start py-1 border-b border-bark-200/50 last:border-0">
-                          <span className="text-sm font-medium text-bark-700">{key}:</span>
-                          <span className="text-sm text-bark-600 font-semibold">{value}</span>
-                        </div>
-                      ))}
+                    <div className="space-y-3">
+                      {Object.entries(parseParameters(detailsModal.parametersJson)).map(([key, value]) => {
+                        const paramInfo = formatParameterWithRange(key, value);
+                        const statusColor = paramInfo.isInRange === null
+                          ? 'text-bark-600'
+                          : paramInfo.isInRange
+                          ? 'text-green-600'
+                          : 'text-orange-600';
+                        const statusIcon = paramInfo.isInRange === null
+                          ? '○'
+                          : paramInfo.isInRange
+                          ? '✓'
+                          : '⚠';
+
+                        return (
+                          <div key={key} className="py-2 border-b border-bark-200/50 last:border-0">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="text-sm font-semibold text-bark-700">{paramInfo.label}</span>
+                              <span className={`text-xs font-bold ${statusColor}`}>{statusIcon}</span>
+                            </div>
+                            <div className="text-xs text-bark-600 mb-1">
+                              <strong>Value:</strong> {paramInfo.display || value}
+                            </div>
+                            {paramInfo.range && (
+                              <div className="text-xs text-bark-500">
+                                <strong>Ideal Range:</strong> {paramInfo.range.min}–{paramInfo.range.max} {paramInfo.range.unit}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-bark-400 italic">No parameters recorded</p>
@@ -301,12 +326,25 @@ export default function SensorDataPage() {
             </label>
             <textarea
               className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30 font-mono text-xs transition-all"
-              placeholder='Required. Example: {"CO2": 400, "NO2": 25, "PM25": 35}'
-              rows="3"
+              placeholder='Required. Example: {"PM2.5": 35, "PM10": 50, "CO2": 400, "NO2": 25}'
+              rows="4"
               value={form.parametersJson}
               onChange={set('parametersJson')}
             />
             <p className="text-xs text-bark-400 mt-1">Enter environmental parameters as JSON for detailed analysis</p>
+            <div className="mt-3 p-3 bg-forest-50 rounded-lg border border-forest-200/30">
+              <p className="text-xs font-semibold text-forest-700 mb-2">📊 Supported Parameters & Ideal Ranges:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-forest-600">
+                <div>• <strong>PM2.5</strong>: 0–35 µg/m³</div>
+                <div>• <strong>PM10</strong>: 0–50 µg/m³</div>
+                <div>• <strong>CO2</strong>: 400–1200 ppm</div>
+                <div>• <strong>NO2</strong>: 0–40 µg/m³</div>
+                <div>• <strong>O3</strong>: 0–100 µg/m³</div>
+                <div>• <strong>SO2</strong>: 0–20 µg/m³</div>
+                <div>• <strong>Temperature</strong>: 15–35 °C</div>
+                <div>• <strong>Noise Level</strong>: 0–55 dB</div>
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}

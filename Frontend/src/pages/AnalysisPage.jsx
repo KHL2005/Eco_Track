@@ -13,6 +13,7 @@ import * as sensorsApi from '../api/sensorsApi';
 import { useRole } from '../hooks/useRole';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/formatters';
+import { formatSensorId, formatAnalysisId, formatScientistId } from '../utils/idFormatters';
 import { ANALYSIS_STATUSES } from '../utils/constants';
 import { toast } from 'sonner';
 
@@ -95,9 +96,9 @@ export default function AnalysisPage() {
   });
 
   const columns = [
-    { key: 'sensorId', label: 'Sensor ID', render: r => <span className="text-xs font-medium">{r.sensorId || '—'}</span> },
-    { key: 'analysisId', label: 'Analysis ID', render: r => <span className="text-xs">{r.analysisId}</span> },
-    { key: 'scientistId', label: 'Scientist ID', sortable: true, render: r => <span className="text-xs">{r.scientistId ? r.scientistId : '—'}</span> },
+    { key: 'sensorId', label: 'Sensor ID', render: r => <span className="text-xs font-medium">{formatSensorId(r.sensorId)}</span> },
+    { key: 'analysisId', label: 'Analysis ID', render: r => <span className="text-xs font-semibold text-forest-700">{formatAnalysisId(r.analysisId)}</span> },
+    { key: 'scientistId', label: 'Scientist ID', sortable: true, render: r => <span className="text-xs font-medium">{formatScientistId(r.scientistId)}</span> },
     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
     { key: 'findings', label: 'Findings', render: r => <div className="text-xs text-bark-400 max-w-[200px] h-12 overflow-y-auto border border-bark-300/30 rounded px-2 py-1">{r.findings || '—'}</div> },
     {
