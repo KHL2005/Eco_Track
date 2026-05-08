@@ -36,7 +36,7 @@ public class IssueController {
 
     @PostMapping
     @Operation(summary = "Report a new environmental issue")
-    @PreAuthorize("hasAnyAuthority('CITIZEN','AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CITIZEN','ADMIN')")
     public ResponseEntity<IssueResponse> createIssue(@Valid @RequestBody IssueRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(issueService.createIssue(request));
     }
@@ -156,9 +156,8 @@ public class IssueController {
     @Operation(summary = "Add a resolution for a specific issue")
     @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
     public ResponseEntity<ResolutionResponse> addResolution(@PathVariable("issueId") Long issueId,
-                                                             @Valid @RequestBody ResolutionRequest request) {
-        request.setIssueId(issueId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(issueService.addResolution(request));
+                                                              @Valid @RequestBody ResolutionRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(issueService.addResolution(issueId, request));
     }
 
     @GetMapping("/{issueId}/resolutions")

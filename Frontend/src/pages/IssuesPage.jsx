@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Modal from '../components/Modal';
 import { Plus, Trash2, Eye, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import * as issuesApi from '../api/issuesApi';
 import { useRole } from '../hooks/useRole';
@@ -104,6 +105,9 @@ export default function IssuesPage({ mine = false }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [statusModal, setStatusModal] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [newStatus, setNewStatus] = useState('');
 
   const queryKey = mine ? ['issues', 'citizen', user?.userId] : ['issues'];
   const { data: issues = [], isLoading } = useQuery({
@@ -119,6 +123,23 @@ export default function IssuesPage({ mine = false }) {
     mutationFn: (id) => issuesApi.deleteIssue(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['issues'] }); toast.success('Issue deleted'); setDeleteTarget(null); },
     onError: () => toast.error('Failed to delete issue'),
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }) => issuesApi.updateIssueStatus(id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['issues'] });
+      qc.invalidateQueries({ queryKey: ['issue'] });
+      qc.invalidateQueries({ queryKey: ['issues', 'citizen'] });
+      toast.success('Status updated');
+      setStatusModal(false);
+      setSelectedIssue(null);
+    },
+    onError: (error) => {
+      const message = error.response?.data?.message || error.message || 'Failed to update status';
+      console.error('Status update error:', message, error);
+      toast.error(message);
+    },
   });
 
   const filtered = issues.filter(i => {
@@ -194,9 +215,9 @@ export default function IssuesPage({ mine = false }) {
 
   // ── OFFICER / ADMIN TABLE VIEW ────────────────────────────
   const columns = [
-    { key: 'id', label: '#', sortable: true, render: r => <span className="text-bark-400 text-xs">#{r.id}</span> },
+    { key: 'issueId', label: '#', sortable: true, render: r => <span className="text-bark-400 text-xs">#{r.issueId}</span> },
     { key: 'title', label: 'Title', sortable: true, render: r => (
-      <Link to={`/issues/${r.id}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">{r.title}</Link>
+      <Link to={`/issues/${r.issueId}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">{r.title}</Link>
     )},
     { key: 'type',       label: 'Type',        render: r => <span className="text-xs text-bark-600">{labelify(r.type)}</span> },
     { key: 'status',     label: 'Status',      render: r => <StatusBadge status={r.status} /> },
@@ -206,11 +227,16 @@ export default function IssuesPage({ mine = false }) {
       label: 'Actions',
       render: (r) => (
         <div className="flex items-center gap-2">
-          <Link to={`/issues/${r.id}`}><Button size="sm" variant="ghost"><Eye size={14} /></Button></Link>
+          <Link to={`/issues/${r.issueId}`}><Button size="sm" variant="ghost"><Eye size={14} /></Button></Link>
           {canManageIssues && (
-            <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={() => setDeleteTarget(r)}>
-              <Trash2 size={14} />
-            </Button>
+            <>
+              <Button size="sm" variant="ghost" onClick={() => { setSelectedIssue(r); setNewStatus(r.status); setStatusModal(true); }}>
+                Status
+              </Button>
+              <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={() => setDeleteTarget(r)}>
+                <Trash2 size={14} />
+              </Button>
+            </>
           )}
         </div>
       )
@@ -254,11 +280,26 @@ export default function IssuesPage({ mine = false }) {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteMut.mutate(deleteTarget?.id)}
+        onConfirm={() => deleteMut.mutate(deleteTarget?.issueId)}
         title="Delete Issue"
         message={`Are you sure you want to delete issue "${deleteTarget?.title}"? This action cannot be undone.`}
         loading={deleteMut.isPending}
       />
+
+      {/* Status Modal */}
+      <Modal open={statusModal} onClose={() => setStatusModal(false)} title={`Update Status for Issue #${selectedIssue?.issueId}`} size="sm">
+        <p className="text-xs text-bark-400 mb-3">
+          <strong>Valid transitions:</strong> OPEN → IN_PROGRESS or CLOSED | IN_PROGRESS → RESOLVED or CLOSED | RESOLVED → CLOSED
+        </p>
+        <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+          value={newStatus} onChange={e => setNewStatus(e.target.value)}>
+          {ISSUE_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
+        </select>
+        <div className="flex gap-3 justify-end">
+          <Button variant="secondary" onClick={() => setStatusModal(false)}>Cancel</Button>
+          <Button onClick={() => updateStatus.mutate({ id: selectedIssue?.issueId, status: newStatus })} loading={updateStatus.isPending}>Update</Button>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }

@@ -130,7 +130,7 @@ export default function AnalysisPage() {
       label: 'Actions', render: (r) => {
         return (
           <div className="flex gap-2">
-            {r.status !== 'REVIEWED' && (
+            {r.status !== 'REVIEWED' && (isAdmin || isAgencyOfficer) && (
               <Button
                 size="sm"
                 variant="outline"

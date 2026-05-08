@@ -164,16 +164,16 @@ public class IssueService {
     // ─── Resolution CRUD ─────────────────────────────────────────
 
     @Transactional
-    public ResolutionResponse addResolution(ResolutionRequest request) {
-        Issue issue = findIssueById(request.getIssueId());
+    public ResolutionResponse addResolution(Long issueId, ResolutionRequest request) {
+        Issue issue = findIssueById(issueId);
 
-        if (resolutionRepository.existsByIssueId(request.getIssueId())) {
+        if (resolutionRepository.existsByIssueId(issueId)) {
             throw new DuplicateResourceException(
-                    "Resolution already exists for issue: " + request.getIssueId());
+                    "Resolution already exists for issue: " + issueId);
         }
 
         Resolution resolution = Resolution.builder()
-                .issueId(request.getIssueId())
+                .issueId(issueId)
                 .officerId(request.getOfficerId())
                 .actions(request.getActions())
                 .status(ResolutionStatus.PENDING)

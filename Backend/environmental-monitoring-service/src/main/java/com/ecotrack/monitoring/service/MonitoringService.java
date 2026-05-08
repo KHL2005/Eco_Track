@@ -229,17 +229,18 @@ public class MonitoringService {
 
     @Transactional
     public AnalysisResponse reviewAnalysis(Long id, String userId, String userRole, AnalysisStatus status, String findings) {
-        // ── Validate that the caller is a SCIENTIST ──────────────────────────
-        if (userRole == null || !userRole.equalsIgnoreCase("SCIENTIST")) {
-            throw new UnauthorizedException("Only SCIENTIST role can review analysis. Your role: " + userRole);
+        // ── Validate that the caller is an AGENCY_OFFICER or ADMIN ──────────────
+        if (userRole == null || (!userRole.equalsIgnoreCase("AGENCY_OFFICER") && 
+            !userRole.equalsIgnoreCase("SUPER_ADMIN") && !userRole.equalsIgnoreCase("ADMINISTRATOR"))) {
+            throw new UnauthorizedException("Only AGENCY_OFFICER or ADMIN roles can review analysis. Your role: " + userRole);
         }
         if (userId == null || userId.isBlank()) {
             throw new UnauthorizedException("User ID is missing from request. Please login again.");
         }
 
-        Long scientistId;
+        Long reviewerId;
         try {
-            scientistId = Long.parseLong(userId);
+            reviewerId = Long.parseLong(userId);
         } catch (NumberFormatException e) {
             throw new UnauthorizedException("Invalid user ID in token: " + userId);
         }
@@ -251,15 +252,16 @@ public class MonitoringService {
         Analysis analysis = analysisRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis", id));
 
-        // Auto-assign scientistId from JWT — no manual override allowed
-        analysis.setScientistId(scientistId);
+        // Auto-assign reviewerId from JWT token — each officer/admin gets a unique ID based on their token
+        // This ensures different IDs are created for different agency officer reviews
+        analysis.setScientistId(reviewerId);
         analysis.setStatus(status);
         if (findings != null && !findings.isBlank()) {
             analysis.setFindings(findings);
         }
         analysis = analysisRepository.save(analysis);
 
-
+        log.info("Analysis {} reviewed by {} (role: {}). Status: {}", id, reviewerId, userRole, status);
         return toAnalysisResponse(analysis);
     }
 

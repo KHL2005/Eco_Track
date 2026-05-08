@@ -50,13 +50,19 @@ export default function IssueDetailPage() {
   const updateStatus = useMutation({
     mutationFn: ({ id, status }) => issuesApi.updateIssueStatus(id, status),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['issue', id] }); toast.success('Status updated'); setStatusModal(false); },
-    onError: () => toast.error('Failed to update status'),
+    onError: (error) => {
+      const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update status';
+      toast.error(message);
+    },
   });
 
   const addResolution = useMutation({
     mutationFn: (data) => issuesApi.addResolution(id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['resolution', 'issue', id] }); toast.success('Resolution added'); setResolutionModal(false); },
-    onError: () => toast.error('Failed to add resolution'),
+    onError: (error) => {
+      const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to add resolution';
+      toast.error(message);
+    },
   });
 
   const uploadMedia = useMutation({
@@ -279,12 +285,19 @@ export default function IssueDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-[#14532d]">Resolution</h3>
             {canManageIssues && !resolution && (
-              <Button size="sm" variant="outline" onClick={() => setResolutionModal(true)}>
+              <Button size="sm" variant="outline" onClick={() => {
+                if (!id) {
+                  toast.error('Invalid issue. Please refresh the page.');
+                  return;
+                }
+                setResForm({ actions: '', status: 'PENDING' });
+                setResolutionModal(true);
+              }} disabled={!id}>
                 <CheckCircle size={14} /> Add Resolution
               </Button>
             )}
           </div>
-          {resolution ? (
+          {resolution && (canManageIssues || resolution.status === 'COMPLETED') ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <StatusBadge status={resolution.status} />
@@ -335,7 +348,13 @@ export default function IssueDetailPage() {
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setResolutionModal(false)}>Cancel</Button>
-            <Button onClick={() => addResolution.mutate({ ...resForm, officerId: user?.userId, officerName: user?.name })} loading={addResolution.isPending}>Submit</Button>
+            <Button onClick={() => {
+              if (!id) {
+                toast.error('Invalid issue. Please refresh the page.');
+                return;
+              }
+              addResolution.mutate({ actions: resForm.actions, officerId: user?.userId });
+            }} loading={addResolution.isPending} disabled={!resForm.actions.trim() || !id}>Submit</Button>
           </div>
         </div>
       </Modal>

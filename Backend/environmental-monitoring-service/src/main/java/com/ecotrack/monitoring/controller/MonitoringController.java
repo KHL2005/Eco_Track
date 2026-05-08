@@ -190,8 +190,8 @@ public class MonitoringController {
     }
 
     @PatchMapping("/api/v1/analysis/{id}/review")
-    @Operation(summary = "Review analysis — SCIENTIST only. Status: REVIEWED or FLAGGED. ScientistId is auto-read from your login token.")
-    @PreAuthorize("hasAnyAuthority('SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
+    @Operation(summary = "Review analysis — AGENCY_OFFICER or ADMIN only. Status: REVIEWED or FLAGGED. ReviewerId is auto-read from your login token.")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<AnalysisResponse> reviewAnalysis(
             @PathVariable("id") Long id,
             @RequestHeader("X-User-Id")   String userId,
