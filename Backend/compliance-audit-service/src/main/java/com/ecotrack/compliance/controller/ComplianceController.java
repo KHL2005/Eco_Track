@@ -9,11 +9,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -58,6 +62,19 @@ public class ComplianceController {
     @Operation(summary = "Get compliance records by result")
     public ResponseEntity<List<ComplianceRecordResponse>> getByResult(@PathVariable("result") ComplianceResult result) {
         return ResponseEntity.ok(complianceService.getByResult(result));
+    }
+
+    @GetMapping("/api/v1/compliance/report/download")
+    @Operation(summary = "Download a structured compliance report (CSV) — total count, summary by type/result, detailed breakdown")
+    public ResponseEntity<byte[]> downloadReport() {
+        byte[] csv = complianceService.generateComplianceReport();
+        String filename = "compliance-report-" + LocalDate.now().format(DateTimeFormatter.ISO_DATE) + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
     }
 
     @PatchMapping("/api/v1/compliance/{id}")
