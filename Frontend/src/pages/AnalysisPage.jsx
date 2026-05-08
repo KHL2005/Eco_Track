@@ -32,6 +32,7 @@ export default function AnalysisPage() {
   const [filterScientistId, setFilterScientistId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAnalysisId, setFilterAnalysisId] = useState('');
+  const [filterSensorType, setFilterSensorType] = useState('');
   const RECORDS_PER_PAGE = 6;
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const setCsv = (k) => (e) => setCsvForm(f => ({ ...f, [k]: e.target.value }));
@@ -41,11 +42,23 @@ export default function AnalysisPage() {
     queryFn: () => sensorsApi.getAnalyses().then(r => r.data).catch(() => []),
   });
 
+  const { data: sensors = [] } = useQuery({
+    queryKey: ['sensors'],
+    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
+  });
+
+  // Create a map of sensor ID to sensor type
+  const sensorTypeMap = sensors.reduce((acc, s) => {
+    acc[s.sensorId] = s.type;
+    return acc;
+  }, {});
+
   // Apply filters to analyses
   const filteredAnalyses = analyses.filter(a => {
     if (filterAnalysisId && !a.analysisId.toString().includes(filterAnalysisId)) return false;
     if (filterScientistId && (!a.scientistId || !a.scientistId.toString().includes(filterScientistId))) return false;
     if (filterStatus && a.status !== filterStatus) return false;
+    if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
     return true;
   });
 
@@ -97,10 +110,22 @@ export default function AnalysisPage() {
 
   const columns = [
     { key: 'sensorId', label: 'Sensor ID', render: r => <span className="text-xs font-medium">{formatSensorId(r.sensorId)}</span> },
+    { key: 'sensorType', label: 'Type', render: r => <span className="text-xs font-medium px-2 py-1 bg-sky-100 text-sky-700 rounded">{sensorTypeMap[r.sensorId] || '—'}</span> },
     { key: 'analysisId', label: 'Analysis ID', render: r => <span className="text-xs font-semibold text-forest-700">{formatAnalysisId(r.analysisId)}</span> },
     { key: 'scientistId', label: 'Scientist ID', sortable: true, render: r => <span className="text-xs font-medium">{formatScientistId(r.scientistId)}</span> },
     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
-    { key: 'findings', label: 'Findings', render: r => <div className="text-xs text-bark-400 max-w-[200px] h-12 overflow-y-auto border border-bark-300/30 rounded px-2 py-1">{r.findings || '—'}</div> },
+    {
+      key: 'findings',
+      label: 'Findings',
+      render: r => (
+        <textarea
+          value={r.findings || ''}
+          readOnly
+          className="text-xs text-black bg-white border border-bark-300/30 rounded px-2 py-1 w-56 h-16 resize overflow-auto"
+          style={{ resize: 'both' }}
+        />
+      )
+    },
     {
       label: 'Actions', render: (r) => {
         return (
@@ -146,7 +171,7 @@ export default function AnalysisPage() {
 
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
         {/* Filter Section */}
-        <div className="mb-4 grid grid-cols-3 gap-3">
+        <div className="mb-4 grid grid-cols-4 gap-3">
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Analysis ID</label>
             <input
@@ -166,6 +191,19 @@ export default function AnalysisPage() {
               onChange={(e) => { setFilterScientistId(e.target.value); setCurrentPage(1); }}
               className="w-full border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Sensor Type</label>
+            <select
+              value={filterSensorType}
+              onChange={(e) => { setFilterSensorType(e.target.value); setCurrentPage(1); }}
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+            >
+              <option value="">All Types</option>
+              <option value="AIR">Air</option>
+              <option value="WATER">Water</option>
+              <option value="NOISE">Noise</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Status</label>
@@ -196,8 +234,21 @@ export default function AnalysisPage() {
           ))}
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Findings / Notes <span className="text-red-500">*</span></label>
-            <textarea rows={3} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={form.findings} onChange={set('findings')} />
+            <textarea rows={3} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={form.findings} onChange={set('findings')} placeholder="Document your analysis findings..." />
           </div>
+
+          <div className="p-3 bg-sky-50 rounded-lg border border-sky-200/30">
+            <p className="text-xs font-semibold text-sky-700 mb-2">📊 Ideal Parameter Ranges Reference:</p>
+            <div className="grid grid-cols-2 gap-2 text-xs text-sky-600">
+              <div><strong>AIR:</strong> PM2.5 0-35, PM10 0-50</div>
+              <div><strong>CO2/NO2:</strong> 400-1200 ppm / 0-40 µg</div>
+              <div><strong>WATER:</strong> pH 6.5-8.5, DO 5-8 mg/L</div>
+              <div><strong>Turbidity:</strong> 0-5 NTU, BOD 0-5 mg/L</div>
+              <div><strong>NOISE:</strong> 0-55 dB (ideal)</div>
+              <div><strong>Conductivity:</strong> 200-800 µS/cm</div>
+            </div>
+          </div>
+
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => { setCreateModal(false); setForm({ dataId: '', findings: '' }); }}>Cancel</Button>
             <Button onClick={() => {

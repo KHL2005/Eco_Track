@@ -243,7 +243,7 @@ export default function SensorsPage() {
             <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               value={form.type} onChange={set('type')}>
               <option value="">Select a type</option>
-              {SENSOR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {SENSOR_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             {!form.type && <p className="text-xs text-orange-600 mt-1">Sensor type is required</p>}
           </div>

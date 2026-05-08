@@ -1,0 +1,12 @@
+decibel,frequency,peak_level,ambient_level,frequency_range
+45,1000,52,40,low
+48,1500,55,43,low
+50,2000,58,45,medium
+52,3000,60,48,medium
+55,4000,65,52,high
+58,5000,70,55,high
+62,6000,75,60,very_high
+65,8000,80,65,very_high
+70,10000,85,70,extreme
+72,12000,90,75,extreme
+

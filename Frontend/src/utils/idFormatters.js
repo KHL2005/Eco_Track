@@ -55,6 +55,7 @@ export const parseFormattedId = (formattedId) => {
  */
 export const formatParameterWithRange = (parameter, value) => {
   const ranges = {
+    // Air Parameters
     'PM2.5': { min: 0, max: 35, unit: 'µg/m³', label: 'PM2.5' },
     'PM25': { min: 0, max: 35, unit: 'µg/m³', label: 'PM2.5' }, // Alternative format
     'pm2.5': { min: 0, max: 35, unit: 'µg/m³', label: 'PM2.5' }, // Lowercase
@@ -65,11 +66,27 @@ export const formatParameterWithRange = (parameter, value) => {
     'CO2': { min: 400, max: 1200, unit: 'ppm', label: 'Carbon Dioxide' },
     'O3': { min: 0, max: 100, unit: 'µg/m³', label: 'Ozone' },
     'SO2': { min: 0, max: 20, unit: 'µg/m³', label: 'Sulfur Dioxide' },
+
+    // Water Parameters
     'pH': { min: 6.5, max: 8.5, unit: '', label: 'pH Level' },
+    'ph': { min: 6.5, max: 8.5, unit: '', label: 'pH Level' },
     'Turbidity': { min: 0, max: 5, unit: 'NTU', label: 'Water Turbidity' },
+    'turbidity': { min: 0, max: 5, unit: 'NTU', label: 'Water Turbidity' },
     'Dissolved Oxygen': { min: 5, max: 8, unit: 'mg/L', label: 'Dissolved Oxygen' },
-    'Temperature': { min: 15, max: 35, unit: '°C', label: 'Temperature' },
+    'dissolvedOxygen': { min: 5, max: 8, unit: 'mg/L', label: 'Dissolved Oxygen' },
+    'BOD': { min: 0, max: 5, unit: 'mg/L', label: 'Biochemical Oxygen Demand' },
+    'bod': { min: 0, max: 5, unit: 'mg/L', label: 'Biochemical Oxygen Demand' },
+    'Conductivity': { min: 200, max: 800, unit: 'µS/cm', label: 'Electrical Conductivity' },
+    'conductivity': { min: 200, max: 800, unit: 'µS/cm', label: 'Electrical Conductivity' },
+
+    // Noise Parameters
     'Noise Level': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'decibel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'Decibel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+
+    // Temperature (common to all)
+    'Temperature': { min: 15, max: 35, unit: '°C', label: 'Temperature' },
+    'temperature': { min: 15, max: 35, unit: '°C', label: 'Temperature' },
   };
 
   const range = ranges[parameter];

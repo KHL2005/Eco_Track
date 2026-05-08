@@ -38,12 +38,26 @@ public class MonitoringService {
 
     @Transactional
     public SensorResponse createSensor(SensorRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Sensor request cannot be null");
+        }
+        if (request.getLocation() == null || request.getLocation().trim().isEmpty()) {
+            throw new BadRequestException("Location is required and cannot be empty");
+        }
+        if (request.getType() == null) {
+            throw new BadRequestException("Sensor type is required and must be one of: AIR, WATER, NOISE");
+        }
+        
         Sensor sensor = Sensor.builder()
-                .location(request.getLocation())
+                .location(request.getLocation().trim())
                 .type(request.getType())
                 .status(SensorStatus.ACTIVE)
                 .build();
-        return toSensorResponse(sensorRepository.save(sensor));
+        
+        Sensor savedSensor = sensorRepository.save(sensor);
+        log.info("Sensor created successfully: id={}, type={}, location={}", savedSensor.getSensorId(), savedSensor.getType(), savedSensor.getLocation());
+        
+        return toSensorResponse(savedSensor);
     }
 
     public List<SensorResponse> getAllSensors() {
@@ -107,8 +121,6 @@ public class MonitoringService {
 
         SensorData data = SensorData.builder()
                 .sensorId(request.getSensorId())
-                .value(request.getValue())
-                .unit(request.getUnit())
                 .parametersJson(request.getParametersJson())
                 .recordedAt(request.getRecordedAt())
                 .notes(request.getNotes())
@@ -446,8 +458,6 @@ public class MonitoringService {
                 .id(d.getDataId())
                 .dataId(d.getDataId())
                 .sensorId(d.getSensorId())
-                .value(d.getValue())
-                .unit(d.getUnit())
                 .parametersJson(d.getParametersJson())
                 .recordedAt(d.getRecordedAt())
                 .timestamp(d.getTimestamp())

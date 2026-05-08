@@ -22,6 +22,7 @@ export default function SensorDataPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [searchDataId, setSearchDataId] = useState('');
   const [searchSensorId, setSearchSensorId] = useState('');
+  const [filterSensorType, setFilterSensorType] = useState('');
   const [detailsModal, setDetailsModal] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [form, setForm] = useState({
@@ -38,15 +39,28 @@ export default function SensorDataPage() {
     queryFn: () => sensorsApi.getSensorData().then(r => r.data).catch(() => []),
   });
 
-  // Filter data based on search
+  const { data: sensors = [] } = useQuery({
+    queryKey: ['sensors'],
+    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
+  });
+
+  // Create a map of sensor ID to sensor type
+  const sensorTypeMap = sensors.reduce((acc, s) => {
+    acc[s.sensorId] = s.type;
+    return acc;
+  }, {});
+
+  // Filter data based on search and sensor type
   const filteredData = allSensorData.filter(d => {
     const dataId = (d.id || d.dataId)?.toString() || '';
     const sensorId = (d.sensorId)?.toString() || '';
+    const sensorType = sensorTypeMap[d.sensorId];
 
     const matchesDataId = !searchDataId || dataId.includes(searchDataId);
     const matchesSensorId = !searchSensorId || sensorId.includes(searchSensorId);
+    const matchesSensorType = !filterSensorType || sensorType === filterSensorType;
 
-    return matchesDataId && matchesSensorId;
+    return matchesDataId && matchesSensorId && matchesSensorType;
   });
 
   // Create mutation
@@ -105,6 +119,20 @@ export default function SensorDataPage() {
       label: 'Sensor ID',
       sortable: true,
       render: r => <span className="text-xs font-semibold text-bark-800">{formatSensorId(r.sensorId)}</span>
+    },
+    {
+      key: 'sensorType',
+      label: 'Sensor Type',
+      render: r => {
+        const type = sensorTypeMap[r.sensorId];
+        if (!type) return <span className="text-xs text-bark-400">—</span>;
+        const bgColors = {
+          'AIR': 'bg-sky-100 text-sky-700',
+          'WATER': 'bg-blue-100 text-blue-700',
+          'NOISE': 'bg-amber-100 text-amber-700',
+        };
+        return <span className={`text-xs font-medium px-2 py-1 rounded ${bgColors[type] || 'bg-bark-100 text-bark-700'}`}>{type}</span>;
+      }
     },
     {
       key: 'parametersJson',
@@ -166,7 +194,7 @@ export default function SensorDataPage() {
 
       {/* Search Section */}
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4 mb-4">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {/* Search by Data ID */}
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Search by Data ID</label>
@@ -191,15 +219,31 @@ export default function SensorDataPage() {
             />
           </div>
 
+          {/* Filter by Sensor Type */}
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Type</label>
+            <select
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30 transition-all"
+              value={filterSensorType}
+              onChange={(e) => { setFilterSensorType(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">All Types</option>
+              <option value="AIR">Air</option>
+              <option value="WATER">Water</option>
+              <option value="NOISE">Noise</option>
+            </select>
+          </div>
+
           {/* Clear Filters Button */}
           <div className="flex items-end">
-            {(searchDataId || searchSensorId) && (
+            {(searchDataId || searchSensorId || filterSensorType) && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => {
                   setSearchDataId('');
                   setSearchSensorId('');
+                  setFilterSensorType('');
                   setCurrentPage(1);
                 }}
                 className="w-full"
@@ -213,15 +257,27 @@ export default function SensorDataPage() {
 
       {/* Data Table */}
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
-        <DataTable
-          columns={columns}
-          data={filteredData}
-          loading={isLoading}
-          searchable={false}
-          currentPage={currentPage}
-          recordsPerPage={RECORDS_PER_PAGE}
-          onPageChange={setCurrentPage}
-        />
+        {!isLoading && filteredData.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-bark-400 mb-4">No sensor data found</p>
+            {(searchDataId || searchSensorId || filterSensorType) ? (
+              <p className="text-xs text-bark-400">Try clearing filters or recording new sensor data</p>
+            ) : (
+              <p className="text-xs text-bark-400">Click "Record Data" to add your first sensor reading</p>
+            )}
+          </div>
+        )}
+        {(isLoading || filteredData.length > 0) && (
+          <DataTable
+            columns={columns}
+            data={filteredData}
+            loading={isLoading}
+            searchable={false}
+            currentPage={currentPage}
+            recordsPerPage={RECORDS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
 
       {/* Parameter Details Modal */}
@@ -335,14 +391,26 @@ export default function SensorDataPage() {
             <div className="mt-3 p-3 bg-forest-50 rounded-lg border border-forest-200/30">
               <p className="text-xs font-semibold text-forest-700 mb-2">📊 Supported Parameters & Ideal Ranges:</p>
               <div className="grid grid-cols-2 gap-2 text-xs text-forest-600">
+                <div><strong>AIR SENSORS:</strong></div>
+                <div />
                 <div>• <strong>PM2.5</strong>: 0–35 µg/m³</div>
                 <div>• <strong>PM10</strong>: 0–50 µg/m³</div>
                 <div>• <strong>CO2</strong>: 400–1200 ppm</div>
                 <div>• <strong>NO2</strong>: 0–40 µg/m³</div>
                 <div>• <strong>O3</strong>: 0–100 µg/m³</div>
                 <div>• <strong>SO2</strong>: 0–20 µg/m³</div>
+
+                <div className="col-span-2 pt-2"><strong>WATER SENSORS:</strong></div>
+                <div>• <strong>pH</strong>: 6.5–8.5</div>
+                <div>• <strong>Turbidity</strong>: 0–5 NTU</div>
+                <div>• <strong>Dissolved Oxygen</strong>: 5–8 mg/L</div>
+                <div>• <strong>BOD</strong>: 0–5 mg/L</div>
+                <div>• <strong>Conductivity</strong>: 200–800 µS/cm</div>
+                <div />
+
+                <div className="col-span-2 pt-2"><strong>NOISE SENSORS:</strong></div>
+                <div>• <strong>Decibel</strong>: 0–55 dB (ideal)</div>
                 <div>• <strong>Temperature</strong>: 15–35 °C</div>
-                <div>• <strong>Noise Level</strong>: 0–55 dB</div>
               </div>
             </div>
           </div>
