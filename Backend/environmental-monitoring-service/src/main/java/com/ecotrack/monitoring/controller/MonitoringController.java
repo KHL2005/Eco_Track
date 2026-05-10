@@ -165,12 +165,12 @@ public class MonitoringController {
     }
 
 
-    @GetMapping("/api/v1/analysis/scientist/{scientistId}")
-    @Operation(summary = "Get all analyses assigned to a specific scientist")
+    @GetMapping("/api/v1/analysis/agency-officer/{agencyOfficerId}")
+    @Operation(summary = "Get all analyses reviewed by a specific agency officer")
     @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SCIENTIST', 'SUPER_ADMIN', 'ADMINISTRATOR')")
-    public ResponseEntity<List<AnalysisResponse>> getAnalysisByScientistId(
-            @PathVariable("scientistId") Long scientistId) {
-        return ResponseEntity.ok(monitoringService.getAnalysisByScientistId(scientistId));
+    public ResponseEntity<List<AnalysisResponse>> getAnalysisByAgencyOfficerId(
+            @PathVariable("agencyOfficerId") Long agencyOfficerId) {
+        return ResponseEntity.ok(monitoringService.getAnalysisByAgencyOfficerId(agencyOfficerId));
     }
 
     @GetMapping("/api/v1/analysis/status/{status}")
@@ -190,7 +190,7 @@ public class MonitoringController {
     }
 
     @PatchMapping("/api/v1/analysis/{id}/review")
-    @Operation(summary = "Review analysis — AGENCY_OFFICER or ADMIN only. Status: REVIEWED or FLAGGED. ReviewerId is auto-read from your login token.")
+    @Operation(summary = "Review analysis — AGENCY_OFFICER or ADMIN only. Status: REVIEWED or FLAGGED. Agency Officer ID is auto-read from your login token.")
     @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER', 'SUPER_ADMIN', 'ADMINISTRATOR')")
     public ResponseEntity<AnalysisResponse> reviewAnalysis(
             @PathVariable("id") Long id,

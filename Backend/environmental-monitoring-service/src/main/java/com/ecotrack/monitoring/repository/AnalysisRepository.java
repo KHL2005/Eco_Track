@@ -11,7 +11,7 @@ import java.util.Optional;
 public interface AnalysisRepository extends JpaRepository<Analysis, Long> {
     Optional<Analysis> findByDataId(Long dataId);
     List<Analysis> findAllByDataId(Long dataId);
-    List<Analysis> findByScientistId(Long scientistId);
+    List<Analysis> findByAgencyOfficerId(Long agencyOfficerId);
     List<Analysis> findByStatus(AnalysisStatus status);
 
     // FIXED: Use direct sensorId field instead of trying to join dataId

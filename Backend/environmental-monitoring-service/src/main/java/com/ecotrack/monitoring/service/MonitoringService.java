@@ -9,7 +9,7 @@ import com.ecotrack.monitoring.enums.SensorStatus;
 import com.ecotrack.monitoring.enums.SensorType;
 import com.ecotrack.monitoring.exception.BadRequestException;
 import com.ecotrack.monitoring.exception.ResourceNotFoundException;
-import com.ecotrack.monitoring.exception.ScientistNotFoundException;
+import com.ecotrack.monitoring.exception.AgencyOfficerNotFoundException;
 import com.ecotrack.monitoring.exception.UnauthorizedException;
 import com.ecotrack.monitoring.repository.AnalysisRepository;
 import com.ecotrack.monitoring.repository.SensorDataRepository;
@@ -178,12 +178,12 @@ public class MonitoringService {
         String findings = (request.getFindings() != null && !request.getFindings().isBlank())
                 ? request.getFindings()
                 : generateFindings(data.getParametersJson());
-        // Assign scientistId: from request → IAM fetch → null default
-        Long scientistId = request.getScientistId();
-        if (scientistId == null) {
-            scientistId = assignScientist();
+        // Assign agencyOfficerId: from request → IAM fetch → null default
+        Long agencyOfficerId = request.getAgencyOfficerId();
+        if (agencyOfficerId == null) {
+            agencyOfficerId = assignAgencyOfficer();
         }
-        // Keep as null if no scientist available
+        // Keep as null if no agency officer available
 
         // Determine status based on whether findings contain issues
         AnalysisStatus status = request.getStatus();
@@ -195,7 +195,7 @@ public class MonitoringService {
         Analysis analysis = Analysis.builder()
                 .dataId(request.getDataId())
                 .sensorId(data.getSensorId())
-                .scientistId(scientistId)
+                .agencyOfficerId(agencyOfficerId)
                 .findings(findings)
                 .status(status)
                 .build();
@@ -252,24 +252,25 @@ public class MonitoringService {
         Analysis analysis = analysisRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis", id));
 
-        // Auto-assign reviewerId from JWT token — each officer/admin gets a unique ID based on their token
-        // This ensures different IDs are created for different agency officer reviews
-        analysis.setScientistId(reviewerId);
+        // Auto-assign reviewerId (agency officer ID) from JWT token
+        // This ensures each agency officer who reviews gets their unique ID based on their JWT token
+        // Same agency officer will have same ID across reviews, different officers will have different IDs
+        analysis.setAgencyOfficerId(reviewerId);
         analysis.setStatus(status);
         if (findings != null && !findings.isBlank()) {
             analysis.setFindings(findings);
         }
         analysis = analysisRepository.save(analysis);
 
-        log.info("Analysis {} reviewed by {} (role: {}). Status: {}", id, reviewerId, userRole, status);
+        log.info("Analysis {} reviewed by agency officer {} (role: {}). Status: {}", id, reviewerId, userRole, status);
         return toAnalysisResponse(analysis);
     }
 
 
-    public List<AnalysisResponse> getAnalysisByScientistId(Long scientistId) {
-        List<Analysis> results = analysisRepository.findByScientistId(scientistId);
+    public List<AnalysisResponse> getAnalysisByAgencyOfficerId(Long agencyOfficerId) {
+        List<Analysis> results = analysisRepository.findByAgencyOfficerId(agencyOfficerId);
         if (results.isEmpty()) {
-            throw new ScientistNotFoundException(scientistId);
+            throw new AgencyOfficerNotFoundException(agencyOfficerId);
         }
         return results.stream()
                 .map(this::toAnalysisResponse)
@@ -318,36 +319,36 @@ public class MonitoringService {
             String findings = generateFindings(data.getParametersJson());
             boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
 
-            Long scientistId = assignScientist();
-            // Keep as null if no scientist available
+            Long agencyOfficerId = assignAgencyOfficer();
+            // Keep as null if no agency officer available
 
             Analysis analysis = Analysis.builder()
                     .dataId(data.getDataId())
                     .sensorId(data.getSensorId())
-                    .scientistId(scientistId)
+                    .agencyOfficerId(agencyOfficerId)
                     .findings(findings)
                     .status(hasViolation ? AnalysisStatus.FLAGGED : AnalysisStatus.PENDING)
                     .build();
             analysisRepository.save(analysis);
-            log.info("Auto-analysis triggered for sensorData id={}, flagged={}, scientistId={}", data.getDataId(), hasViolation, scientistId);
+            log.info("Auto-analysis triggered for sensorData id={}, flagged={}, agencyOfficerId={}", data.getDataId(), hasViolation, agencyOfficerId);
         } catch (Exception e) {
             log.error("Failed to trigger auto-analysis for dataId={}: {}", data.getDataId(), e.getMessage());
         }
     }
 
-    private Long assignScientist() {
+    private Long assignAgencyOfficer() {
         try {
-            List<UserDto> scientists = iamServiceClient.getUsersByRole("SCIENTIST");
-            if (scientists != null && !scientists.isEmpty()) {
-                // Round-robin: pick scientist based on current analysis count
+            List<UserDto> officers = iamServiceClient.getUsersByRole("AGENCY_OFFICER");
+            if (officers != null && !officers.isEmpty()) {
+                // Round-robin: pick agency officer based on current analysis count
                 long totalAnalyses = analysisRepository.count();
-                int index = (int) (totalAnalyses % scientists.size());
-                Long selectedId = scientists.get(index).getUserId();
-                log.info("Auto-assigned scientist userId={} for analysis", selectedId);
+                int index = (int) (totalAnalyses % officers.size());
+                Long selectedId = officers.get(index).getUserId();
+                log.info("Auto-assigned agency officer userId={} for analysis", selectedId);
                 return selectedId;
             }
         } catch (Exception e) {
-            log.warn("Could not fetch scientists from IAM service: {}", e.getMessage());
+            log.warn("Could not fetch agency officers from IAM service: {}", e.getMessage());
         }
         return null;
     }
@@ -472,7 +473,7 @@ public class MonitoringService {
                 .analysisId(a.getAnalysisId())
                 .dataId(a.getDataId())
                 .sensorId(a.getSensorId())
-                .scientistId(a.getScientistId())
+                .agencyOfficerId(a.getAgencyOfficerId())
                 .findings(a.getFindings())
                 .date(a.getDate())
                 .status(a.getStatus())

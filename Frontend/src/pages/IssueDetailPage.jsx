@@ -26,6 +26,7 @@ export default function IssueDetailPage() {
   const [resolutionModal, setResolutionModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [resForm, setResForm] = useState({ actions: '', status: 'PENDING' });
+  const [editingResolution, setEditingResolution] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileRef = useRef();
@@ -61,6 +62,15 @@ export default function IssueDetailPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['resolution', 'issue', id] }); toast.success('Resolution added'); setResolutionModal(false); },
     onError: (error) => {
       const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to add resolution';
+      toast.error(message);
+    },
+  });
+
+  const updateResolution = useMutation({
+    mutationFn: ({ id: resId, data }) => issuesApi.updateResolution(resId, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['resolution', 'issue', id] }); toast.success('Resolution updated'); setResolutionModal(false); },
+    onError: (error) => {
+      const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update resolution';
       toast.error(message);
     },
   });
@@ -284,16 +294,22 @@ export default function IssueDetailPage() {
         <div className="bg-white rounded-2xl border border-[#bbf7d0] shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-[#14532d]">Resolution</h3>
-            {canManageIssues && !resolution && (
+            {canManageIssues && (
               <Button size="sm" variant="outline" onClick={() => {
                 if (!id) {
                   toast.error('Invalid issue. Please refresh the page.');
                   return;
                 }
-                setResForm({ actions: '', status: 'PENDING' });
+                if (resolution) {
+                  setResForm({ actions: resolution.actions, status: resolution.status });
+                  setEditingResolution(true);
+                } else {
+                  setResForm({ actions: '', status: 'PENDING' });
+                  setEditingResolution(false);
+                }
                 setResolutionModal(true);
               }} disabled={!id}>
-                <CheckCircle size={14} /> Add Resolution
+                <CheckCircle size={14} /> {resolution ? 'Edit Resolution' : 'Add Resolution'}
               </Button>
             )}
           </div>
@@ -332,7 +348,7 @@ export default function IssueDetailPage() {
       </Modal>
 
       {/* Resolution Modal */}
-      <Modal open={resolutionModal} onClose={() => setResolutionModal(false)} title="Add Resolution">
+      <Modal open={resolutionModal} onClose={() => setResolutionModal(false)} title={editingResolution ? "Edit Resolution" : "Add Resolution"}>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Actions Taken</label>
@@ -348,13 +364,19 @@ export default function IssueDetailPage() {
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setResolutionModal(false)}>Cancel</Button>
-            <Button onClick={() => {
-              if (!id) {
-                toast.error('Invalid issue. Please refresh the page.');
-                return;
-              }
-              addResolution.mutate({ actions: resForm.actions, officerId: user?.userId });
-            }} loading={addResolution.isPending} disabled={!resForm.actions.trim() || !id}>Submit</Button>
+             <Button onClick={() => {
+               if (!id) {
+                 toast.error('Invalid issue. Please refresh the page.');
+                 return;
+               }
+               if (editingResolution) {
+                 updateResolution.mutate({ id: resolution.resolutionId, data: { actions: resForm.actions, status: resForm.status } });
+               } else {
+                 addResolution.mutate({ actions: resForm.actions, officerId: user?.userId });
+               }
+             }} loading={editingResolution ? updateResolution.isPending : addResolution.isPending} disabled={!resForm.actions.trim() || !id}>
+              {editingResolution ? "Update Resolution" : "Submit"}
+            </Button>
           </div>
         </div>
       </Modal>

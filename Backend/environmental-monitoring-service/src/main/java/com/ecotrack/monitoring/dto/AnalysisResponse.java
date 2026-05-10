@@ -12,7 +12,7 @@ public class AnalysisResponse {
     private Long analysisId;
     private Long dataId;
     private Long sensorId;
-    private Long scientistId;
+    private Long agencyOfficerId;
     private String findings;
     private LocalDateTime date;
     private AnalysisStatus status;

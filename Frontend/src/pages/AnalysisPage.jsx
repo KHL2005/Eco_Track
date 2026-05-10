@@ -13,7 +13,7 @@ import * as sensorsApi from '../api/sensorsApi';
 import { useRole } from '../hooks/useRole';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/formatters';
-import { formatSensorId, formatAnalysisId, formatScientistId } from '../utils/idFormatters';
+import { formatSensorId, formatAnalysisId, formatAgencyOfficerId } from '../utils/idFormatters';
 import { ANALYSIS_STATUSES } from '../utils/constants';
 import { toast } from 'sonner';
 
@@ -29,7 +29,7 @@ export default function AnalysisPage() {
   const [csvFile, setCsvFile] = useState(null);
   const [csvProgress, setCsvProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [filterScientistId, setFilterScientistId] = useState('');
+   const [filterAgencyOfficerId, setFilterAgencyOfficerId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAnalysisId, setFilterAnalysisId] = useState('');
   const [filterSensorType, setFilterSensorType] = useState('');
@@ -53,14 +53,14 @@ export default function AnalysisPage() {
     return acc;
   }, {});
 
-  // Apply filters to analyses
-  const filteredAnalyses = analyses.filter(a => {
-    if (filterAnalysisId && !a.analysisId.toString().includes(filterAnalysisId)) return false;
-    if (filterScientistId && (!a.scientistId || !a.scientistId.toString().includes(filterScientistId))) return false;
-    if (filterStatus && a.status !== filterStatus) return false;
-    if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
-    return true;
-  });
+   // Apply filters to analyses
+   const filteredAnalyses = analyses.filter(a => {
+     if (filterAnalysisId && !a.analysisId.toString().includes(filterAnalysisId)) return false;
+     if (filterAgencyOfficerId && (!a.agencyOfficerId || !a.agencyOfficerId.toString().includes(filterAgencyOfficerId))) return false;
+     if (filterStatus && a.status !== filterStatus) return false;
+     if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
+     return true;
+   });
 
   const createMut = useMutation({
     mutationFn: (d) => sensorsApi.createAnalysis(d),
@@ -109,10 +109,10 @@ export default function AnalysisPage() {
   });
 
   const columns = [
-    { key: 'sensorId', label: 'Sensor ID', render: r => <span className="text-xs font-medium">{formatSensorId(r.sensorId)}</span> },
-    { key: 'sensorType', label: 'Type', render: r => <span className="text-xs font-medium px-2 py-1 bg-sky-100 text-sky-700 rounded">{sensorTypeMap[r.sensorId] || '—'}</span> },
-    { key: 'analysisId', label: 'Analysis ID', render: r => <span className="text-xs font-semibold text-forest-700">{formatAnalysisId(r.analysisId)}</span> },
-    { key: 'scientistId', label: 'Scientist ID', sortable: true, render: r => <span className="text-xs font-medium">{formatScientistId(r.scientistId)}</span> },
+     { key: 'sensorId', label: 'Sensor ID', render: r => <span className="text-xs font-medium">{formatSensorId(r.sensorId)}</span> },
+     { key: 'sensorType', label: 'Type', render: r => <span className="text-xs font-medium px-2 py-1 bg-sky-100 text-sky-700 rounded">{sensorTypeMap[r.sensorId] || '—'}</span> },
+     { key: 'analysisId', label: 'Analysis ID', render: r => <span className="text-xs font-semibold text-forest-700">{formatAnalysisId(r.analysisId)}</span> },
+     { key: 'agencyOfficerId', label: 'Agency Officer ID', sortable: true, render: r => <span className="text-xs font-medium">{formatAgencyOfficerId(r.agencyOfficerId)}</span> },
     { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
     {
       key: 'findings',
@@ -182,16 +182,16 @@ export default function AnalysisPage() {
               className="w-full border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Scientist ID</label>
-            <input
-              type="text"
-              placeholder="Enter Scientist ID..."
-              value={filterScientistId}
-              onChange={(e) => { setFilterScientistId(e.target.value); setCurrentPage(1); }}
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-            />
-          </div>
+           <div>
+             <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Agency Officer ID</label>
+             <input
+               type="text"
+               placeholder="Enter Agency Officer ID..."
+               value={filterAgencyOfficerId}
+               onChange={(e) => { setFilterAgencyOfficerId(e.target.value); setCurrentPage(1); }}
+               className="w-full border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+             />
+           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Filter by Sensor Type</label>
             <select

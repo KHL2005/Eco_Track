@@ -23,8 +23,6 @@ const navByRole = {
   AGENCY_OFFICER: [
     { label: 'Dashboard', emoji: '📊', icon: LayoutDashboard, to: '/dashboard' },
     { label: 'Issues', emoji: '⚠️', icon: AlertTriangle, to: '/issues' },
-    { label: 'Sensors', emoji: '📡', icon: Activity, to: '/sensors' },
-    { label: 'Sensor Data', emoji: '💧', icon: Database, to: '/sensor-data' },
     { label: 'Analysis', emoji: '🔬', icon: FlaskConical, to: '/analysis' },
     { label: 'Projects', emoji: '🌳', icon: FolderKanban, to: '/projects' },
     { label: 'Reports', emoji: '📄', icon: FileText, to: '/reports' },

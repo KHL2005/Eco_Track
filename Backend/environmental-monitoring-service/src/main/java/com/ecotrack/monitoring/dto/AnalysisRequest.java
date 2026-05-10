@@ -9,9 +9,9 @@ public class AnalysisRequest {
     @NotNull(message = "Data ID is required")
     private Long dataId;
 
-    // scientistId is auto-assigned from the JWT token (X-User-Id header).
+    // agencyOfficerId is auto-assigned from the JWT token (X-User-Id header) when reviewed by agency officers.
     // Do NOT pass this manually — it will be ignored.
-    private Long scientistId;
+    private Long agencyOfficerId;
 
     // findings are optional — auto-generated from sensor parameters if not provided
     private String findings;

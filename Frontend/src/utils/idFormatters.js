@@ -29,6 +29,11 @@ export const formatScientistId = (id) => {
   return `SC${String(id).padStart(2, '0')}`;
 };
 
+export const formatAgencyOfficerId = (id) => {
+  if (!id && id !== 0) return '—';
+  return `AO${String(id).padStart(2, '0')}`;
+};
+
 /**
  * Parse formatted ID back to number
  * Examples:
