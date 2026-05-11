@@ -20,6 +20,7 @@ import * as projectsApi from '../api/projectsApi';
 import * as sensorsApi from '../api/sensorsApi';
 import * as emissionsApi from '../api/emissionsApi';
 import * as complianceApi from '../api/complianceApi';
+import * as officerApi from '../api/officerApi';
 import { ROLE_LABELS } from '../utils/constants';
 
 const COLORS = ['#16a34a', '#0ea5e9', '#f59e0b', '#dc2626', '#8b5cf6'];
@@ -155,11 +156,19 @@ export default function DashboardPage() {
     queryFn: () => complianceApi.getAudits().then(r => r.data).catch(() => []),
     enabled: isComplianceOfficer,
   });
+  const { data: reports = [] } = useQuery({
+    queryKey: ['reports'],
+    queryFn: () => officerApi.getAllReports().then(r => r.data).catch(() => []),
+    enabled: ['AGENCY_OFFICER', 'ADMINISTRATOR', 'SUPER_ADMIN'].includes(role),
+  });
 
   const openIssues = issues.filter(i => i.status === 'OPEN').length;
   const resolvedIssues = issues.filter(i => i.status === 'RESOLVED').length;
   const activeProjects = projects.filter(p => p.status === 'IN_PROGRESS').length;
   const activeSensors = sensors.filter(s => s.status === 'ACTIVE').length;
+
+  // Reports
+  // (No need to fetch here, ReportTable fetches its own data)
 
   const issueByType = Object.entries(
     issues.reduce((acc, i) => { acc[i.type] = (acc[i.type] || 0) + 1; return acc; }, {})
@@ -569,16 +578,16 @@ export default function DashboardPage() {
           </div>
         </>
       ) : (
-        <>
-          <SectionHeading emoji="📊" title="At a glance" subtitle="Live operational metrics across the platform" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <KpiCard emoji="⚠️" label="Open Issues" value={openIssues} sub={`${resolvedIssues} resolved`} bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
-            <KpiCard emoji="🌳" label="Active Projects" value={activeProjects} sub={`${projects.length} total`} bg="bg-green-50" />
-            {['AGENCY_OFFICER', 'SCIENTIST', 'ADMINISTRATOR', 'SUPER_ADMIN'].includes(role) && (
-              <KpiCard emoji="📡" label="Active Sensors" value={activeSensors} sub={`${sensors.length} total`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
-            )}
-            <KpiCard emoji="🏭" label="Emissions Logged" value={emissions.length} sub={`${emissions.filter(e => e.status === 'APPROVED').length} approved`} bg="bg-purple-50" glow="hover:shadow-purple-200/60" />
-          </div>
+         <>
+           <SectionHeading emoji="📊" title="At a glance" subtitle="Live operational metrics across the platform" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <KpiCard emoji="⚠️" label="Open Issues" value={openIssues} sub={`${resolvedIssues} resolved`} bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
+              <KpiCard emoji="🌳" label="Active Projects" value={activeProjects} sub={`${projects.length} total`} bg="bg-green-50" />
+              {['AGENCY_OFFICER', 'SCIENTIST', 'ADMINISTRATOR', 'SUPER_ADMIN'].includes(role) && (
+                <KpiCard emoji="📡" label="Active Sensors" value={activeSensors} sub={`${sensors.length} total`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
+              )}
+              <KpiCard emoji="📝" label="Reports" value={reports.length} sub="Total generated" bg="bg-blue-50" glow="hover:shadow-blue-200/60" />
+            </div>
           <div className="mb-6">
             <TipCard
               emoji="🌍"
@@ -594,38 +603,38 @@ export default function DashboardPage() {
               }
             />
           </div>
-          <SectionHeading emoji="📈" title="Analytics" subtitle="Issue and project distributions" />
-          <div className="grid lg:grid-cols-2 gap-6">
-            {issueByType.length > 0 && (
-              <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">⚠️ Issues by Type</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={issueByType}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
-            {projByStatus.length > 0 && (
-              <Card>
-                <h3 className="font-semibold text-bark-800 mb-4">🌳 Projects by Status</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={projByStatus} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={85} innerRadius={35}>
-                      {projByStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                    <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
-          </div>
-        </>
-      )}
+           <SectionHeading emoji="📈" title="Analytics" subtitle="Issue and project distributions" />
+           <div className="grid lg:grid-cols-2 gap-6">
+             {issueByType.length > 0 && (
+               <Card>
+                 <h3 className="font-semibold text-bark-800 mb-4">⚠️ Issues by Type</h3>
+                 <ResponsiveContainer width="100%" height={260}>
+                   <BarChart data={issueByType}>
+                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                     <YAxis tick={{ fontSize: 11 }} />
+                     <Tooltip />
+                     <Bar dataKey="value" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                   </BarChart>
+                 </ResponsiveContainer>
+               </Card>
+             )}
+             {projByStatus.length > 0 && (
+               <Card>
+                 <h3 className="font-semibold text-bark-800 mb-4">🌳 Projects by Status</h3>
+                 <ResponsiveContainer width="100%" height={260}>
+                   <PieChart>
+                     <Pie data={projByStatus} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={85} innerRadius={35}>
+                       {projByStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                     </Pie>
+                     <Tooltip />
+                     <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
+                   </PieChart>
+                 </ResponsiveContainer>
+               </Card>
+             )}
+            </div>
+         </>
+       )}
     </DashboardLayout>
   );
 }

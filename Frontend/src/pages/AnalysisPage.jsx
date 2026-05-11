@@ -13,7 +13,7 @@ import * as sensorsApi from '../api/sensorsApi';
 import { useRole } from '../hooks/useRole';
 import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/formatters';
-import { formatSensorId, formatAnalysisId, formatAgencyOfficerId } from '../utils/idFormatters';
+import { formatSensorId, formatAnalysisId, formatAgencyOfficerId, parseFormattedId } from '../utils/idFormatters';
 import { ANALYSIS_STATUSES } from '../utils/constants';
 import { toast } from 'sonner';
 
@@ -53,14 +53,34 @@ export default function AnalysisPage() {
     return acc;
   }, {});
 
-   // Apply filters to analyses
-   const filteredAnalyses = analyses.filter(a => {
-     if (filterAnalysisId && !a.analysisId.toString().includes(filterAnalysisId)) return false;
-     if (filterAgencyOfficerId && (!a.agencyOfficerId || !a.agencyOfficerId.toString().includes(filterAgencyOfficerId))) return false;
-     if (filterStatus && a.status !== filterStatus) return false;
-     if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
-     return true;
-   });
+    // Apply filters to analyses
+    const filteredAnalyses = analyses.filter(a => {
+      // For analysis ID, parse the formatted filter input and compare
+      if (filterAnalysisId) {
+        const parsedFilterId = parseFormattedId(filterAnalysisId) || parseInt(filterAnalysisId, 10);
+        if (!isNaN(parsedFilterId)) {
+          if (a.analysisId !== parsedFilterId) return false;
+        } else {
+          // Fallback to string comparison if parsing fails
+          if (!a.analysisId?.toString().includes(filterAnalysisId)) return false;
+        }
+      }
+
+      // For agency officer ID, parse the formatted filter input and compare
+      if (filterAgencyOfficerId) {
+        const parsedFilterId = parseFormattedId(filterAgencyOfficerId) || parseInt(filterAgencyOfficerId, 10);
+        if (!isNaN(parsedFilterId)) {
+          if (a.agencyOfficerId !== parsedFilterId) return false;
+        } else {
+          // Fallback to string comparison if parsing fails
+          if (!a.agencyOfficerId?.toString().includes(filterAgencyOfficerId)) return false;
+        }
+      }
+
+      if (filterStatus && a.status !== filterStatus) return false;
+      if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
+      return true;
+    });
 
   const createMut = useMutation({
     mutationFn: (d) => sensorsApi.createAnalysis(d),
@@ -159,11 +179,15 @@ export default function AnalysisPage() {
       <PageHeader emoji="🔬" title="Sensor Analysis" description="Environmental data analysis and findings"
         action={
           <div className="flex gap-2">
-            {(isAgencyOfficer || isScientist || isAdmin) && (
-              <Button variant="outline" size="sm" onClick={() => setCsvModal(true)}><Upload size={14} /> Upload CSV</Button>
+            {(isScientist || isAdmin) && (
+              <Button variant="outline" size="sm" onClick={() => setCsvModal(true)}>
+                <Upload size={14} /> Upload CSV
+              </Button>
             )}
-            {(isAgencyOfficer || isScientist || isAdmin) && (
-              <Button size="sm" onClick={() => setCreateModal(true)}><Plus size={14} /> New Analysis</Button>
+            {(isScientist || isAdmin) && (
+              <Button size="sm" onClick={() => setCreateModal(true)}>
+                <Plus size={14} /> New Analysis
+              </Button>
             )}
           </div>
         }

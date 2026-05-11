@@ -19,3 +19,6 @@ export const updateDocumentStatus = (docId, status, token) =>
 export const viewDocumentUrl = (docId) => `/api/v1/industry-documents/${docId}?view=true`;
 export const downloadDocumentUrl = (docId) => `/api/v1/industry-documents/${docId}?download=true`;
 
+// Fetch all reports for officer dashboard
+export const getAllReports = (token) =>
+  api.get('/reports', auth(token));

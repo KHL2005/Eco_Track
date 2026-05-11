@@ -99,7 +99,7 @@ function CitizenIssueCard({ issue }) {
 
 // ── Main component ────────────────────────────────────────────
 export default function IssuesPage({ mine = false }) {
-  const { canManageIssues, isCitizen } = useRole();
+  const { canManageIssues, isCitizen, isAgencyOfficer } = useRole();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -250,8 +250,12 @@ export default function IssuesPage({ mine = false }) {
         title={mine ? 'My Reported Issues' : 'All Issues'}
         description="Environmental issues reported by citizens"
         action={
-          (isCitizen || canManageIssues) && (
-            <Link to="/issues/new"><Button><Plus size={16} /> Report Issue</Button></Link>
+          isCitizen && (
+            <Link to="/issues/new">
+              <Button>
+                <Plus size={16} /> Report Issue
+              </Button>
+            </Link>
           )
         }
       />

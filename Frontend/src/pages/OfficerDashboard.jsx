@@ -83,19 +83,20 @@ export default function OfficerDashboard() {
         <main className="p-4 sm:p-6 max-w-7xl mx-auto">
           {/* OVERVIEW */}
           {section === 'overview' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {[
-                { label: 'Total Submissions', value: totalSub, icon: '📊', color: 'from-primary to-accent' },
-                { label: 'Pending Review', value: pending, icon: '⏳', color: 'from-amber to-yellow-400' },
-                { label: 'Approved', value: approved, icon: '✅', color: 'from-green-400 to-accent' },
-                { label: 'Rejected', value: rejected, icon: '❌', color: 'from-error to-red-400' },
+                { label: 'Reports Generated', value: reportCount, icon: '📝', color: 'from-blue-400 to-accent', loading: loadingR },
+                { label: 'Total Submissions', value: totalSub, icon: '📊', color: 'from-primary to-accent', loading: loadingE || loadingD },
+                { label: 'Pending Review', value: pending, icon: '⏳', color: 'from-amber to-yellow-400', loading: loadingE || loadingD },
+                { label: 'Approved', value: approved, icon: '✅', color: 'from-green-400 to-accent', loading: loadingE || loadingD },
+                { label: 'Rejected', value: rejected, icon: '❌', color: 'from-error to-red-400', loading: loadingE || loadingD },
               ].map(c => (
                 <div key={c.label} className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${c.color} flex items-center justify-center text-xl`}>
                     {c.icon}
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-text">{loadingE || loadingD ? '…' : c.value}</p>
+                    <p className="text-2xl font-bold text-text">{c.loading ? '…' : c.value}</p>
                     <p className="text-xs text-text-muted">{c.label}</p>
                   </div>
                 </div>
