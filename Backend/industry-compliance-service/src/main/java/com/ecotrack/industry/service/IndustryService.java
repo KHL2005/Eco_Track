@@ -47,8 +47,11 @@ public class IndustryService {
         return toEmissionResponse(emissionLogRepository.save(emissionLog));
     }
 
-    public List<EmissionLogResponse> getAllEmissions() {
-        return emissionLogRepository.findAll().stream().map(this::toEmissionResponse).collect(Collectors.toList());
+    public List<EmissionLogResponse> getAllEmissions(Long callerId, String callerRole) {
+        List<EmissionLog> logs = "INDUSTRY".equals(callerRole) && callerId != null
+                ? emissionLogRepository.findByIndustryId(callerId)
+                : emissionLogRepository.findAll();
+        return logs.stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
 
     public EmissionLogResponse getEmissionById(Long id) {
@@ -107,8 +110,11 @@ public class IndustryService {
         return toDocumentResponse(doc);
     }
 
-    public List<IndustryDocumentResponse> getAllDocuments() {
-        return documentRepository.findAll().stream().map(this::toDocumentResponse).collect(Collectors.toList());
+    public List<IndustryDocumentResponse> getAllDocuments(Long callerId, String callerRole) {
+        List<IndustryDocument> docs = "INDUSTRY".equals(callerRole) && callerId != null
+                ? documentRepository.findByIndustryId(callerId)
+                : documentRepository.findAll();
+        return docs.stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
 
     public IndustryDocumentResponse getDocumentById(Long docId) {

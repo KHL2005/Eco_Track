@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface EmissionLogRepository extends JpaRepository<EmissionLog, Long> {
     List<EmissionLog> findByIndustryName(String industryName);
+    List<EmissionLog> findByIndustryId(Long industryId);
 }

@@ -36,8 +36,10 @@ public class IndustryController {
 
     @GetMapping("/api/v1/emissions")
     @Operation(summary = "Get all emission logs")
-    public ResponseEntity<List<EmissionLogResponse>> getAllEmissions() {
-        return ResponseEntity.ok(industryService.getAllEmissions());
+    public ResponseEntity<List<EmissionLogResponse>> getAllEmissions(
+            @RequestHeader(value = "X-User-Id",   required = false) Long callerId,
+            @RequestHeader(value = "X-User-Role", required = false) String callerRole) {
+        return ResponseEntity.ok(industryService.getAllEmissions(callerId, callerRole));
     }
 
     @GetMapping("/api/v1/emissions/{id}")
@@ -102,8 +104,10 @@ public class IndustryController {
      */
     @GetMapping("/api/v1/industry-documents")
     @Operation(summary = "Get all industry documents (JSON metadata list)")
-    public ResponseEntity<List<IndustryDocumentResponse>> getAllDocuments() {
-        return ResponseEntity.ok(industryService.getAllDocuments());
+    public ResponseEntity<List<IndustryDocumentResponse>> getAllDocuments(
+            @RequestHeader(value = "X-User-Id",   required = false) Long callerId,
+            @RequestHeader(value = "X-User-Role", required = false) String callerRole) {
+        return ResponseEntity.ok(industryService.getAllDocuments(callerId, callerRole));
     }
 
     /**

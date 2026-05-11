@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface IndustryDocumentRepository extends JpaRepository<IndustryDocument, Long> {
     List<IndustryDocument> findByIndustryName(String industryName);
+    List<IndustryDocument> findByIndustryId(Long industryId);
 }
