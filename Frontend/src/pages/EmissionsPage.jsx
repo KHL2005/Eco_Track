@@ -6,10 +6,9 @@ import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
 import Modal from '../components/Modal';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, X, Factory } from 'lucide-react';
 import * as emissionsApi from '../api/emissionsApi';
 import { useRole } from '../hooks/useRole';
-import { useAuth } from '../context/AuthContext';
 import { formatDateTime } from '../utils/formatters';
 import { EMISSION_TYPES } from '../utils/constants';
 import { toast } from 'sonner';
@@ -18,12 +17,12 @@ const EMISSION_STATUS_OPTIONS = ['SUBMITTED', 'APPROVED', 'REJECTED'];
 
 export default function EmissionsPage() {
   const { isIndustry, isAdmin, isComplianceOfficer } = useRole();
-  const { user } = useAuth();
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
-  const [form, setForm] = useState({ industryId: '', industryName: '', emissionType: 'CO2', value: '', unit: 'tonnes', notes: '' });
+  const [form, setForm] = useState({ registrationNumber: '', industryName: '', emissionType: 'CO2', value: '', notes: '' });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const closeModal = () => { setModal(false); setForm({ registrationNumber: '', industryName: '', emissionType: 'CO2', value: '', notes: '' }); };
 
   const { data: emissions = [], isLoading } = useQuery({
     queryKey: ['emissions'],
@@ -34,7 +33,7 @@ export default function EmissionsPage() {
 
   const createMut = useMutation({
     mutationFn: (d) => emissionsApi.logEmission(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['emissions'] }); toast.success('Emission logged'); setModal(false); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['emissions'] }); toast.success('Emission logged'); closeModal(); },
     onError: () => toast.error('Failed to log emission'),
   });
 
@@ -51,19 +50,26 @@ export default function EmissionsPage() {
   });
 
   const columns = [
-    { key: 'logId', label: 'ID', render: r => <span className="text-xs text-bark-400">{r.logId}</span> },
-    { key: 'industryName', label: 'Industry', sortable: true },
-    { key: 'type', label: 'Type', render: r => <span className="text-xs font-medium">{r.type}</span> },
-    { key: 'quantity', label: 'Value', sortable: true, render: r => <span>{r.quantity}</span> },
-    { key: 'status', label: 'Status', render: r => <StatusBadge status={r.status} /> },
-    { key: 'date', label: 'Date', render: r => <span className="text-xs text-bark-400">{formatDateTime(r.date)}</span> },
+    { key: 'logId', label: 'ID', render: r => <span className="text-sm text-bark-700">{r.logId}</span> },
+    { key: 'industryName', label: 'Industry', sortable: true, render: r => <span className="text-sm text-bark-700">{r.industryName}</span> },
+    { key: 'registrationNumber', label: 'Reg. Number', render: r => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{r.registrationNumber}</code> },
+    { key: 'type', label: 'Type', render: r => <span className="text-sm text-bark-700">{r.type}</span> },
+    { key: 'quantity', label: 'Value (mg/Nm³)', sortable: true, render: r => <span><span className="text-sm text-bark-700">{r.quantity}</span> <span className="text-xs text-bark-400">mg/Nm³</span></span> },
+    { key: 'description', label: 'Description', render: r => <span title={r.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{r.description || '—'}</span> },
+    { key: 'status', label: 'Status', render: r => (
+      <div className="flex flex-col gap-0.5">
+        <StatusBadge status={r.status} />
+        {r.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(r.updatedAt)}</span>}
+      </div>
+    )},
+    { key: 'date', label: 'Date', render: r => <span className="text-sm text-bark-700">{formatDateTime(r.date)}</span> },
     {
       label: 'Actions', render: (r) => (
         <div className="flex gap-1">
           {(isAdmin || isComplianceOfficer) && r.status === 'SUBMITTED' && (
             <>
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: r.logId, status: 'APPROVED' })}>Approve</Button>
-              <Button size="sm" variant="danger" className="text-xs" onClick={() => updateStatus.mutate({ id: r.logId, status: 'REJECTED' })}>Reject</Button>
+              <Button size="sm" variant="outline" className="text-xs flex items-center gap-1" onClick={() => updateStatus.mutate({ id: r.logId, status: 'APPROVED' })}><CheckCircle size={12} />Approve</Button>
+              <Button size="sm" variant="danger" className="text-xs flex items-center gap-1" onClick={() => updateStatus.mutate({ id: r.logId, status: 'REJECTED' })}><X size={12} />Reject</Button>
             </>
           )}
           {isIndustry && r.status === 'SUBMITTED' && (
@@ -102,12 +108,19 @@ export default function EmissionsPage() {
       />
 
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
-        <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search emissions…" />
+        {!isLoading && filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-bark-400 gap-3">
+            <Factory size={40} className="opacity-30" />
+            <p className="text-sm">No emissions logged yet</p>
+          </div>
+        ) : (
+          <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search emissions…" />
+        )}
       </div>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Log Emission">
+      <Modal open={modal} onClose={closeModal} title="Log Emission" size="lg">
         <div className="space-y-4">
-          {[['industryId', 'Industry ID', 'number'], ['industryName', 'Industry Name', 'text'], ['value', 'Value', 'number'], ['unit', 'Unit (e.g. tonnes)', 'text']].map(([k, label, type]) => (
+          {[['registrationNumber', 'Registration Number (e.g. TNPCB-IND-1023)', 'text'], ['industryName', 'Industry Name', 'text'], ['value', 'Value (mg/Nm³)', 'number']].map(([k, label, type]) => (
             <div key={k}>
               <label className="block text-sm font-medium text-bark-600 mb-1">{label}</label>
               <input type={type} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
@@ -122,13 +135,13 @@ export default function EmissionsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-bark-600 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
             <textarea rows={2} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-              value={form.notes} onChange={set('notes')} />
+              value={form.notes} onChange={set('notes')} required />
           </div>
           <div className="flex gap-3 justify-end">
-            <Button variant="secondary" onClick={() => setModal(false)}>Cancel</Button>
-            <Button onClick={() => createMut.mutate({ industryId: parseInt(form.industryId), industryName: form.industryName, type: form.emissionType, quantity: parseFloat(form.value) })} loading={createMut.isPending}>Submit</Button>
+            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
+            <Button onClick={() => createMut.mutate({ registrationNumber: form.registrationNumber, industryName: form.industryName, type: form.emissionType, quantity: parseFloat(form.value), description: form.notes })} loading={createMut.isPending} disabled={!form.registrationNumber.trim() || !form.industryName.trim() || !form.value || !form.notes.trim()}>Submit</Button>
           </div>
         </div>
       </Modal>

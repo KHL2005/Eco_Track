@@ -3,11 +3,10 @@ package com.ecotrack.industry.service;
 import com.ecotrack.industry.dto.*;
 import com.ecotrack.industry.entity.EmissionLog;
 import com.ecotrack.industry.entity.IndustryDocument;
-import com.ecotrack.industry.enums.DocType;
 import com.ecotrack.industry.enums.EmissionStatus;
+import com.ecotrack.industry.enums.EmissionType;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
-import com.ecotrack.industry.exception.DuplicateResourceException;
 import com.ecotrack.industry.exception.ResourceNotFoundException;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
@@ -33,19 +32,16 @@ public class IndustryService {
     // ─── Emission Log CRUD ────────────────────────────────────────────────────
 
     @Transactional
-    public EmissionLogResponse logEmission(EmissionLogRequest request) {
+    public EmissionLogResponse logEmission(EmissionLogRequest request, Long industryUserId) {
         String normalizedName = request.getIndustryName().trim();
-        String normalizedType = request.getType().trim();
-        if (emissionLogRepository.existsByIndustryNameAndType(normalizedName, normalizedType)) {
-            throw new DuplicateResourceException(
-                    "Emission record already exists for company '" + normalizedName +
-                    "' with emission type '" + normalizedType + "'");
-        }
+        EmissionType emissionType = request.getType();
         EmissionLog emissionLog = EmissionLog.builder()
-                .industryId(request.getIndustryId())
+                .industryId(industryUserId)
+                .registrationNumber(request.getRegistrationNumber().trim())
                 .industryName(normalizedName)
-                .type(normalizedType)
+                .type(emissionType)
                 .quantity(request.getQuantity())
+                .description(request.getDescription())
                 .status(EmissionStatus.SUBMITTED)
                 .build();
         return toEmissionResponse(emissionLogRepository.save(emissionLog));
@@ -57,11 +53,6 @@ public class IndustryService {
 
     public EmissionLogResponse getEmissionById(Long id) {
         return toEmissionResponse(findEmissionById(id));
-    }
-
-    public List<EmissionLogResponse> getEmissionsByIndustry(Long industryId) {
-        if (industryId == null) throw new BadRequestException("Industry ID is required");
-        return emissionLogRepository.findByIndustryId(industryId).stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
 
     public List<EmissionLogResponse> getEmissionsByIndustryName(String industryName) {
@@ -92,18 +83,15 @@ public class IndustryService {
      * fileUri is auto-set to "/api/v1/industry-documents/{id}?view=true".
      */
     @Transactional
-    public IndustryDocumentResponse submitDocument(Long industryId,
-                                                    String industryName,
-                                                    String docType,
-                                                    String description,
-                                                    MultipartFile file) {
+    public IndustryDocumentResponse submitDocument(IndustryDocumentRequest request, MultipartFile file, Long industryUserId) {
         // Step 1 – save metadata with temporary fileUri
         IndustryDocument doc = IndustryDocument.builder()
-                .industryId(industryId)
-                .industryName(industryName.trim())
-                .docType(DocType.valueOf(docType.toUpperCase()))
+                .industryId(industryUserId)
+                .registrationNumber(request.getRegistrationNumber().trim())
+                .industryName(request.getIndustryName().trim())
+                .docType(request.getDocType())
                 .fileUri("pending")
-                .description(description)
+                .description(request.getDescription())
                 .verificationStatus(VerificationStatus.SUBMITTED)
                 .build();
         doc = documentRepository.save(doc);
@@ -125,11 +113,6 @@ public class IndustryService {
 
     public IndustryDocumentResponse getDocumentById(Long docId) {
         return toDocumentResponse(findDocumentById(docId));
-    }
-
-    public List<IndustryDocumentResponse> getDocumentsByIndustry(Long industryId) {
-        if (industryId == null) throw new BadRequestException("Industry ID is required");
-        return documentRepository.findByIndustryId(industryId).stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
 
     public List<IndustryDocumentResponse> getDocumentsByIndustryName(String industryName) {
@@ -204,15 +187,15 @@ public class IndustryService {
 
     private EmissionLogResponse toEmissionResponse(EmissionLog e) {
         return EmissionLogResponse.builder()
-                .logId(e.getLogId()).industryId(e.getIndustryId()).industryName(e.getIndustryName())
-                .type(e.getType()).quantity(e.getQuantity()).date(e.getDate())
+                .logId(e.getLogId()).industryId(e.getIndustryId()).registrationNumber(e.getRegistrationNumber()).industryName(e.getIndustryName())
+                .type(e.getType()).quantity(e.getQuantity()).description(e.getDescription()).date(e.getDate())
                 .status(e.getStatus()).createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
                 .build();
     }
 
     private IndustryDocumentResponse toDocumentResponse(IndustryDocument d) {
         return IndustryDocumentResponse.builder()
-                .documentId(d.getDocumentId()).industryId(d.getIndustryId()).industryName(d.getIndustryName())
+                .documentId(d.getDocumentId()).industryId(d.getIndustryId()).registrationNumber(d.getRegistrationNumber()).industryName(d.getIndustryName())
                 .docType(d.getDocType()).fileUri(d.getFileUri()).description(d.getDescription())
                 .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus())
                 .createdAt(d.getCreatedAt()).updatedAt(d.getUpdatedAt())

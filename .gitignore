@@ -16,9 +16,12 @@ target/
 .idea/
 *.iml
 .vscode/
+out/
+gen/
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
 
+.claude/

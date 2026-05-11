@@ -6,6 +6,7 @@ import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.service.IndustryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,8 +28,10 @@ public class IndustryController {
     @PostMapping("/api/v1/emissions")
     @Operation(summary = "Log a new industry emission (status defaults to SUBMITTED)")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
-    public ResponseEntity<EmissionLogResponse> logEmission(@RequestBody EmissionLogRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(industryService.logEmission(request));
+    public ResponseEntity<EmissionLogResponse> logEmission(
+            @RequestBody @Valid EmissionLogRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) Long industryUserId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(industryService.logEmission(request, industryUserId));
     }
 
     @GetMapping("/api/v1/emissions")
@@ -85,14 +88,12 @@ public class IndustryController {
     @Operation(summary = "Submit compliance document + upload PDF in one request (max 10 MB)")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
     public ResponseEntity<IndustryDocumentResponse> submitDocument(
-            @RequestParam("industryId")                               Long          industryId,
-            @RequestParam("industryName")                             String        industryName,
-            @RequestParam("docType")                                  String        docType,
-            @RequestParam(value = "description", required = false)    String        description,
-            @RequestPart("file")                                      MultipartFile file) {
+            @ModelAttribute @Valid IndustryDocumentRequest request,
+            @RequestParam("file")                          MultipartFile file,
+            @RequestHeader(value = "X-User-Id", required = false) Long industryUserId) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(industryService.submitDocument(industryId, industryName, docType, description, file));
+                .body(industryService.submitDocument(request, file, industryUserId));
     }
 
     /**
@@ -112,14 +113,12 @@ public class IndustryController {
      *   ?download=true    → stream PDF as file download
      */
     @GetMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Get JSON metadata OR view/download PDF. "
-             + "Use ?view=true to render inline, ?download=true to download.")
+    @Operation(summary = "Get JSON metadata OR download PDF. Use ?download=true to download.")
     public ResponseEntity<?> getDocumentById(
             @PathVariable Long docId,
-            @RequestParam(value = "view",     required = false, defaultValue = "false") boolean view,
             @RequestParam(value = "download", required = false, defaultValue = "false") boolean download) {
 
-        if (view || download) {
+        if (download) {
             Map<String, Object> pdf = industryService.getPdfForDocument(docId);
             byte[] data        = (byte[])  pdf.get("data");
             String fileName    = (String)  pdf.get("fileName");
@@ -129,9 +128,8 @@ public class IndustryController {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(contentType));
             headers.setContentLength(fileSize);
-            // inline  → browser PDF viewer | attachment → Save dialog
             headers.setContentDisposition(
-                    ContentDisposition.builder(download ? "attachment" : "inline")
+                    ContentDisposition.builder("attachment")
                                       .filename(fileName)
                                       .build());
             return new ResponseEntity<>(data, headers, HttpStatus.OK);

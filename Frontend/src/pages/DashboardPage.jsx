@@ -502,15 +502,30 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <KpiCard emoji="🏭" label="Emissions Logged" value={emissions.length} sub={`${approvedEmissions} approved`} bg="bg-purple-50" glow="hover:shadow-purple-200/60" />
             <KpiCard emoji="✅" label="Approved Emissions" value={approvedEmissions} sub="Verified by compliance" bg="bg-green-50" />
-            <KpiCard emoji="⏳" label="Pending Review" value={pendingEmissions} sub="Awaiting verification" bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
+            <KpiCard emoji="⏳" label="Pending Review" value={pendingEmissions} sub="Awaiting verification" bg={pendingEmissions > 0 ? "bg-orange-50" : "bg-green-50"} glow={pendingEmissions > 0 ? "hover:shadow-orange-200/60" : "hover:shadow-green-200/60"} />
             <KpiCard emoji="📄" label="Documents" value={documents.length} sub={`${approvedDocs} verified`} bg="bg-sky-50" glow="hover:shadow-sky-200/60" />
           </div>
-          <div className="mb-6">
+          <div className="mb-6 space-y-3">
             <TipCard
               emoji="📌"
               title="Stay ahead of audits"
               body="Submit emissions and supporting documents promptly. Pending items can hold up your quarterly compliance score."
             />
+            {pendingEmissions > 0 && (
+              <Card className="border-l-4 border-l-orange-400 bg-orange-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
+                    <Clock size={18} className="text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-bark-800">
+                      {pendingEmissions} emission{pendingEmissions > 1 ? 's' : ''} pending review
+                    </p>
+                    <p className="text-xs text-bark-400">Your submission is awaiting verification by a compliance officer.</p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
           <SectionHeading emoji="📈" title="Analytics" subtitle="Distribution of your emissions" />
           <div className="grid lg:grid-cols-2 gap-6">

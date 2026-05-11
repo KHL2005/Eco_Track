@@ -313,7 +313,7 @@ export default function IssueDetailPage() {
               </Button>
             )}
           </div>
-          {resolution && (canManageIssues || resolution.status === 'COMPLETED') ? (
+          {resolution && (canManageIssues || resolution.status) ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <StatusBadge status={resolution.status} />
