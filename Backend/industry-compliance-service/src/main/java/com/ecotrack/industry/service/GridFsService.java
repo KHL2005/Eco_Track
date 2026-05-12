@@ -37,30 +37,30 @@ public class GridFsService {
      * @param documentId the MySQL industry-document ID this PDF belongs to
      * @return GridFS file ObjectId as String
      */
-    public String storePdf(MultipartFile file, Long documentId) {
-        validatePdf(file);
+        public String storePdf(MultipartFile file, Long documentId) {
+            validatePdf(file);
 
-        try {
-            // Build metadata stored alongside the file in GridFS
-            org.bson.Document metadata = new org.bson.Document();
-            metadata.put("contentType", file.getContentType());
-            metadata.put("documentId",  documentId);
+            try {
+                // Build metadata stored alongside the file in GridFS
+                org.bson.Document metadata = new org.bson.Document();
+                metadata.put("contentType", file.getContentType());
+                metadata.put("documentId",  documentId);
 
-            ObjectId fileId = gridFsTemplate.store(
-                    file.getInputStream(),
-                    file.getOriginalFilename(),
-                    file.getContentType(),
-                    metadata
-            );
+                ObjectId fileId = gridFsTemplate.store(
+                        file.getInputStream(),
+                        file.getOriginalFilename(),
+                        file.getContentType(),
+                        metadata
+                );
 
-            log.info("PDF '{}' stored in GridFS id={} for documentId={}",
-                    file.getOriginalFilename(), fileId, documentId);
+                log.info("PDF '{}' stored in GridFS id={} for documentId={}",
+                        file.getOriginalFilename(), fileId, documentId);
 
-            return fileId.toHexString();
+                return fileId.toHexString();
 
-        } catch (IOException e) {
-            throw new BadRequestException("Failed to read uploaded file: " + e.getMessage());
-        }
+            } catch (IOException e) {
+                throw new BadRequestException("Failed to read uploaded file: " + e.getMessage());
+            }
     }
 
     // ── Retrieve by GridFS file id ────────────────────────────────────────────

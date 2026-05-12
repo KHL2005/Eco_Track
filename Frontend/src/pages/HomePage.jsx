@@ -1,48 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AlertTriangle, Activity, FolderKanban, Leaf, ArrowRight, Users, CheckCircle,
-  LayoutDashboard, Eye, EyeOff, Camera, MapPin, TrendingUp, Sparkles, Shield,
-  Globe2, Award, Quote
+  Activity, FolderKanban, Leaf, ArrowRight, Users, CheckCircle,
+  LayoutDashboard, Eye, EyeOff, Sparkles, Shield,
+  Globe2, Award, Quote, ChevronDown, HelpCircle, Lightbulb, Target, Compass
 } from 'lucide-react';
 import PublicLayout from '../layouts/PublicLayout';
 import { useAuth } from '../context/AuthContext';
 import { loginApi } from '../api/authApi';
 import { ROLE_LABELS } from '../utils/constants';
 
-const features = [
-  {
-    icon: AlertTriangle,
-    emoji: '⚠️',
-    accent: 'from-orange-100 to-orange-50 text-orange-600 ring-orange-200',
-    glow: 'hover:shadow-orange-200/60',
-    title: 'Citizen Reporting',
-    description: 'Empower citizens to report environmental issues — pollution, deforestation, waste dumping — directly with location and photos.',
-  },
-  {
-    icon: Activity,
-    emoji: '📡',
-    accent: 'from-sky-100 to-sky-50 text-sky-600 ring-sky-200',
-    glow: 'hover:shadow-sky-200/60',
-    title: 'Real-time Monitoring',
-    description: 'Live sensor data for air, water, noise, and soil quality. Time-series analysis by environmental scientists.',
-  },
-  {
-    icon: FolderKanban,
-    emoji: '🌳',
-    accent: 'from-leaf-200 to-leaf-200/40 text-forest-700 ring-leaf-200',
-    glow: 'hover:shadow-leaf-200/80',
-    title: 'Sustainability Tracking',
-    description: 'Track green projects from planning to impact. Monitor CO₂ reduction, trees planted, water saved, and more.',
-  },
-];
-
 const stats = [
-  { label: 'Issues Resolved', value: 1240, suffix: '+', icon: CheckCircle, emoji: '✅' },
-  { label: 'Sensors Active', value: 380, suffix: '+', icon: Activity, emoji: '📡' },
-  { label: 'Projects Running', value: 56, suffix: '+', icon: FolderKanban, emoji: '🌳' },
-  { label: 'Citizens Engaged', value: 12000, suffix: '+', icon: Users, emoji: '👥' },
+  { label: 'Issues Resolved', value: 15, suffix: '+', icon: CheckCircle, emoji: '✅' },
+  { label: 'Sensors Active', value: 12, suffix: '+', icon: Activity, emoji: '📡' },
+  { label: 'Projects Running', value: 18, suffix: '+', icon: FolderKanban, emoji: '🌳' },
+  { label: 'Citizens Engaged', value: 20, suffix: '+', icon: Users, emoji: '👥' },
 ];
 
 const steps = [
@@ -56,6 +29,181 @@ const testimonials = [
   { quote: 'I reported a waste-dumping site near my school. It was cleaned up in two weeks.', author: 'A. Sharma', role: 'Citizen Reporter' },
   { quote: 'The compliance dashboard turned our quarterly audit from 3 days into 3 hours.', author: 'M. Chen', role: 'Compliance Officer' },
 ];
+
+// ── About EcoTrack pillars ────────────────────────────────
+const aboutPillars = [
+  {
+    emoji: '🎯',
+    icon: Target,
+    title: 'Our Mission',
+    text: 'Democratize environmental governance by connecting citizens, agencies, scientists, industries, and regulators on a single transparent platform.',
+  },
+  {
+    emoji: '🌍',
+    icon: Globe2,
+    title: 'Our Vision',
+    text: 'A world where every environmental issue is reported, measured, and resolved — with data, accountability, and citizen participation at the core.',
+  },
+  {
+    emoji: '🧭',
+    icon: Compass,
+    title: 'Our Approach',
+    text: 'Real-time monitoring, role-based workflows, transparent audit trails, and meaningful analytics — designed for scale and built for everyday participation.',
+  },
+];
+
+// ── Why EcoTrack — value props ────────────────────────────
+const whyReasons = [
+  {
+    emoji: '⚠️',
+    title: 'Citizen Reporting',
+    description: 'Anyone can flag pollution, waste dumping, or deforestation in under a minute — with photos, location, and a clear trail until it\'s resolved.',
+  },
+  {
+    emoji: '🔬',
+    title: 'Scientist Analysis',
+    description: 'Environmental scientists review sensor readings, annotate findings, flag anomalies, and publish recommendations that drive ground-level action.',
+  },
+  {
+    emoji: '🏭',
+    title: 'Industry Emission Logs',
+    description: 'Industries log CO₂, NOx, SOx, methane, and particulate emissions with quantities and dates — under the watch of compliance officers.',
+  },
+  {
+    emoji: '🛡️',
+    title: 'Audit-Ready Compliance',
+    description: 'Every action is logged with timestamps and user IDs. Generate regulator-ready reports in seconds, not weeks.',
+  },
+  {
+    emoji: '👥',
+    title: 'Multi-Role Collaboration',
+    description: 'Citizens, officers, scientists, industries, and admins — each gets a purpose-built console with the right permissions.',
+  },
+  {
+    emoji: '🌱',
+    title: 'SDG-Aligned',
+    description: 'Tracking and reporting directly mapped to UN Sustainable Development Goals 6, 11, 12, 13, and 15.',
+  },
+];
+
+// ── Environmental & sustainability facts ──────────────────
+const insights = [
+  {
+    emoji: '🌫️',
+    stat: '9M',
+    label: 'deaths / year',
+    text: 'Air pollution causes ~9 million premature deaths globally each year — more than HIV, malaria, and tuberculosis combined.',
+    source: 'The Lancet, 2023',
+  },
+  {
+    emoji: '🏭',
+    stat: '24%',
+    label: 'of global CO₂',
+    text: 'The industrial sector contributes nearly a quarter of all greenhouse gas emissions worldwide — and is the fastest growing source.',
+    source: 'IPCC AR6',
+  },
+  {
+    emoji: '♻️',
+    stat: '9%',
+    label: 'plastic recycled',
+    text: 'Of all plastic ever produced, only 9% has been recycled. The rest ends up in landfills, incinerators, or the natural environment.',
+    source: 'OECD Global Plastics Outlook',
+  },
+  {
+    emoji: '🌳',
+    stat: '10M ha',
+    label: 'forest lost / year',
+    text: 'The world loses about 10 million hectares of forest annually — roughly the size of a football field every second.',
+    source: 'FAO Forest Resources Assessment',
+  },
+  {
+    emoji: '💧',
+    stat: '2B',
+    label: 'lack safe water',
+    text: 'Two billion people still don\'t have access to safely managed drinking water at home, with stress projected to worsen by 2030.',
+    source: 'WHO / UNICEF JMP',
+  },
+  {
+    emoji: '⚡',
+    stat: '30%',
+    label: 'energy renewable',
+    text: 'Renewables now generate 30% of global electricity, with solar and wind capacity doubling roughly every 3-4 years.',
+    source: 'IEA World Energy Outlook',
+  },
+];
+
+// ── FAQs ──────────────────────────────────────────────────
+const faqs = [
+  {
+    q: 'Who can use EcoTrack?',
+    a: 'EcoTrack serves six user types: Citizens (report issues), Agency Officers (validate and resolve), Industry Representatives (log emissions & documents), Environmental Scientists (analyze sensor data), Compliance Officers (audit & enforce), and Administrators (configure & oversee). Citizens can self-register; other roles are provisioned by an admin.',
+  },
+  {
+    q: 'How does compliance tracking work?',
+    a: 'Industries submit emission logs and regulatory documents through their console. Compliance officers review, approve, or reject submissions with notes. Every record is timestamped and tied to an audit trail. Reports can be generated as CSV exports for regulators on demand.',
+  },
+  {
+    q: 'Can citizens report issues anonymously?',
+    a: 'Issues require a registered citizen account to prevent spam and enable two-way communication on resolution status. However, your personal information is never shared with industries — only with the validating agency officer and platform administrators.',
+  },
+  {
+    q: 'How does EcoTrack handle environmental regulations across regions?',
+    a: 'Compliance rules and thresholds are configurable per deployment. Administrators can map local regulations (e.g., CPCB norms in India, EPA standards in the US) to compliance record types. Reports are generated against the configured baseline, making EcoTrack adaptable to any jurisdiction.',
+  },
+  {
+    q: 'Is EcoTrack free to use?',
+    a: 'Citizen reporting and dashboard access are free for all individuals. Agency, industry, and compliance officer licensing is offered under tiered municipal and enterprise plans. Contact the administrator for pricing tailored to your city or organization.',
+  },
+];
+
+// Collapsible FAQ row
+function FaqItem({ q, a, index, open, onToggle }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.05 }}
+      className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden
+        ${open ? 'border-forest-600/40 shadow-lg shadow-leaf-400/20' : 'border-bark-400/15 hover:border-leaf-200'}`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left group"
+      >
+        <span className="text-base md:text-lg font-semibold text-bark-800 flex items-center gap-3">
+          <span
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-colors
+              ${open ? 'bg-forest-700 text-white' : 'bg-leaf-200 text-forest-700'}`}
+          >
+            {(index + 1).toString().padStart(2, '0')}
+          </span>
+          {q}
+        </span>
+        <ChevronDown
+          size={20}
+          className={`text-forest-600 transition-transform duration-300 shrink-0 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+            <p className="px-6 pb-6 pt-1 text-sm md:text-[15px] text-bark-500 leading-relaxed pl-[68px]">
+              {a}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 
 function CountUp({ end, duration = 1800, suffix = '' }) {
   const [count, setCount] = useState(0);
@@ -86,6 +234,7 @@ export default function HomePage() {
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
 
   const validate = () => {
     const e = {};
@@ -197,7 +346,7 @@ export default function HomePage() {
                   <Globe2 size={16} className="text-leaf-400" /> Aligned with UN SDGs
                 </div>
                 <div className="flex items-center gap-2 text-white/60">
-                  <Award size={16} className="text-leaf-400" /> 12,000+ active citizens
+                  <Award size={16} className="text-leaf-400" /> 20+ active citizens
                 </div>
               </div>
 
@@ -337,6 +486,110 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── About EcoTrack ───────────────────────────────── */}
+      <section className="relative bg-white py-20 overflow-hidden">
+        <div aria-hidden="true" className="absolute -top-24 -left-24 w-72 h-72 bg-leaf-200/40 rounded-full blur-3xl" />
+        <div aria-hidden="true" className="absolute -bottom-24 -right-24 w-80 h-80 bg-forest-600/10 rounded-full blur-3xl" />
+
+        <div className="relative max-w-6xl mx-auto px-4">
+          <div className="grid lg:grid-cols-5 gap-12 items-start">
+            {/* Left: narrative */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="lg:col-span-2"
+            >
+              <span className="inline-block text-xs font-bold tracking-[0.2em] text-forest-600 uppercase mb-3">
+                🌿 About the project
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold text-bark-800 mb-5 leading-tight">
+                Built for the people, agencies & industries shaping tomorrow's environment.
+              </h2>
+              <p className="text-bark-500 leading-relaxed mb-4">
+                EcoTrack is a web-based environmental monitoring & sustainability management
+                platform purpose-built for municipalities, agencies, NGOs, and industries.
+                It unifies citizen reporting, real-time monitoring, emission logging,
+                compliance auditing, and project tracking — all under one transparent roof.
+              </p>
+              <p className="text-bark-500 leading-relaxed mb-6">
+                Built to scale from a single-city pilot to a multi-state rollout —
+                without losing the simplicity that makes everyday citizen participation possible.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {['🌍 Transparent', '🛡️ Secure', '🌱 Sustainable', '🤝 Inclusive'].map((t) => (
+                  <span key={t} className="text-xs font-semibold bg-leaf-200/60 text-forest-800 px-3 py-1.5 rounded-full border border-leaf-200">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Right: pillars */}
+            <div className="lg:col-span-3 grid sm:grid-cols-1 gap-4">
+              {aboutPillars.map(({ emoji, icon: Icon, title, text }, i) => (
+                <motion.div
+                  key={title}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.12 }}
+                  className="group bg-white rounded-2xl p-6 border border-bark-400/10 hover:border-leaf-200 hover:shadow-xl hover:shadow-leaf-400/10 hover:-translate-y-0.5 transition-all flex gap-5"
+                >
+                  <div className="w-14 h-14 rounded-2xl shrink-0 bg-gradient-to-br from-leaf-200 to-earth-50 flex items-center justify-center ring-1 ring-leaf-200 group-hover:scale-105 transition-transform">
+                    <span className="text-2xl" aria-hidden="true">{emoji}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-bark-800 mb-1 flex items-center gap-2">
+                      {title}
+                      <Icon size={15} className="text-forest-600 opacity-70" />
+                    </h3>
+                    <p className="text-sm text-bark-500 leading-relaxed">{text}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why EcoTrack ─────────────────────────────────── */}
+      <section className="bg-gradient-to-b from-earth-50 to-white py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-14">
+            <span className="inline-block text-xs font-bold tracking-[0.2em] text-forest-600 uppercase mb-3">
+              💡 Why EcoTrack
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-bark-800 mb-3">
+              Why cities & enterprises choose EcoTrack 🌱
+            </h2>
+            <p className="text-bark-500 max-w-2xl mx-auto">
+              Beyond a dashboard — a complete environmental governance stack that scales with your ambition.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {whyReasons.map(({ emoji, title, description }, i) => (
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className="relative bg-white rounded-2xl p-6 border border-bark-400/10 hover:border-forest-600/30 hover:shadow-xl hover:shadow-leaf-400/15 hover:-translate-y-1 transition-all group overflow-hidden"
+              >
+                <div aria-hidden="true" className="absolute -top-6 -right-6 w-24 h-24 bg-leaf-200/40 rounded-full blur-2xl group-hover:bg-leaf-400/30 transition-colors" />
+                <div className="relative">
+                  <div className="text-3xl mb-3" aria-hidden="true">{emoji}</div>
+                  <h3 className="text-base font-bold text-bark-800 mb-2">{title}</h3>
+                  <p className="text-sm text-bark-500 leading-relaxed">{description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── How it works ─────────────────────────────────── */}
       <section className="bg-earth-50 py-20">
         <div className="max-w-6xl mx-auto px-4">
@@ -368,34 +621,76 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Features ─────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 py-20">
-        <div className="text-center mb-14">
-          <span className="inline-block text-xs font-bold tracking-[0.2em] text-forest-600 uppercase mb-3">✨ Features</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-bark-800 mb-3">Everything you need to protect the environment 🌿</h2>
-          <p className="text-bark-500 max-w-xl mx-auto">A unified platform for every stakeholder — from grassroots citizen reporters to compliance officers and environmental scientists.</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-7">
-          {features.map(({ icon: Icon, accent, glow, emoji, title, description }, i) => (
-            <motion.div key={title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.15 }}
-              className={`group bg-white rounded-2xl p-8 border border-bark-300/30 hover:-translate-y-2 hover:shadow-2xl ${glow} transition-all duration-300 cursor-pointer`}
-            >
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br ring-1 ${accent} group-hover:scale-110 transition-transform`}>
-                <Icon size={26} />
-              </div>
-              <h3 className="text-lg font-bold text-bark-800 mb-2 flex items-center gap-2">
-                <span aria-hidden="true">{emoji}</span> {title}
-              </h3>
-              <p className="text-sm text-bark-500 leading-relaxed mb-4">{description}</p>
-              <div className="text-sm font-semibold text-forest-600 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                Learn more <ArrowRight size={14} />
-              </div>
-            </motion.div>
-          ))}
+      {/* ── Environmental Insights / Facts ───────────────── */}
+      <section className="relative bg-gradient-to-br from-earth-50 via-white to-leaf-200/40 py-20 overflow-hidden">
+        <motion.div
+          aria-hidden="true"
+          className="absolute top-10 left-10 text-leaf-400/20 hidden md:block"
+          animate={{ y: [0, -10, 0], rotate: [0, 10, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <Leaf size={56} />
+        </motion.div>
+        <motion.div
+          aria-hidden="true"
+          className="absolute bottom-10 right-10 text-forest-600/15 hidden md:block"
+          animate={{ y: [0, 12, 0], rotate: [0, -8, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+        >
+          <Leaf size={72} />
+        </motion.div>
+
+        <div className="relative max-w-6xl mx-auto px-4">
+          <div className="text-center mb-14">
+            <span className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.2em] text-forest-600 uppercase mb-3">
+              <Lightbulb size={14} /> Did you know?
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-bark-800 mb-3">
+              The state of our planet, in numbers 🌍
+            </h2>
+            <p className="text-bark-500 max-w-2xl mx-auto">
+              Six facts that explain why environmental monitoring & sustainability management
+              is no longer optional — for cities, industries, or citizens.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {insights.map(({ emoji, stat, label, text, source }, i) => (
+              <motion.div
+                key={stat + label}
+                initial={{ opacity: 0, scale: 0.96 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className="relative bg-white rounded-2xl p-6 border border-bark-400/10 hover:shadow-xl hover:shadow-forest-600/10 hover:-translate-y-1 transition-all group overflow-hidden"
+              >
+                <div aria-hidden="true" className="absolute top-0 right-0 w-28 h-28 bg-leaf-200/30 rounded-full blur-2xl -translate-y-1/3 translate-x-1/3 group-hover:bg-leaf-400/30 transition-colors" />
+                <div className="relative">
+                  <div className="flex items-baseline gap-3 mb-3">
+                    <span className="text-3xl" aria-hidden="true">{emoji}</span>
+                    <div>
+                      <div className="text-3xl font-extrabold text-forest-700 leading-none tracking-tight">{stat}</div>
+                      <div className="text-[11px] uppercase tracking-wider text-bark-400 font-semibold mt-1">{label}</div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-bark-600 leading-relaxed mb-3">{text}</p>
+                  <p className="text-[11px] text-bark-400 italic">— {source}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-12 text-center"
+          >
+            <p className="inline-flex items-center gap-2 text-sm text-bark-600 bg-white border border-leaf-200 rounded-full px-5 py-2.5 shadow-sm">
+              <Sparkles size={14} className="text-forest-600" />
+              EcoTrack turns these numbers into measurable, local action.
+            </p>
+          </motion.div>
         </div>
       </section>
 
@@ -434,6 +729,42 @@ export default function HomePage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQs ─────────────────────────────────────────── */}
+      <section className="bg-white py-20">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.2em] text-forest-600 uppercase mb-3">
+              <HelpCircle size={14} /> Frequently asked
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-bark-800 mb-3">
+              Answers, before you ask 💬
+            </h2>
+            <p className="text-bark-500 max-w-xl mx-auto">
+              Common questions about how EcoTrack works, who it's for, and what makes it different.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {faqs.map((f, i) => (
+              <FaqItem
+                key={f.q}
+                q={f.q}
+                a={f.a}
+                index={i}
+                open={openFaq === i}
+                onToggle={() => setOpenFaq(openFaq === i ? -1 : i)}
+              />
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <p className="text-sm text-bark-500">
+              Still have questions? Email <a href="mailto:hello@ecotrack.org" className="text-forest-700 font-semibold hover:underline">hello@ecotrack.org</a> — we usually reply within a day. 🌿
+            </p>
           </div>
         </div>
       </section>
