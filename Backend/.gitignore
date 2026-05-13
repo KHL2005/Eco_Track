@@ -5,7 +5,6 @@
 *.class
 *.log
 ../.idea/
-.claude/
 *.iml
 out/
 gen/

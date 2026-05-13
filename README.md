@@ -635,6 +635,3 @@ npm run build
 - Verify MySQL is running and the credentials in `config-repo/application.properties` are correct.
 - The user must have `CREATE DATABASE` privileges (databases are auto-created on first run).
 
----
-
-**Version:** 1.0.0
