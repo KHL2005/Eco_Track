@@ -97,6 +97,13 @@ public class GridFsService {
 
     // ── Delete ────────────────────────────────────────────────────────────────
 
+    public void deletePdfById(String fileId) {
+        gridFsTemplate.delete(
+                new Query(Criteria.where("_id").is(new ObjectId(fileId)))
+        );
+        log.info("PDF deleted from GridFS id={}", fileId);
+    }
+
     public void deletePdfByDocumentId(Long documentId) {
         gridFsTemplate.delete(
                 new Query(Criteria.where("metadata.documentId").is(documentId))
