@@ -7,7 +7,7 @@ import PropTypes from 'prop-types';
 export default function DataTable({ columns, data, loading, searchable = true, searchPlaceholder = 'Search…', currentPage = 1, recordsPerPage = null, onPageChange = null }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState(null);
-  const [sortDir, setSortDir] = useState('asc');
+  const [sortDirection, setSortDirection] = useState('asc');
 
   const filtered = (data || []).filter((row) => {
     if (!search) return true;
@@ -19,7 +19,7 @@ export default function DataTable({ columns, data, loading, searchable = true, s
     const va = a[sortKey] ?? '';
     const vb = b[sortKey] ?? '';
     const cmp = String(va).localeCompare(String(vb));
-    return sortDir === 'asc' ? cmp : -cmp;
+    return sortDirection === 'asc' ? cmp : -cmp;
   });
 
   // Pagination logic
@@ -32,19 +32,33 @@ export default function DataTable({ columns, data, loading, searchable = true, s
     displayedData = sorted.slice(startIdx, endIdx);
   }
 
-  const handleSort = (key) => {
+  function handleSort(key) {
     if (!key) return;
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
-  };
+    if (sortKey === key) {
+      // Same column clicked — flip the direction
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortDirection('asc');
+      }
+    } else {
+      // New column clicked — sort ascending by default
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  }
 
-  const handlePrevPage = () => {
-    if (currentPage > 1 && onPageChange) onPageChange(currentPage - 1);
-  };
+  function handlePrevPage() {
+    if (currentPage > 1 && onPageChange) {
+      onPageChange(currentPage - 1);
+    }
+  }
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages && onPageChange) onPageChange(currentPage + 1);
-  };
+  function handleNextPage() {
+    if (currentPage < totalPages && onPageChange) {
+      onPageChange(currentPage + 1);
+    }
+  }
 
   return (
     <div>
@@ -84,7 +98,7 @@ export default function DataTable({ columns, data, loading, searchable = true, s
                       <span className="inline-flex items-center gap-1">
                         {col.label}
                         {col.sortable && sortKey === col.key && (
-                          sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                          sortDirection === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
                         )}
                       </span>
                     </th>
@@ -148,4 +162,3 @@ DataTable.propTypes = {
   recordsPerPage: PropTypes.number,
   onPageChange: PropTypes.func,
 };
-

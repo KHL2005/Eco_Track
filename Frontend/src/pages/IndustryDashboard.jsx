@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getEmissionsByIndustry, deleteEmission, getDocumentsByIndustry, deleteDocument } from '../api/emissionsApi';
 import Sidebar from '../components/Sidebar';
@@ -19,6 +19,7 @@ export default function IndustryDashboard() {
   const { user } = useAuth();
   const [section, setSection] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
   const [emissions, setEmissions] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loadingE, setLoadingE] = useState(true);
@@ -26,45 +27,65 @@ export default function IndustryDashboard() {
   const [errorE, setErrorE] = useState('');
   const [errorD, setErrorD] = useState('');
 
-  const fetchEmissions = useCallback(async () => {
-    setLoadingE(true); setErrorE('');
+  // Fetch both lists when the page first loads
+  useEffect(() => {
+    fetchEmissions();
+    fetchDocuments();
+  }, []);
+
+  async function fetchEmissions() {
+    setLoadingE(true);
+    setErrorE('');
     try {
-      const { data } = await getEmissionsByIndustry(user.name);
-      setEmissions(data);
-    } catch { setErrorE('Failed to load emissions.'); }
-    finally { setLoadingE(false); }
-  }, [user.name]);
+      const response = await getEmissionsByIndustry(user.name);
+      setEmissions(response.data);
+    } catch (error) {
+      setErrorE('Failed to load emissions.');
+    } finally {
+      setLoadingE(false);
+    }
+  }
 
-  const fetchDocuments = useCallback(async () => {
-    setLoadingD(true); setErrorD('');
+  async function fetchDocuments() {
+    setLoadingD(true);
+    setErrorD('');
     try {
-      const { data } = await getDocumentsByIndustry(user.name);
-      setDocuments(data);
-    } catch { setErrorD('Failed to load documents.'); }
-    finally { setLoadingD(false); }
-  }, [user.name]);
+      const response = await getDocumentsByIndustry(user.name);
+      setDocuments(response.data);
+    } catch (error) {
+      setErrorD('Failed to load documents.');
+    } finally {
+      setLoadingD(false);
+    }
+  }
 
-  useEffect(() => { fetchEmissions(); fetchDocuments(); }, [fetchEmissions, fetchDocuments]);
-
-  const handleDeleteEmission = async (id) => {
+  async function handleDeleteEmission(id) {
     await deleteEmission(id);
     fetchEmissions();
-  };
+  }
 
-  const handleDeleteDocument = async (id) => {
+  async function handleDeleteDocument(id) {
     await deleteDocument(id);
     fetchDocuments();
+  }
+
+  function handleNav(key) {
+    setSection(key);
+    setSidebarCollapsed(true);
+  }
+
+  // Compute overview stats from the emissions list
+  const totalEmissions = emissions.length;
+  const approvedEmissions = emissions.filter(e => e.status === 'APPROVED').length;
+  const pendingEmissions = emissions.filter(e => e.status === 'SUBMITTED').length;
+  const totalDocuments = documents.length;
+
+  const sectionTitles = {
+    overview: 'Overview',
+    log: 'Log Emission',
+    emissions: 'My Emissions',
+    documents: 'My Documents',
   };
-
-  const handleNav = (key) => { setSection(key); setSidebarCollapsed(true); };
-
-  // Stats
-  const totalE = emissions.length;
-  const approvedE = emissions.filter(e => e.status === 'APPROVED').length;
-  const pendingE = emissions.filter(e => e.status === 'SUBMITTED').length;
-  const totalD = documents.length;
-
-  const sectionTitles = { overview: 'Overview', log: 'Log Emission', emissions: 'My Emissions', documents: 'My Documents' };
 
   return (
     <div className="min-h-screen bg-bg">
@@ -74,25 +95,43 @@ export default function IndustryDashboard() {
         <TopBar title={sectionTitles[section]} onMenuToggle={() => setSidebarCollapsed(c => !c)} />
 
         <main className="p-4 sm:p-6 max-w-6xl mx-auto">
-          {/* OVERVIEW */}
+
+          {/* OVERVIEW — four stat cards */}
           {section === 'overview' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: 'Total Emissions', value: totalE, icon: '💨', color: 'from-primary to-accent' },
-                { label: 'Approved', value: approvedE, icon: '✅', color: 'from-green-400 to-accent' },
-                { label: 'Pending', value: pendingE, icon: '⏳', color: 'from-amber to-yellow-400' },
-                { label: 'Documents', value: totalD, icon: '📄', color: 'from-primary to-primary-dark' },
-              ].map(c => (
-                <div key={c.label} className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${c.color} flex items-center justify-center text-xl`}>
-                    {c.icon}
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-text">{loadingE || loadingD ? '…' : c.value}</p>
-                    <p className="text-xs text-text-muted">{c.label}</p>
-                  </div>
+
+              <div className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xl">💨</div>
+                <div>
+                  <p className="text-2xl font-bold text-text">{loadingE ? '…' : totalEmissions}</p>
+                  <p className="text-xs text-text-muted">Total Emissions</p>
                 </div>
-              ))}
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-accent flex items-center justify-center text-xl">✅</div>
+                <div>
+                  <p className="text-2xl font-bold text-text">{loadingE ? '…' : approvedEmissions}</p>
+                  <p className="text-xs text-text-muted">Approved</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber to-yellow-400 flex items-center justify-center text-xl">⏳</div>
+                <div>
+                  <p className="text-2xl font-bold text-text">{loadingE ? '…' : pendingEmissions}</p>
+                  <p className="text-xs text-text-muted">Pending</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4 hover:shadow-lg transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-xl">📄</div>
+                <div>
+                  <p className="text-2xl font-bold text-text">{loadingD ? '…' : totalDocuments}</p>
+                  <p className="text-xs text-text-muted">Documents</p>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -126,9 +165,9 @@ export default function IndustryDashboard() {
               </div>
             </div>
           )}
+
         </main>
       </div>
     </div>
   );
 }
-

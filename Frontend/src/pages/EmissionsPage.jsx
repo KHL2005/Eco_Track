@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
@@ -15,67 +14,126 @@ import { toast } from 'sonner';
 
 export default function EmissionsPage() {
   const { isIndustry, isAdmin, isComplianceOfficer } = useRole();
-  const qc = useQueryClient();
-  const [modal, setModal] = useState(false);
+
+  // Emissions list
+  const [emissions, setEmissions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Status filter dropdown
   const [statusFilter, setStatusFilter] = useState('');
-  const [form, setForm] = useState({ registrationNumber: '', industryName: '', emissionType: 'CO2', value: '', notes: '' });
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-  const closeModal = () => { setModal(false); setForm({ registrationNumber: '', industryName: '', emissionType: 'CO2', value: '', notes: '' }); };
 
-  const { data: emissions = [], isLoading } = useQuery({
-    queryKey: ['emissions'],
-    queryFn: () => emissionsApi.getEmissions().then(r => r.data).catch(() => []),
-  });
+  // Modal open/close
+  const [modalOpen, setModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Form fields — one state variable per field
+  const [registrationNumber, setRegistrationNumber] = useState('');
+  const [industryName, setIndustryName] = useState('');
+  const [emissionType, setEmissionType] = useState('CO2');
+  const [value, setValue] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Fetch emissions when the page first loads
+  useEffect(() => {
+    fetchEmissions();
+  }, []);
+
+  async function fetchEmissions() {
+    setIsLoading(true);
+    try {
+      const response = await emissionsApi.getEmissions();
+      setEmissions(response.data);
+    } catch (error) {
+      setEmissions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setRegistrationNumber('');
+    setIndustryName('');
+    setEmissionType('CO2');
+    setValue('');
+    setNotes('');
+  }
+
+  // Filter the list by selected status
   const filtered = statusFilter ? emissions.filter(e => e.status === statusFilter) : emissions;
 
-  const createMut = useMutation({
-    mutationFn: (d) => emissionsApi.logEmission(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['emissions'] }); toast.success('Emission logged'); closeModal(); },
-    onError: () => toast.error('Failed to log emission'),
-  });
+  async function handleCreate() {
+    setIsSubmitting(true);
+    try {
+      await emissionsApi.logEmission({
+        registrationNumber: registrationNumber,
+        industryName: industryName,
+        type: emissionType,
+        quantity: parseFloat(value),
+        description: notes,
+      });
+      toast.success('Emission logged');
+      closeModal();
+      fetchEmissions();
+    } catch (error) {
+      toast.error('Failed to log emission');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }) => emissionsApi.updateEmissionStatus(id, status),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['emissions'] }); toast.success('Status updated'); },
-    onError: () => toast.error('Failed to update status'),
-  });
+  async function handleUpdateStatus(id, status) {
+    try {
+      await emissionsApi.updateEmissionStatus(id, status);
+      toast.success('Status updated');
+      fetchEmissions();
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => emissionsApi.deleteEmission(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['emissions'] }); toast.success('Emission deleted'); },
-    onError: () => toast.error('Failed to delete emission'),
-  });
+  async function handleDelete(id) {
+    try {
+      await emissionsApi.deleteEmission(id);
+      toast.success('Emission deleted');
+      fetchEmissions();
+    } catch (error) {
+      toast.error('Failed to delete emission');
+    }
+  }
+
+  const isSubmitDisabled = !registrationNumber.trim() || !industryName.trim() || !value || !notes.trim();
 
   const columns = [
-    { key: 'logId', label: 'ID', render: r => <span className="text-sm text-bark-700">{r.logId}</span> },
-    { key: 'industryName', label: 'Industry', sortable: true, render: r => <span className="text-sm text-bark-700">{r.industryName}</span> },
-    { key: 'registrationNumber', label: 'Reg. Number', render: r => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{r.registrationNumber}</code> },
-    { key: 'type', label: 'Type', render: r => <span className="text-sm text-bark-700">{r.type}</span> },
-    { key: 'quantity', label: 'Value (mg/Nm³)', sortable: true, render: r => <span><span className="text-sm text-bark-700">{r.quantity}</span> <span className="text-xs text-bark-400">mg/Nm³</span></span> },
-    { key: 'description', label: 'Description', render: r => <span title={r.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{r.description || '—'}</span> },
-    { key: 'status', label: 'Status', render: r => (
-      <div className="flex flex-col gap-0.5">
-        <StatusBadge status={r.status} />
-        {r.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(r.updatedAt)}</span>}
-      </div>
-    )},
-    { key: 'date', label: 'Date', render: r => <span className="text-sm text-bark-700">{formatDateTime(r.date)}</span> },
+    { key: 'logId', label: 'ID', render: (row) => <span className="text-sm text-bark-700">{row.logId}</span> },
+    { key: 'industryName', label: 'Industry', sortable: true, render: (row) => <span className="text-sm text-bark-700">{row.industryName}</span> },
+    { key: 'registrationNumber', label: 'Reg. Number', render: (row) => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{row.registrationNumber}</code> },
+    { key: 'type', label: 'Type', render: (row) => <span className="text-sm text-bark-700">{row.type}</span> },
+    { key: 'quantity', label: 'Value (mg/Nm³)', sortable: true, render: (row) => <span><span className="text-sm text-bark-700">{row.quantity}</span> <span className="text-xs text-bark-400">mg/Nm³</span></span> },
+    { key: 'description', label: 'Description', render: (row) => <span title={row.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{row.description || '—'}</span> },
     {
-      label: 'Actions', render: (r) => (
+      key: 'status', label: 'Status', render: (row) => (
+        <div className="flex flex-col gap-0.5">
+          <StatusBadge status={row.status} />
+          {row.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(row.updatedAt)}</span>}
+        </div>
+      )
+    },
+    { key: 'date', label: 'Date', render: (row) => <span className="text-sm text-bark-700">{formatDateTime(row.date)}</span> },
+    {
+      label: 'Actions', render: (row) => (
         <div className="flex gap-1">
-          {(isAdmin || isComplianceOfficer) && r.status === 'SUBMITTED' && (
+          {(isAdmin || isComplianceOfficer) && row.status === 'SUBMITTED' && (
             <>
-              <Button size="sm" variant="outline" className="text-xs flex items-center gap-1" onClick={() => updateStatus.mutate({ id: r.logId, status: 'APPROVED' })}><CheckCircle size={12} />Approve</Button>
-              <Button size="sm" variant="danger" className="text-xs flex items-center gap-1" onClick={() => updateStatus.mutate({ id: r.logId, status: 'REJECTED' })}><X size={12} />Reject</Button>
+              <Button size="sm" variant="outline" className="text-xs flex items-center gap-1" onClick={() => handleUpdateStatus(row.logId, 'APPROVED')}><CheckCircle size={12} />Approve</Button>
+              <Button size="sm" variant="danger" className="text-xs flex items-center gap-1" onClick={() => handleUpdateStatus(row.logId, 'REJECTED')}><X size={12} />Reject</Button>
             </>
           )}
-          {isIndustry && r.status === 'SUBMITTED' && (
+          {isIndustry && row.status === 'SUBMITTED' && (
             <button
-              onClick={() => deleteMut.mutate(r.logId)}
+              onClick={() => handleDelete(row.logId)}
               className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
               title="Delete emission"
-              disabled={deleteMut.isPending}
             >
               <Trash2 size={14} />
             </button>
@@ -93,13 +151,13 @@ export default function EmissionsPage() {
             <select
               className="border border-bark-400/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
+              onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">All Status</option>
               {EMISSION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             {(isIndustry || isAdmin) && (
-              <Button onClick={() => setModal(true)}><Plus size={16} /> Log Emission</Button>
+              <Button onClick={() => setModalOpen(true)}><Plus size={16} /> Log Emission</Button>
             )}
           </div>
         }
@@ -116,30 +174,58 @@ export default function EmissionsPage() {
         )}
       </div>
 
-      <Modal open={modal} onClose={closeModal} title="Log Emission" size="lg">
+      <Modal open={modalOpen} onClose={closeModal} title="Log Emission" size="lg">
         <div className="space-y-4">
-          {[['registrationNumber', 'Registration Number (e.g. TNPCB-IND-1023)', 'text'], ['industryName', 'Industry Name', 'text'], ['value', 'Value (mg/Nm³)', 'number']].map(([k, label, type]) => (
-            <div key={k}>
-              <label className="block text-sm font-medium text-bark-600 mb-1">{label}</label>
-              <input type={type} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-                value={form[k]} onChange={set(k)} />
-            </div>
-          ))}
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Registration Number (e.g. TNPCB-IND-1023)</label>
+            <input
+              type="text"
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={registrationNumber}
+              onChange={(e) => setRegistrationNumber(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Industry Name</label>
+            <input
+              type="text"
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={industryName}
+              onChange={(e) => setIndustryName(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-bark-600 mb-1">Value (mg/Nm³)</label>
+            <input
+              type="number"
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Emission Type</label>
-            <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-              value={form.emissionType} onChange={set('emissionType')}>
+            <select
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={emissionType}
+              onChange={(e) => setEmissionType(e.target.value)}
+            >
               {EMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
-            <textarea rows={2} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-              value={form.notes} onChange={set('notes')} required />
+            <textarea
+              rows={2}
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              required
+            />
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button onClick={() => createMut.mutate({ registrationNumber: form.registrationNumber, industryName: form.industryName, type: form.emissionType, quantity: parseFloat(form.value), description: form.notes })} loading={createMut.isPending} disabled={!form.registrationNumber.trim() || !form.industryName.trim() || !form.value || !form.notes.trim()}>Submit</Button>
+            <Button onClick={handleCreate} loading={isSubmitting} disabled={isSubmitDisabled}>Submit</Button>
           </div>
         </div>
       </Modal>

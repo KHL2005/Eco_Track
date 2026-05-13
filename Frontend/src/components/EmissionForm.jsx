@@ -9,33 +9,53 @@ export default function EmissionForm({ onSuccess }) {
   const { user } = useAuth();
   const [type, setType] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [errors, setErrors] = useState({});
+  const [typeError, setTypeError] = useState('');
+  const [quantityError, setQuantityError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [apiError, setApiError] = useState('');
 
-  const validate = () => {
-    const e = {};
-    if (!type) e.type = 'Select an emission type';
-    if (!quantity || Number(quantity) <= 0) e.quantity = 'Quantity must be a positive number';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
+  async function handleSubmit() {
+    setSuccess('');
+    setApiError('');
 
-  const handleSubmit = async () => {
-    setSuccess(''); setApiError('');
-    if (!validate()) return;
+    // Validate each field individually
+    let hasError = false;
+    if (!type) {
+      setTypeError('Select an emission type');
+      hasError = true;
+    } else {
+      setTypeError('');
+    }
+    if (!quantity || Number(quantity) <= 0) {
+      setQuantityError('Quantity must be a positive number');
+      hasError = true;
+    } else {
+      setQuantityError('');
+    }
+    if (hasError) return;
+
     setLoading(true);
     try {
       await logEmission({ industryId: user.userId, industryName: user.name, type, quantity: Number(quantity) });
       setSuccess('Emission logged successfully!');
-      setType(''); setQuantity('');
-      onSuccess?.();
+      setType('');
+      setQuantity('');
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Failed to log emission.';
+      let msg = 'Failed to log emission.';
+      if (err.response && err.response.data && err.response.data.message) {
+        msg = err.response.data.message;
+      } else if (err.message) {
+        msg = err.message;
+      }
       setApiError(msg);
-    } finally { setLoading(false); }
-  };
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-md p-6">
@@ -51,12 +71,12 @@ export default function EmissionForm({ onSuccess }) {
             value={type}
             onChange={(e) => setType(e.target.value)}
             className={`w-full px-4 py-3 rounded-xl border bg-white text-text text-sm outline-none transition-all
-              ${errors.type ? 'border-error ring-2 ring-error/20' : 'border-gray-200 focus:border-accent focus:ring-2 focus:ring-accent/20'}`}
+              ${typeError ? 'border-error ring-2 ring-error/20' : 'border-gray-200 focus:border-accent focus:ring-2 focus:ring-accent/20'}`}
           >
             <option value="">Select type…</option>
             {EMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          {errors.type && <p className="mt-1 text-xs text-error">{errors.type}</p>}
+          {typeError && <p className="mt-1 text-xs text-error">{typeError}</p>}
         </div>
 
         <InputField
@@ -65,7 +85,7 @@ export default function EmissionForm({ onSuccess }) {
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
           placeholder="e.g. 1250.75"
-          error={errors.quantity}
+          error={quantityError}
           min="0"
           step="0.01"
         />
@@ -82,4 +102,3 @@ export default function EmissionForm({ onSuccess }) {
     </div>
   );
 }
-

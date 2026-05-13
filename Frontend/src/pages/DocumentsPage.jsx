@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
@@ -16,91 +15,159 @@ import { toast } from 'sonner';
 
 export default function DocumentsPage() {
   const { isIndustry, isAdmin, isComplianceOfficer } = useRole();
-  const qc = useQueryClient();
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ registrationNumber: '', industryName: '', docType: 'PERMIT', description: '' });
-  const [file, setFile] = useState(null);
-  const [progress, setProgress] = useState(0);
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-  const closeModal = () => { setModal(false); setForm({ registrationNumber: '', industryName: '', docType: 'PERMIT', description: '' }); setFile(null); setProgress(0); };
 
-  const handleDownloadPdf = async (docId, fileName) => {
+  // Documents list
+  const [docs, setDocs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Modal open/close
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // Upload form fields — one state variable per field
+  const [registrationNumber, setRegistrationNumber] = useState('');
+  const [industryName, setIndustryName] = useState('');
+  const [docType, setDocType] = useState('PERMIT');
+  const [description, setDescription] = useState('');
+  const [file, setFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch documents when the page first loads
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  async function fetchDocuments() {
+    setIsLoading(true);
     try {
-      const res = await emissionsApi.downloadDocumentBlob(docId);
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName || `document-${docId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch {
+      const response = await emissionsApi.getDocuments();
+      setDocs(response.data);
+    } catch (error) {
+      setDocs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function openModal() {
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setRegistrationNumber('');
+    setIndustryName('');
+    setDocType('PERMIT');
+    setDescription('');
+    setFile(null);
+    setUploadProgress(0);
+  }
+
+  async function handleDownloadPdf(docId, fileName) {
+    try {
+      const response = await emissionsApi.downloadDocumentBlob(docId);
+      const blobUrl = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName || `document-${docId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch (error) {
       toast.error('Failed to download document');
     }
-  };
+  }
 
-  const { data: docs = [], isLoading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: () => emissionsApi.getDocuments().then(r => r.data).catch(() => []),
-  });
+  async function handleSubmit() {
+    if (file.type !== 'application/pdf') {
+      toast.error('Only PDF files are accepted');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be under 10 MB');
+      return;
+    }
 
-  const submitMut = useMutation({
-    mutationFn: () => {
-      if (file.type !== 'application/pdf') throw new Error('Only PDF files are accepted');
-      if (file.size > 10 * 1024 * 1024) throw new Error('File size must be under 10 MB');
-      const fd = new FormData();
-      fd.append('registrationNumber', form.registrationNumber);
-      fd.append('industryName', form.industryName);
-      fd.append('docType', form.docType);
-      fd.append('description', form.description);
-      fd.append('file', file);
-      return emissionsApi.submitDocument(fd, e => setProgress(Math.round(e.loaded / e.total * 100)));
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['documents'] }); toast.success('Document submitted'); closeModal(); },
-    onError: (err) => { toast.error(err.message || 'Upload failed'); setProgress(0); },
-  });
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('registrationNumber', registrationNumber);
+      formData.append('industryName', industryName);
+      formData.append('docType', docType);
+      formData.append('description', description);
+      formData.append('file', file);
 
-  const verifyMut = useMutation({
-    mutationFn: ({ id, status }) => emissionsApi.verifyDocument(id, status),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['documents'] }); toast.success('Document updated'); },
-  });
+      await emissionsApi.submitDocument(formData, (event) => {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setUploadProgress(percent);
+      });
 
-  const deleteMut = useMutation({
-    mutationFn: (docId) => emissionsApi.deleteDocument(docId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['documents'] }); toast.success('Document deleted'); },
-    onError: () => toast.error('Failed to delete document'),
-  });
+      toast.success('Document submitted');
+      closeModal();
+      fetchDocuments();
+    } catch (error) {
+      toast.error('Upload failed');
+      setUploadProgress(0);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleVerify(docId, status) {
+    try {
+      await emissionsApi.verifyDocument(docId, status);
+      toast.success('Document updated');
+      fetchDocuments();
+    } catch (error) {
+      toast.error('Failed to update document');
+    }
+  }
+
+  async function handleDelete(docId) {
+    try {
+      await emissionsApi.deleteDocument(docId);
+      toast.success('Document deleted');
+      fetchDocuments();
+    } catch (error) {
+      toast.error('Failed to delete document');
+    }
+  }
+
+  const isSubmitDisabled = !file || !registrationNumber.trim() || !industryName.trim() || !description.trim();
 
   const columns = [
-    { key: 'documentId', label: 'ID', render: r => <span className="text-sm text-bark-700">{r.documentId}</span> },
-    { key: 'industryName', label: 'Industry', sortable: true, render: r => <span className="text-sm text-bark-700">{r.industryName}</span> },
-    { key: 'registrationNumber', label: 'Reg. Number', render: r => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{r.registrationNumber}</code> },
-    { key: 'docType', label: 'Type', render: r => <span className="text-sm text-bark-700">{r.docType}</span> },
-    { key: 'description', label: 'Description', render: r => <span title={r.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{r.description || '—'}</span> },
-    { key: 'verificationStatus', label: 'Status', render: r => (
-      <div className="flex flex-col gap-0.5">
-        <StatusBadge status={r.verificationStatus} />
-        {r.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(r.updatedAt)}</span>}
-      </div>
-    )},
-    { key: 'uploadedDate', label: 'Uploaded', render: r => <span className="text-sm text-bark-700">{formatDateTime(r.uploadedDate)}</span> },
+    { key: 'documentId', label: 'ID', render: (row) => <span className="text-sm text-bark-700">{row.documentId}</span> },
+    { key: 'industryName', label: 'Industry', sortable: true, render: (row) => <span className="text-sm text-bark-700">{row.industryName}</span> },
+    { key: 'registrationNumber', label: 'Reg. Number', render: (row) => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{row.registrationNumber}</code> },
+    { key: 'docType', label: 'Type', render: (row) => <span className="text-sm text-bark-700">{row.docType}</span> },
+    { key: 'description', label: 'Description', render: (row) => <span title={row.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{row.description || '—'}</span> },
     {
-      label: 'Actions', render: (r) => (
+      key: 'verificationStatus', label: 'Status', render: (row) => (
+        <div className="flex flex-col gap-0.5">
+          <StatusBadge status={row.verificationStatus} />
+          {row.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(row.updatedAt)}</span>}
+        </div>
+      )
+    },
+    { key: 'uploadedDate', label: 'Uploaded', render: (row) => <span className="text-sm text-bark-700">{formatDateTime(row.uploadedDate)}</span> },
+    {
+      label: 'Actions', render: (row) => (
         <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="flex items-center gap-1 text-xs" onClick={() => handleDownloadPdf(r.documentId || r.id, r.fileName)} title="Download PDF"><Download size={13} />Download</Button>
-          {(isAdmin || isComplianceOfficer) && r.verificationStatus === 'SUBMITTED' && (
+          <Button size="sm" variant="ghost" className="flex items-center gap-1 text-xs" onClick={() => handleDownloadPdf(row.documentId || row.id, row.fileName)} title="Download PDF">
+            <Download size={13} />Download
+          </Button>
+          {(isAdmin || isComplianceOfficer) && row.verificationStatus === 'SUBMITTED' && (
             <>
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => verifyMut.mutate({ id: r.documentId || r.id, status: 'APPROVED' })}>Approve</Button>
-              <Button size="sm" variant="danger" className="text-xs" onClick={() => verifyMut.mutate({ id: r.documentId || r.id, status: 'REJECTED' })}>Reject</Button>
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVerify(row.documentId || row.id, 'APPROVED')}>Approve</Button>
+              <Button size="sm" variant="danger" className="text-xs" onClick={() => handleVerify(row.documentId || row.id, 'REJECTED')}>Reject</Button>
             </>
           )}
-          {isIndustry && r.verificationStatus === 'SUBMITTED' && (
+          {isIndustry && row.verificationStatus === 'SUBMITTED' && (
             <button
-              onClick={() => deleteMut.mutate(r.documentId || r.id)}
+              onClick={() => handleDelete(row.documentId || row.id)}
               className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
               title="Delete document"
-              disabled={deleteMut.isPending}
             >
               <Trash2 size={13} />
             </button>
@@ -113,7 +180,7 @@ export default function DocumentsPage() {
   return (
     <DashboardLayout>
       <PageHeader emoji="📄" title="Industry Documents" description="Permits, compliance documents, and certificates"
-        action={(isIndustry || isAdmin) && <Button onClick={() => setModal(true)}><Plus size={16} /> Upload Document</Button>}
+        action={(isIndustry || isAdmin) && <Button onClick={openModal}><Plus size={16} /> Upload Document</Button>}
       />
 
       <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
@@ -127,37 +194,54 @@ export default function DocumentsPage() {
         )}
       </div>
 
-      <Modal open={modal} onClose={closeModal} title="Submit Compliance Document" size="lg">
+      <Modal open={modalOpen} onClose={closeModal} title="Submit Compliance Document" size="lg">
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
-            {[['registrationNumber', 'Registration Number (e.g. TNPCB-IND-1023)', 'text'], ['industryName', 'Industry Name', 'text']].map(([k, label, type]) => (
-              <div key={k}>
-                <label className="block text-sm font-medium text-bark-600 mb-1">{label}</label>
-                <input type={type} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-                  value={form[k]} onChange={set(k)} />
-              </div>
-            ))}
+            <div>
+              <label className="block text-sm font-medium text-bark-600 mb-1">Registration Number (e.g. TNPCB-IND-1023)</label>
+              <input
+                type="text"
+                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-bark-600 mb-1">Industry Name</label>
+              <input
+                type="text"
+                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                value={industryName}
+                onChange={(e) => setIndustryName(e.target.value)}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Document Type</label>
-            <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-              value={form.docType} onChange={set('docType')}>
+            <select
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={docType}
+              onChange={(e) => setDocType(e.target.value)}
+            >
               {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
-            <input className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-              value={form.description} onChange={set('description')} required />
+            <input
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+            />
           </div>
-          <FileUpload onFile={setFile} accept=".pdf" label="Upload PDF (max 10 MB)" progress={progress} />
+          <FileUpload onFile={setFile} accept=".pdf" label="Upload PDF (max 10 MB)" progress={uploadProgress} />
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button onClick={() => submitMut.mutate()} loading={submitMut.isPending} disabled={!file || !form.registrationNumber.trim() || !form.industryName.trim() || !form.description.trim()}>Submit</Button>
+            <Button onClick={handleSubmit} loading={isSubmitting} disabled={isSubmitDisabled}>Submit</Button>
           </div>
         </div>
       </Modal>
     </DashboardLayout>
   );
 }
-
