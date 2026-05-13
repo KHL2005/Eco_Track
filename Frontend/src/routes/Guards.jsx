@@ -8,7 +8,7 @@ const routesByRole = {
   AGENCY_OFFICER: ['/dashboard', '/issues', '/issues/mine', '/issues/new', '/issues/:id', '/analysis', '/projects', '/projects/dashboard', '/projects/:id', '/reports', '/notifications', '/profile'],
   INDUSTRY: ['/dashboard', '/emissions', '/documents', '/notifications', '/profile'],
   SCIENTIST: ['/dashboard', '/sensors', '/sensors/:id', '/sensor-data', '/analysis', '/notifications', '/profile'],
-  COMPLIANCE_OFFICER: ['/dashboard', '/compliance', '/audits', '/emissions', '/documents', '/reports', '/notifications', '/profile'],
+  COMPLIANCE_OFFICER: ['/dashboard', '/compliance', '/audits', '/emissions', '/documents', '/notifications', '/profile'],
   ADMINISTRATOR: ['/dashboard', '/issues', '/issues/mine', '/issues/new', '/issues/:id', '/sensors', '/sensors/:id', '/sensor-data', '/analysis', '/emissions', '/documents', '/projects', '/projects/dashboard', '/projects/:id', '/compliance', '/audits', '/reports', '/admin/users', '/notifications', '/profile'],
   SUPER_ADMIN: ['/dashboard', '/issues', '/issues/mine', '/issues/new', '/issues/:id', '/sensors', '/sensors/:id', '/sensor-data', '/analysis', '/emissions', '/documents', '/projects', '/projects/dashboard', '/projects/:id', '/compliance', '/audits', '/reports', '/admin/users', '/notifications', '/profile'],
 };

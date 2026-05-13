@@ -2,42 +2,42 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { GuestRoute, ProtectedRoute } from './Guards';
 
 // Public
-import HomePage from '../pages/HomePage';
-import LoginPage from '../pages/LoginPage';
-import RegisterPage from '../pages/RegisterPage';
-import NotFoundPage from '../pages/NotFoundPage';
+import HomePage from '../pages/public/HomePage';
+import LoginPage from '../pages/public/LoginPage';
+import RegisterPage from '../pages/public/RegisterPage';
+import NotFoundPage from '../pages/public/NotFoundPage';
 
 // Dashboard & Shared
-import DashboardPage from '../pages/DashboardPage';
-import ProfilePage from '../pages/ProfilePage';
-import NotificationsPage from '../pages/NotificationsPage';
-import ReportsPage from '../pages/ReportsPage';
-import ProjectsPage from '../pages/ProjectsPage';
-import ProjectDetailPage from '../pages/ProjectDetailPage';
-import ProjectDashboard from '../pages/ProjectDashboard';
-import ProjectDetailPageEnhanced from '../pages/ProjectDetailPageEnhanced';
+import DashboardPage from '../pages/dashboard/DashboardPage';
+import ProfilePage from '../pages/shared/ProfilePage';
+import NotificationsPage from '../pages/shared/NotificationsPage';
+import ReportsPage from '../pages/reports/ReportsPage';
+import ProjectsPage from '../pages/projects/ProjectsPage';
+import ProjectDetailPage from '../pages/projects/ProjectDetailPage';
+import ProjectDashboard from '../pages/dashboard/ProjectDashboard';
+import ProjectDetailPageEnhanced from '../pages/projects/ProjectDetailPageEnhanced';
 
 // Issues
-import IssuesPage from '../pages/IssuesPage';
-import IssueDetailPage from '../pages/IssueDetailPage';
-import CreateIssuePage from '../pages/CreateIssuePage';
+import IssuesPage from '../pages/issues/IssuesPage';
+import IssueDetailPage from '../pages/issues/IssueDetailPage';
+import CreateIssuePage from '../pages/issues/CreateIssuePage';
 
 // Sensors & Analysis
-import SensorsPage from '../pages/SensorsPage';
-import SensorDetailPage from '../pages/SensorDetailPage';
-import SensorDataPage from '../pages/SensorDataPage';
-import AnalysisPage from '../pages/AnalysisPage';
+import SensorsPage from '../pages/sensors/SensorsPage';
+import SensorDetailPage from '../pages/sensors/SensorDetailPage';
+import SensorDataPage from '../pages/sensors/SensorDataPage';
+import AnalysisPage from '../pages/sensors/AnalysisPage';
 
 // Emissions & Documents
-import EmissionsPage from '../pages/EmissionsPage';
-import DocumentsPage from '../pages/DocumentsPage';
+import EmissionsPage from '../pages/emissions/EmissionsPage';
+import DocumentsPage from '../pages/documents/DocumentsPage';
 
 // Compliance & Audits
-import CompliancePage from '../pages/CompliancePage';
-import AuditsPage from '../pages/AuditsPage';
+import CompliancePage from '../pages/compliance/CompliancePage';
+import AuditsPage from '../pages/compliance/AuditsPage';
 
 // Admin
-import AdminUsersPage from '../pages/AdminUsersPage';
+import AdminUsersPage from '../pages/admin/AdminUsersPage';
 
 export default function AppRouter() {
   return (

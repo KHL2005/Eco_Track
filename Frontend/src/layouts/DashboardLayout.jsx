@@ -47,7 +47,6 @@ const navByRole = {
     { label: 'Audits', emoji: '✅', icon: ClipboardList, to: '/audits' },
     { label: 'Emissions', emoji: '🏭', icon: Factory, to: '/emissions' },
     { label: 'Documents', emoji: '📄', icon: FileText, to: '/documents' },
-    { label: 'Reports', emoji: '📜', icon: ScrollText, to: '/reports' },
     { label: 'Notifications', emoji: '🔔', icon: Bell, to: '/notifications' },
   ],
   ADMINISTRATOR: [
