@@ -16,6 +16,8 @@ public class IndustryDocument {
     @Column(name = "industry_name", nullable = false, length = 500) private String industryName;
     @Enumerated(EnumType.STRING) @Column(name = "doc_type", nullable = false) private DocType docType;
     @Column(name = "file_uri", nullable = false, length = 500) private String fileUri;
+    @Column(name = "grid_fs_file_id", length = 24) private String gridFsFileId;
+    @Column(name = "file_name", length = 255) private String fileName;
     @Column(name = "description", nullable = false, length = 1000) private String description;
     @Column(name = "uploaded_date", nullable = false) private LocalDateTime uploadedDate;
     @Enumerated(EnumType.STRING) @Column(name = "verification_status", nullable = false) @Builder.Default

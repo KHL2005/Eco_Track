@@ -8,6 +8,9 @@ import com.ecotrack.industry.enums.EmissionType;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
 import com.ecotrack.industry.exception.ResourceNotFoundException;
+import com.ecotrack.industry.feign.NotificationCategory;
+import com.ecotrack.industry.feign.NotificationClient;
+import com.ecotrack.industry.feign.NotificationRequest;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ public class IndustryService {
     private final EmissionLogRepository      emissionLogRepository;
     private final IndustryDocumentRepository documentRepository;
     private final GridFsService              gridFsService;
+    private final NotificationClient         notificationClient;
 
     // ─── Emission Log CRUD ────────────────────────────────────────────────────
 
@@ -44,7 +48,11 @@ public class IndustryService {
                 .description(request.getDescription())
                 .status(EmissionStatus.SUBMITTED)
                 .build();
-        return toEmissionResponse(emissionLogRepository.save(emissionLog));
+        EmissionLogResponse response = toEmissionResponse(emissionLogRepository.save(emissionLog));
+        notify(industryUserId, response.getLogId(),
+                "Your emission log for '" + normalizedName + "' has been submitted for review.",
+                NotificationCategory.EMISSION);
+        return response;
     }
 
     public List<EmissionLogResponse> getAllEmissions(Long callerId, String callerRole) {
@@ -69,7 +77,12 @@ public class IndustryService {
         EmissionLog emissionLog = findEmissionById(id);
         validateEmissionStatusTransition(emissionLog.getStatus(), status);
         emissionLog.setStatus(status);
-        return toEmissionResponse(emissionLogRepository.save(emissionLog));
+        EmissionLogResponse response = toEmissionResponse(emissionLogRepository.save(emissionLog));
+        String msg = status == EmissionStatus.APPROVED
+                ? "Your emission log has been approved."
+                : "Your emission log has been rejected.";
+        notify(emissionLog.getIndustryId(), emissionLog.getLogId(), msg, NotificationCategory.EMISSION);
+        return response;
     }
 
     @Transactional
@@ -102,12 +115,18 @@ public class IndustryService {
         // Step 2 – upload PDF to GridFS (validates type + 10 MB limit internally)
         String gridFsId = gridFsService.storePdf(file, doc.getDocumentId());
 
-        // Step 3 – replace fileUri with the self-serving view URL
+        // Step 3 – store the GridFS ObjectId, original filename, and self-serving view URL
+        doc.setGridFsFileId(gridFsId);
+        doc.setFileName(file.getOriginalFilename());
         doc.setFileUri("/api/v1/industry-documents/" + doc.getDocumentId() + "?view=true");
         doc = documentRepository.save(doc);
 
         log.info("Document {} saved, PDF stored in GridFS id={}", doc.getDocumentId(), gridFsId);
-        return toDocumentResponse(doc);
+        IndustryDocumentResponse response = toDocumentResponse(doc);
+        notify(industryUserId, response.getDocumentId(),
+                "Your compliance document has been submitted and is pending review.",
+                NotificationCategory.COMPLIANCE);
+        return response;
     }
 
     public List<IndustryDocumentResponse> getAllDocuments(Long callerId, String callerRole) {
@@ -132,7 +151,12 @@ public class IndustryService {
         IndustryDocument doc = findDocumentById(docId);
         validateDocumentStatusTransition(doc.getVerificationStatus(), status);
         doc.setVerificationStatus(status);
-        return toDocumentResponse(documentRepository.save(doc));
+        IndustryDocumentResponse response = toDocumentResponse(documentRepository.save(doc));
+        String msg = status == VerificationStatus.APPROVED
+                ? "Your compliance document has been approved."
+                : "Your compliance document has been rejected.";
+        notify(doc.getIndustryId(), doc.getDocumentId(), msg, NotificationCategory.COMPLIANCE);
+        return response;
     }
 
     /**
@@ -140,9 +164,13 @@ public class IndustryService {
      */
     @Transactional
     public void deleteDocument(Long docId) {
-        findDocumentById(docId);
+        IndustryDocument doc = findDocumentById(docId);
         try {
-            gridFsService.deletePdfByDocumentId(docId);
+            if (doc.getGridFsFileId() != null && !doc.getGridFsFileId().isBlank()) {
+                gridFsService.deletePdfById(doc.getGridFsFileId());
+            } else {
+                gridFsService.deletePdfByDocumentId(docId);
+            }
             log.info("PDF deleted from GridFS for documentId={}", docId);
         } catch (Exception e) {
             log.warn("No PDF found in GridFS for documentId={} — skipping GridFS delete", docId);
@@ -153,13 +181,32 @@ public class IndustryService {
 
     /**
      * Fetches the raw PDF bytes from GridFS — called by the controller for view/download.
+     * Uses the stored GridFS ObjectId for an exact, reliable lookup.
      */
     public Map<String, Object> getPdfForDocument(Long docId) {
-        findDocumentById(docId); // validate document exists in MySQL first
-        return gridFsService.getPdfByDocumentId(docId);
+        IndustryDocument doc = findDocumentById(docId);
+        if (doc.getGridFsFileId() == null || doc.getGridFsFileId().isBlank()) {
+            // Fallback for documents uploaded before this fix (no gridFsFileId stored)
+            return gridFsService.getPdfByDocumentId(docId);
+        }
+        return gridFsService.getPdfById(doc.getGridFsFileId());
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
 
     private EmissionLog findEmissionById(Long id) {
         return emissionLogRepository.findById(id)
@@ -202,7 +249,7 @@ public class IndustryService {
     private IndustryDocumentResponse toDocumentResponse(IndustryDocument d) {
         return IndustryDocumentResponse.builder()
                 .documentId(d.getDocumentId()).industryId(d.getIndustryId()).registrationNumber(d.getRegistrationNumber()).industryName(d.getIndustryName())
-                .docType(d.getDocType()).fileUri(d.getFileUri()).description(d.getDescription())
+                .docType(d.getDocType()).fileUri(d.getFileUri()).fileName(d.getFileName()).description(d.getDescription())
                 .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus())
                 .createdAt(d.getCreatedAt()).updatedAt(d.getUpdatedAt())
                 .build();

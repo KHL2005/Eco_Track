@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getMyEmissions, deleteEmission, getMyDocuments, deleteDocument } from '../api/industryApi';
+import { getEmissionsByIndustry, deleteEmission, getDocumentsByIndustry, deleteDocument } from '../api/emissionsApi';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import EmissionForm from '../components/EmissionForm';
 import EmissionTable from '../components/EmissionTable';
-import DocumentUploadForm from '../components/DocumentUploadForm';
 import DocumentTable from '../components/DocumentTable';
 import { SkeletonRows, ErrorBanner } from '../components/Feedback';
 
@@ -17,7 +16,7 @@ const NAV = [
 ];
 
 export default function IndustryDashboard() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [section, setSection] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [emissions, setEmissions] = useState([]);
@@ -30,30 +29,30 @@ export default function IndustryDashboard() {
   const fetchEmissions = useCallback(async () => {
     setLoadingE(true); setErrorE('');
     try {
-      const { data } = await getMyEmissions(user.name, token);
+      const { data } = await getEmissionsByIndustry(user.name);
       setEmissions(data);
     } catch { setErrorE('Failed to load emissions.'); }
     finally { setLoadingE(false); }
-  }, [user.name, token]);
+  }, [user.name]);
 
   const fetchDocuments = useCallback(async () => {
     setLoadingD(true); setErrorD('');
     try {
-      const { data } = await getMyDocuments(user.name, token);
+      const { data } = await getDocumentsByIndustry(user.name);
       setDocuments(data);
     } catch { setErrorD('Failed to load documents.'); }
     finally { setLoadingD(false); }
-  }, [user.name, token]);
+  }, [user.name]);
 
   useEffect(() => { fetchEmissions(); fetchDocuments(); }, [fetchEmissions, fetchDocuments]);
 
   const handleDeleteEmission = async (id) => {
-    await deleteEmission(id, token);
+    await deleteEmission(id);
     fetchEmissions();
   };
 
   const handleDeleteDocument = async (id) => {
-    await deleteDocument(id, token);
+    await deleteDocument(id);
     fetchDocuments();
   };
 
@@ -118,9 +117,6 @@ export default function IndustryDashboard() {
           {/* MY DOCUMENTS */}
           {section === 'documents' && (
             <div className="space-y-6">
-              <div className="max-w-lg">
-                <DocumentUploadForm onSuccess={fetchDocuments} />
-              </div>
               <div className="bg-white rounded-2xl shadow-md p-6">
                 <h2 className="text-lg font-bold text-text mb-4">My Documents</h2>
                 {errorD && <ErrorBanner message={errorD} onRetry={fetchDocuments} />}

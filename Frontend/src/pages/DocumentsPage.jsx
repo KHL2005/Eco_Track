@@ -47,6 +47,8 @@ export default function DocumentsPage() {
 
   const submitMut = useMutation({
     mutationFn: () => {
+      if (file.type !== 'application/pdf') throw new Error('Only PDF files are accepted');
+      if (file.size > 10 * 1024 * 1024) throw new Error('File size must be under 10 MB');
       const fd = new FormData();
       fd.append('registrationNumber', form.registrationNumber);
       fd.append('industryName', form.industryName);
@@ -56,7 +58,7 @@ export default function DocumentsPage() {
       return emissionsApi.submitDocument(fd, e => setProgress(Math.round(e.loaded / e.total * 100)));
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['documents'] }); toast.success('Document submitted'); closeModal(); },
-    onError: () => { toast.error('Upload failed'); setProgress(0); },
+    onError: (err) => { toast.error(err.message || 'Upload failed'); setProgress(0); },
   });
 
   const verifyMut = useMutation({

@@ -10,10 +10,8 @@ import { Plus, Trash2, CheckCircle, X, Factory } from 'lucide-react';
 import * as emissionsApi from '../api/emissionsApi';
 import { useRole } from '../hooks/useRole';
 import { formatDateTime } from '../utils/formatters';
-import { EMISSION_TYPES } from '../utils/constants';
+import { EMISSION_TYPES, EMISSION_STATUSES } from '../utils/constants';
 import { toast } from 'sonner';
-
-const EMISSION_STATUS_OPTIONS = ['SUBMITTED', 'APPROVED', 'REJECTED'];
 
 export default function EmissionsPage() {
   const { isIndustry, isAdmin, isComplianceOfficer } = useRole();
@@ -98,7 +96,7 @@ export default function EmissionsPage() {
               onChange={e => setStatusFilter(e.target.value)}
             >
               <option value="">All Status</option>
-              {EMISSION_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              {EMISSION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             {(isIndustry || isAdmin) && (
               <Button onClick={() => setModal(true)}><Plus size={16} /> Log Emission</Button>

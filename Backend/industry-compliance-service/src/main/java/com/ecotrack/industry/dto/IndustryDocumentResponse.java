@@ -16,6 +16,7 @@ public class IndustryDocumentResponse {
     private String industryName;
     private DocType docType;
     private String fileUri;
+    private String fileName;
     private String description;
     private LocalDateTime uploadedDate;
     private VerificationStatus verificationStatus;

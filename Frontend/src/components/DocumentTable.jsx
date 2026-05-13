@@ -2,7 +2,7 @@ import { useState } from 'react';
 import StatusBadge from './StatusBadge';
 import ConfirmModal from './ConfirmModal';
 import { EmptyState } from './Feedback';
-import { viewDocumentUrl, downloadDocumentUrl } from '../api/industryApi';
+import { getDocumentViewUrl, getDocumentDownloadUrl } from '../api/emissionsApi';
 
 export default function DocumentTable({ documents, loading: tableLoading, onDelete, onApprove, onReject, showCompany = false }) {
   const [modal, setModal] = useState({ open: false, id: null, action: '', loading: false });
@@ -60,12 +60,12 @@ export default function DocumentTable({ documents, loading: tableLoading, onDele
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {/* View PDF */}
-                    <a href={viewDocumentUrl(d.documentId)} target="_blank" rel="noopener noreferrer"
+                    <a href={getDocumentViewUrl(d.documentId)} target="_blank" rel="noopener noreferrer"
                       className="p-1.5 rounded-lg text-primary/60 hover:bg-accent/10 hover:text-primary transition-colors" title="View PDF">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </a>
                     {/* Download PDF */}
-                    <a href={downloadDocumentUrl(d.documentId)} className="p-1.5 rounded-lg text-primary/60 hover:bg-accent/10 hover:text-primary transition-colors" title="Download">
+                    <a href={getDocumentDownloadUrl(d.documentId)} className="p-1.5 rounded-lg text-primary/60 hover:bg-accent/10 hover:text-primary transition-colors" title="Download">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </a>
                     {/* Officer: approve/reject */}

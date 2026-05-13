@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { logEmission } from '../api/industryApi';
+import { logEmission } from '../api/emissionsApi';
+import { EMISSION_TYPES } from '../utils/constants';
 import InputField from './InputField';
 import { SuccessBanner, ErrorBanner } from './Feedback';
 
-const TYPES = ['CO2', 'NOx', 'SOx', 'PM2.5', 'Other'];
-
 export default function EmissionForm({ onSuccess }) {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [type, setType] = useState('');
   const [quantity, setQuantity] = useState('');
   const [errors, setErrors] = useState({});
@@ -28,7 +27,7 @@ export default function EmissionForm({ onSuccess }) {
     if (!validate()) return;
     setLoading(true);
     try {
-      await logEmission({ industryId: user.userId, industryName: user.name, type, quantity: Number(quantity) }, token);
+      await logEmission({ industryId: user.userId, industryName: user.name, type, quantity: Number(quantity) });
       setSuccess('Emission logged successfully!');
       setType(''); setQuantity('');
       onSuccess?.();
@@ -55,7 +54,7 @@ export default function EmissionForm({ onSuccess }) {
               ${errors.type ? 'border-error ring-2 ring-error/20' : 'border-gray-200 focus:border-accent focus:ring-2 focus:ring-accent/20'}`}
           >
             <option value="">Select type…</option>
-            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            {EMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           {errors.type && <p className="mt-1 text-xs text-error">{errors.type}</p>}
         </div>

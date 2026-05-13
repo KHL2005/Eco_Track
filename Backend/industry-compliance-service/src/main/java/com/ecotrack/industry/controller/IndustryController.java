@@ -117,12 +117,13 @@ public class IndustryController {
      *   ?download=true    → stream PDF as file download
      */
     @GetMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Get JSON metadata OR download PDF. Use ?download=true to download.")
+    @Operation(summary = "Get JSON metadata OR stream PDF. Use ?download=true to download, ?view=true to view inline.")
     public ResponseEntity<?> getDocumentById(
             @PathVariable Long docId,
-            @RequestParam(value = "download", required = false, defaultValue = "false") boolean download) {
+            @RequestParam(value = "download", required = false, defaultValue = "false") boolean download,
+            @RequestParam(value = "view",     required = false, defaultValue = "false") boolean view) {
 
-        if (download) {
+        if (download || view) {
             Map<String, Object> pdf = industryService.getPdfForDocument(docId);
             byte[] data        = (byte[])  pdf.get("data");
             String fileName    = (String)  pdf.get("fileName");
@@ -133,7 +134,7 @@ public class IndustryController {
             headers.setContentType(MediaType.parseMediaType(contentType));
             headers.setContentLength(fileSize);
             headers.setContentDisposition(
-                    ContentDisposition.builder("attachment")
+                    ContentDisposition.builder(view ? "inline" : "attachment")
                                       .filename(fileName)
                                       .build());
             return new ResponseEntity<>(data, headers, HttpStatus.OK);
