@@ -1,26 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
 import DataTable from '../../components/common/DataTable';
 import Modal from '../../components/common/Modal';
-import Card from '../../components/common/Card';
-import StatusBadge from '../../components/common/StatusBadge';
-import LoadingSkeleton from '../../components/common/LoadingSkeleton';
-import EmptyState from '../../components/common/EmptyState';
-import { Plus, FileText, Download, ShieldCheck } from 'lucide-react';
+import { Plus, FileText } from 'lucide-react';
 import * as reportsApi from '../../api/reportsApi';
-import * as complianceApi from '../../api/complianceApi';
 import { useRole } from '../../hooks/useRole';
-import { useAuth } from '../../context/AuthContext';
-import { formatDateTime, labelify } from '../../utils/formatters';
-import { REPORT_SCOPES, COMPLIANCE_TYPES, COMPLIANCE_RESULTS } from '../../utils/constants';
+import { formatDateTime } from '../../utils/formatters';
+import { REPORT_SCOPES } from '../../utils/constants';
 import { toast } from 'sonner';
 
 export default function ReportsPage() {
-  const { canManageIssues, isAdmin, isAgencyOfficer, isScientist, isIndustry, isComplianceOfficer } = useRole();
-  const { user } = useAuth();
+  const { canManageIssues, isAdmin, isAgencyOfficer, isScientist, isIndustry } = useRole();
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [view, setView] = useState(null);
@@ -28,74 +21,13 @@ export default function ReportsPage() {
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   // Mirror the API Gateway's per-role allow-list so we don't fire forbidden requests.
-  const canViewReports    = isAdmin || isAgencyOfficer || isScientist || isIndustry;
-  const canViewCompliance = isAdmin || isComplianceOfficer || isIndustry;
+  const canViewReports = isAdmin || isAgencyOfficer || isScientist || isIndustry;
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['reports'],
     queryFn: () => reportsApi.getReports().then(r => r.data).catch(() => []),
     enabled: canViewReports,
   });
-
-  // Live compliance audit data — used to render the structured report and offer download.
-  const { data: complianceRecords = [], isLoading: complianceLoading, isError: complianceError } = useQuery({
-    queryKey: ['compliance'],
-    queryFn: () => complianceApi.getComplianceRecords().then(r => r.data).catch(() => []),
-    enabled: canViewCompliance,
-  });
-
-  // Section 2 — counts per type x result
-  const summaryByType = useMemo(() => {
-    return COMPLIANCE_TYPES.map((type) => {
-      const counts = COMPLIANCE_RESULTS.reduce((acc, res) => {
-        acc[res] = 0;
-        return acc;
-      }, {});
-      let total = 0;
-      for (const r of complianceRecords) {
-        if (r.type === type) {
-          if (counts[r.result] !== undefined) counts[r.result] += 1;
-          total += 1;
-        }
-      }
-      return { type, counts, total };
-    });
-  }, [complianceRecords]);
-
-  // Section 3 — records grouped by type
-  const groupedByType = useMemo(() => {
-    const map = new Map(COMPLIANCE_TYPES.map((t) => [t, []]));
-    for (const r of complianceRecords) {
-      if (!map.has(r.type)) map.set(r.type, []);
-      map.get(r.type).push(r);
-    }
-    return Array.from(map.entries()).map(([type, items]) => ({ type, items }));
-  }, [complianceRecords]);
-
-  const [downloading, setDownloading] = useState(false);
-  const handleDownloadComplianceReport = async () => {
-    if (downloading) return;
-    setDownloading(true);
-    try {
-      const res = await complianceApi.downloadComplianceReport();
-      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const today = new Date().toISOString().slice(0, 10);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `compliance-report-${today}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success('Report downloaded');
-    } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to download report';
-      toast.error(msg);
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   const createMut = useMutation({
     mutationFn: (d) => reportsApi.createReport(d),
@@ -115,137 +47,6 @@ export default function ReportsPage() {
       <PageHeader emoji="📜" title="Reports" description="Analytics and sustainability reports"
         action={canManageIssues && <Button onClick={() => setModal(true)}><Plus size={16} /> Generate Report</Button>}
       />
-
-      {/* === Compliance Audit Report (live) === */}
-      {canViewCompliance && (
-      <Card className="mb-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-forest-600/10 text-forest-600">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-bark-800">🛡️ Compliance Audit Report</h2>
-              <p className="text-sm text-bark-500">
-                Live snapshot from the compliance-audit-service. Download as CSV for offline analysis.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="secondary"
-            onClick={handleDownloadComplianceReport}
-            loading={downloading}
-            disabled={complianceLoading || complianceRecords.length === 0}
-            title={complianceRecords.length === 0 ? 'No records to export' : 'Download structured CSV report'}
-          >
-            <Download size={16} /> Download Report
-          </Button>
-        </div>
-
-        {complianceLoading ? (
-          <LoadingSkeleton rows={4} />
-        ) : complianceError ? (
-          <EmptyState title="Could not load compliance data" description="Please try again later." />
-        ) : complianceRecords.length === 0 ? (
-          <EmptyState title="No compliance records yet" description="Records will appear here once created." />
-        ) : (
-          <div className="space-y-6">
-            {/* --- Section 1: Total Count --- */}
-            <section>
-              <h3 className="text-sm font-semibold text-bark-700 uppercase tracking-wide mb-2">
-                1. Total Count
-              </h3>
-              <div className="inline-flex items-baseline gap-2 bg-earth-100 rounded-xl px-4 py-3">
-                <span className="text-3xl font-bold text-forest-700">{complianceRecords.length}</span>
-                <span className="text-sm text-bark-600">total compliance records</span>
-              </div>
-            </section>
-
-            {/* --- Section 2: Summary by Type and Result --- */}
-            <section>
-              <h3 className="text-sm font-semibold text-bark-700 uppercase tracking-wide mb-2">
-                2. Summary by Type and Result
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-bark-400/10">
-                <table className="w-full text-sm">
-                  <thead className="bg-earth-100">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium text-bark-700">Type</th>
-                      {COMPLIANCE_RESULTS.map((res) => (
-                        <th key={res} className="text-center px-3 py-2 font-medium text-bark-700">
-                          {labelify(res)}
-                        </th>
-                      ))}
-                      <th className="text-center px-3 py-2 font-medium text-bark-700">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summaryByType.map(({ type, counts, total }) => (
-                      <tr key={type} className="border-t border-bark-400/10">
-                        <td className="px-3 py-2 font-medium text-bark-800">{labelify(type)}</td>
-                        {COMPLIANCE_RESULTS.map((res) => (
-                          <td key={res} className="text-center px-3 py-2 text-bark-700">
-                            {counts[res]}
-                          </td>
-                        ))}
-                        <td className="text-center px-3 py-2 font-semibold text-forest-700">{total}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* --- Section 3: Detailed Breakdown --- */}
-            <section>
-              <h3 className="text-sm font-semibold text-bark-700 uppercase tracking-wide mb-2">
-                3. Detailed Breakdown
-              </h3>
-              <div className="space-y-4">
-                {groupedByType.map(({ type, items }) => (
-                  <div key={type} className="rounded-xl border border-bark-400/10 overflow-hidden">
-                    <div className="bg-earth-100 px-3 py-2 flex items-center justify-between">
-                      <span className="font-medium text-bark-800">{labelify(type)}</span>
-                      <span className="text-xs text-bark-500">{items.length} record{items.length === 1 ? '' : 's'}</span>
-                    </div>
-                    {items.length === 0 ? (
-                      <div className="px-3 py-3 text-xs text-bark-400">No records.</div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-white">
-                            <tr className="text-bark-500">
-                              <th className="text-left px-3 py-2 font-medium">ID</th>
-                              <th className="text-left px-3 py-2 font-medium">Entity ID</th>
-                              <th className="text-left px-3 py-2 font-medium">Result</th>
-                              <th className="text-left px-3 py-2 font-medium">Date</th>
-                              <th className="text-left px-3 py-2 font-medium">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {items.map((r) => (
-                              <tr key={r.complianceId} className="border-t border-bark-400/10">
-                                <td className="px-3 py-2 text-bark-400">{r.complianceId}</td>
-                                <td className="px-3 py-2 text-bark-700 font-medium">{r.entityId}</td>
-                                <td className="px-3 py-2"><StatusBadge status={r.result} /></td>
-                                <td className="px-3 py-2 text-bark-500">{formatDateTime(r.date)}</td>
-                                <td className="px-3 py-2 text-bark-600 max-w-[280px] truncate" title={r.notes || ''}>
-                                  {r.notes || '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-      </Card>
-      )}
 
       {canViewReports && (isLoading || reports.length > 0) && (
         <div className="bg-white rounded-2xl border border-bark-400/10 p-4">
@@ -296,4 +97,3 @@ export default function ReportsPage() {
     </DashboardLayout>
   );
 }
-

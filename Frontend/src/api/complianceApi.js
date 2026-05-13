@@ -11,8 +11,6 @@ export const createCompliance = (data) => axiosInstance.post('/compliance', data
 export const updateCompliance = (id, result, notes) =>
   axiosInstance.patch(`/compliance/${id}`, null, { params: { result, ...(notes !== undefined ? { notes } : {}) } });
 export const deleteCompliance = (id) => axiosInstance.delete(`/compliance/${id}`);
-export const downloadComplianceReport = () =>
-  axiosInstance.get('/compliance/report/download', { responseType: 'blob' });
 
 // Audits
 export const getAudits = () => axiosInstance.get('/audits');
