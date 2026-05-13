@@ -6,23 +6,30 @@ import lombok.Data;
 
 @Data
 public class RegisterRequest {
-    @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
-    @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain only letters, spaces, hyphens, or apostrophes")
+    @NotBlank(message = "Please enter your full name")
+    @Size(min = 3, message = "Name is too short — please use at least 3 characters")
+    @Size(max = 50, message = "Name is too long — please keep it under 50 characters")
+    @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name can contain only letters, spaces, hyphens or apostrophes")
     private String name;
 
     @NotBlank(message = "Email is required")
-    @Email(message = "Please provide a valid email address")
-    @Size(max = 100, message = "Email must not exceed 100 characters")
+    @Email(message = "Invalid email — please include '@' and a valid domain (e.g. you@example.com)")
+    @Size(max = 100, message = "Email is too long — maximum 100 characters")
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
-    @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$",
-             message = "Password must have min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character")
+    @Size(min = 8, message = "Create a stronger password — use at least 8 characters")
+    @Size(max = 100, message = "Password is too long — keep it under 100 characters")
+    @Pattern(regexp = ".*[A-Z].*", message = "Create a stronger password — add at least one uppercase letter (A–Z)")
+    @Pattern(regexp = ".*[a-z].*", message = "Create a stronger password — add at least one lowercase letter (a–z)")
+    @Pattern(regexp = ".*[0-9].*", message = "Create a stronger password — add at least one number (0–9)")
+    @Pattern(regexp = ".*[@#$%^&+=!].*", message = "Create a stronger password — add at least one special character (@ # $ % ^ & + = !)")
+    @Pattern(regexp = "\\S+", message = "Password must not contain spaces")
     private String password;
 
-    @Pattern(regexp = "^[+]?[0-9]{10}$", message = "Phone number must be exactly 10 digits")
+    @NotBlank(message = "Phone number is required")
+    @Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be exactly 10 digits")
+    @Pattern(regexp = "^[6-9].*", message = "Not an Indian mobile number — Indian numbers start with 6, 7, 8 or 9")
     private String phone;
 
     // Role is ignored on public registration — always defaults to CITIZEN

@@ -19,13 +19,37 @@ export default function RegisterPage() {
 
   const validate = () => {
     const e = {};
-    if (!form.name || form.name.trim().length < 2) e.name = 'Name is required (min 2 chars)';
-    if (!form.email) e.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format';
-    if (!form.phone) e.phone = 'Phone is required';
-    else if (!/^\d{10}$/.test(form.phone)) e.phone = 'Must be 10 digits';
-    if (!form.password) e.password = 'Password is required';
-    else if (form.password.length < 8) e.password = 'Minimum 8 characters';
+
+    const name = (form.name || '').trim();
+    if (!name) e.name = 'Please enter your full name';
+    else if (name.length < 3) e.name = `Name is too short — needs at least 3 characters (you entered ${name.length})`;
+    else if (name.length > 50) e.name = 'Name is too long — please keep it under 50 characters';
+    else if (!/^[a-zA-Z\s'-]+$/.test(name)) e.name = 'Name can contain only letters, spaces, hyphens or apostrophes';
+
+    const email = (form.email || '').trim();
+    if (!email) e.email = 'Email is required';
+    else if (!email.includes('@')) e.email = "Invalid email — must include '@' (e.g. you@example.com)";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Invalid email format — must look like you@example.com';
+
+    const phone = (form.phone || '').trim();
+    if (!phone) e.phone = 'Phone number is required';
+    else if (!/^\d+$/.test(phone)) e.phone = 'Phone number must contain only digits';
+    else if (phone.length !== 10) e.phone = `Phone must be exactly 10 digits (you entered ${phone.length})`;
+    else if (!/^[6-9]/.test(phone)) e.phone = 'Not an Indian mobile number — Indian numbers start with 6, 7, 8 or 9';
+
+    const pw = form.password || '';
+    if (!pw) e.password = 'Password is required';
+    else {
+      const missing = [];
+      if (pw.length < 8) missing.push(`at least 8 characters (currently ${pw.length})`);
+      if (!/[A-Z]/.test(pw)) missing.push('1 uppercase letter');
+      if (!/[a-z]/.test(pw)) missing.push('1 lowercase letter');
+      if (!/[0-9]/.test(pw)) missing.push('1 number');
+      if (!/[@#$%^&+=!]/.test(pw)) missing.push('1 special character (@#$%^&+=!)');
+      if (/\s/.test(pw)) missing.push('no spaces');
+      if (missing.length) e.password = `Create a stronger password — needs: ${missing.join(', ')}`;
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -40,8 +64,14 @@ export default function RegisterPage() {
       login(data);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Registration failed. Please try again.';
-      setApiError(msg);
+      const data = err.response?.data;
+      // Backend returns field-level messages under `messages` for validation errors
+      if (data?.messages && typeof data.messages === 'object' && Object.keys(data.messages).length > 0) {
+        setErrors(data.messages);
+        setApiError('Please fix the highlighted fields and try again.');
+      } else {
+        setApiError(data?.message || data?.error || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
