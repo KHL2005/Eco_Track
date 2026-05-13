@@ -5,11 +5,11 @@ import Button from '../../components/common/Button';
 import StatusBadge from '../../components/common/StatusBadge';
 import DataTable from '../../components/common/DataTable';
 import Modal from '../../components/common/Modal';
-import { Plus, Trash2, CheckCircle, X, Factory } from 'lucide-react';
+import { Plus, Trash2, Factory, AlertTriangle } from 'lucide-react';
 import * as emissionsApi from '../../api/emissionsApi';
 import { useRole } from '../../hooks/useRole';
-import { formatDateTime } from '../../utils/formatters';
-import { EMISSION_TYPES, EMISSION_STATUSES } from '../../utils/constants';
+import { formatDate, formatTime } from '../../utils/formatters';
+import { EMISSION_TYPES, EMISSION_STATUSES, EMISSION_STANDARDS } from '../../utils/constants';
 import { toast } from 'sonner';
 
 export default function EmissionsPage() {
@@ -21,6 +21,9 @@ export default function EmissionsPage() {
 
   // Status filter dropdown
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Description that the user clicked on, shown in a small modal
+  const [viewDescription, setViewDescription] = useState(null);
 
   // Modal open/close
   const [modalOpen, setModalOpen] = useState(false);
@@ -106,27 +109,80 @@ export default function EmissionsPage() {
 
   const columns = [
     { key: 'logId', label: 'ID', render: (row) => <span className="text-sm text-bark-700">{row.logId}</span> },
-    { key: 'industryName', label: 'Industry', sortable: true, render: (row) => <span className="text-sm text-bark-700">{row.industryName}</span> },
-    { key: 'registrationNumber', label: 'Reg. Number', render: (row) => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{row.registrationNumber}</code> },
-    { key: 'type', label: 'Type', render: (row) => <span className="text-sm text-bark-700">{row.type}</span> },
-    { key: 'quantity', label: 'Value (mg/Nm³)', sortable: true, render: (row) => <span><span className="text-sm text-bark-700">{row.quantity}</span> <span className="text-xs text-bark-400">mg/Nm³</span></span> },
-    { key: 'description', label: 'Description', render: (row) => <span title={row.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{row.description || '—'}</span> },
     {
-      key: 'status', label: 'Status', render: (row) => (
-        <div className="flex flex-col gap-0.5">
-          <StatusBadge status={row.status} />
-          {row.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(row.updatedAt)}</span>}
+      key: 'industryName', label: 'Industry', sortable: true,
+      render: (row) => (
+        <div className="flex flex-col whitespace-nowrap">
+          <span className="text-sm text-bark-800">{row.industryName}</span>
+          <code className="text-[10px] font-mono text-black mt-0.5">{row.registrationNumber}</code>
         </div>
       )
     },
-    { key: 'date', label: 'Date', render: (row) => <span className="text-sm text-bark-700">{formatDateTime(row.date)}</span> },
+    { key: 'type', label: 'Type', render: (row) => <span className="text-sm text-bark-700 whitespace-nowrap">{row.type}</span> },
+    {
+      key: 'quantity', label: 'Value (mg/Nm³)', sortable: true, render: (row) => {
+        const limit = EMISSION_STANDARDS[row.type];
+        const exceeds = limit !== undefined && Number(row.quantity) > limit;
+        return (
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className="text-sm text-bark-700">{row.quantity}</span>
+            <span className="text-xs text-bark-400">mg/Nm³</span>
+            {exceeds && (
+              <span title={`Exceeds ${row.type} reference (${limit})`} className="inline-flex">
+                <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+              </span>
+            )}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'description', label: 'Description',
+      render: (row) => (
+        row.description ? (
+          <button
+            type="button"
+            onClick={() => setViewDescription(row.description)}
+            title="Click to view full description"
+            className="text-sm text-bark-600 truncate max-w-[140px] block text-left hover:text-forest-700 hover:underline cursor-pointer"
+          >
+            {row.description}
+          </button>
+        ) : (
+          <span className="text-sm text-bark-400">—</span>
+        )
+      )
+    },
+    {
+      key: 'status', label: 'Status',
+      render: (row) => (
+        <div className="flex flex-col gap-0.5">
+          <StatusBadge status={row.status} />
+          {row.updatedAt && (
+            <div className="flex flex-col whitespace-nowrap leading-tight">
+              <span className="text-[10px] text-bark-400">{formatDate(row.updatedAt)}</span>
+              <span className="text-[10px] text-bark-400">{formatTime(row.updatedAt)}</span>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'date', label: 'Date',
+      render: (row) => (
+        <div className="flex flex-col whitespace-nowrap">
+          <span className="text-sm text-bark-700">{formatDate(row.date)}</span>
+          {formatTime(row.date) && <span className="text-xs text-bark-400">{formatTime(row.date)}</span>}
+        </div>
+      )
+    },
     {
       label: 'Actions', render: (row) => (
         <div className="flex gap-1">
           {(isAdmin || isComplianceOfficer) && row.status === 'SUBMITTED' && (
             <>
-              <Button size="sm" variant="outline" className="text-xs flex items-center gap-1" onClick={() => handleUpdateStatus(row.logId, 'APPROVED')}><CheckCircle size={12} />Approve</Button>
-              <Button size="sm" variant="danger" className="text-xs flex items-center gap-1" onClick={() => handleUpdateStatus(row.logId, 'REJECTED')}><X size={12} />Reject</Button>
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleUpdateStatus(row.logId, 'APPROVED')}>Approve</Button>
+              <Button size="sm" variant="danger" className="text-xs" onClick={() => handleUpdateStatus(row.logId, 'REJECTED')}>Reject</Button>
             </>
           )}
           {isIndustry && row.status === 'SUBMITTED' && (
@@ -173,6 +229,12 @@ export default function EmissionsPage() {
           <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search emissions…" />
         )}
       </div>
+
+      <Modal open={viewDescription !== null} onClose={() => setViewDescription(null)} title="Description" size="sm">
+        <div className="text-sm text-bark-700 whitespace-pre-wrap break-words">
+          {viewDescription}
+        </div>
+      </Modal>
 
       <Modal open={modalOpen} onClose={closeModal} title="Log Emission" size="lg">
         <div className="space-y-4">

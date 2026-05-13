@@ -72,17 +72,25 @@ body {
   z-index: 0;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — soft leaf-green to match the EcoTrack palette */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: #f0f9e8;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #000000;
-  border-radius: 3px;
+  background: #bbf7d0;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #333333;
+  background: #4ade80;
+}
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #bbf7d0 #f0f9e8;
 }

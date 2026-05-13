@@ -39,6 +39,9 @@ export default function CompliancePage() {
   const [updateResult, setUpdateResult] = useState('PENDING');
   const [updateNotes, setUpdateNotes] = useState('');
 
+  // Notes that the user clicked on, shown in a small read-only modal
+  const [viewNotes, setViewNotes] = useState(null);
+
   // Fetch records when the page first loads
   useEffect(() => {
     fetchRecords();
@@ -145,15 +148,38 @@ export default function CompliancePage() {
     }
   }
 
-  const isCreateDisabled = !entityId || isNaN(parseInt(entityId));
+  // Validation for the Create Compliance Record form
+  const entityIdTrimmed = entityId.trim();
+  const notesTrimmed = notes.trim();
+  const entityIdValid = /^\d{4}$/.test(entityIdTrimmed);
+  const notesValid = notesTrimmed.length >= 10;
+  const showEntityIdError = entityIdTrimmed.length > 0 && !entityIdValid;
+  const showNotesError = notesTrimmed.length > 0 && !notesValid;
+  const isCreateDisabled = !entityIdValid || !notesValid;
 
   const columns = [
-    { key: 'complianceId', label: 'ID', render: (r) => <span className="text-xs text-bark-400">{r.complianceId}</span> },
-    { key: 'entityId', label: 'Entity ID', render: (r) => <span className="text-xs font-medium">{r.entityId}</span> },
-    { key: 'type', label: 'Type', render: (r) => <span className="text-xs font-medium">{labelify(r.type)}</span> },
+    { key: 'complianceId', label: 'ID', render: (r) => <span className="text-sm text-bark-700">{r.complianceId}</span> },
+    { key: 'entityId', label: 'Entity ID', render: (r) => <span className="text-sm text-bark-800 font-medium whitespace-nowrap">{r.entityId}</span> },
+    { key: 'type', label: 'Type', render: (r) => <span className="text-sm text-bark-700 whitespace-nowrap">{labelify(r.type)}</span> },
     { key: 'result', label: 'Result', render: (r) => <StatusBadge status={r.result} /> },
-    { key: 'notes', label: 'Notes', render: (r) => <span className="text-xs text-bark-400 truncate max-w-[180px] block">{r.notes || '—'}</span> },
-    { key: 'date', label: 'Date', render: (r) => <span className="text-xs text-bark-400">{formatDateTime(r.date)}</span> },
+    {
+      key: 'notes', label: 'Notes',
+      render: (r) => (
+        r.notes ? (
+          <button
+            type="button"
+            onClick={() => setViewNotes(r.notes)}
+            title="Click to view full notes"
+            className="text-sm text-bark-600 truncate max-w-[200px] block text-left hover:text-forest-700 hover:underline cursor-pointer"
+          >
+            {r.notes}
+          </button>
+        ) : (
+          <span className="text-sm text-bark-400">—</span>
+        )
+      )
+    },
+    { key: 'date', label: 'Date', render: (r) => <span className="text-sm text-bark-700 whitespace-nowrap">{formatDateTime(r.date)}</span> },
     {
       label: 'Actions', render: (r) => (
         <div className="flex gap-1">
@@ -215,18 +241,32 @@ export default function CompliancePage() {
         <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search records…" />
       </div>
 
+      <Modal open={viewNotes !== null} onClose={() => setViewNotes(null)} title="Notes" size="sm">
+        <div className="text-sm text-bark-700 whitespace-pre-wrap break-words">
+          {viewNotes}
+        </div>
+      </Modal>
+
       <Modal open={createModalOpen} onClose={closeCreateModal} title="Create Compliance Record">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Entity ID</label>
             <input
-              type="number"
-              min="1"
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${showEntityIdError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={entityId}
-              onChange={(e) => setEntityId(e.target.value)}
-              placeholder="Industry or entity ID"
+              onChange={(e) => {
+                const v = e.target.value;
+                // Only accept digits, up to 4 characters
+                if (/^\d{0,4}$/.test(v)) setEntityId(v);
+              }}
+              placeholder="4-digit ID (e.g. 1023)"
             />
+            {showEntityIdError && (
+              <p className="text-xs text-red-500 mt-1">Entity ID must be exactly 4 digits.</p>
+            )}
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -254,11 +294,16 @@ export default function CompliancePage() {
             <label className="block text-sm font-medium text-bark-600 mb-1">Notes</label>
             <textarea
               rows={3}
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${showNotesError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes…"
+              placeholder="Add at least 10 characters of notes…"
             />
+            <p className={`text-xs mt-1 ${showNotesError ? 'text-red-500' : 'text-bark-400'}`}>
+              {showNotesError
+                ? `Notes must be at least 10 characters (${notesTrimmed.length}/10).`
+                : `${notesTrimmed.length} character${notesTrimmed.length === 1 ? '' : 's'} — minimum 10.`}
+            </p>
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={closeCreateModal}>Cancel</Button>

@@ -43,6 +43,16 @@ export const SENSOR_STATUSES = ['ACTIVE', 'INACTIVE', 'MAINTENANCE'];
 export const ANALYSIS_STATUSES = ['PENDING', 'REVIEWED', 'FLAGGED'];
 export const EMISSION_TYPES = ['CO2', 'NOX', 'SOX', 'PARTICULATES', 'METHANE', 'OTHER'];
 export const EMISSION_STATUSES = ['SUBMITTED', 'APPROVED', 'REJECTED'];
+
+// Per-type upper bound for emission values, sourced from the scientist module's
+// air-sensor reference ranges in idFormatters.js. Types without a scientist
+// reference (METHANE, OTHER) are intentionally omitted — no warning is shown.
+export const EMISSION_STANDARDS = {
+  CO2: 1200,
+  NOX: 40,
+  SOX: 20,
+  PARTICULATES: 50,
+};
 export const DOC_TYPES = ['PERMIT', 'COMPLIANCE', 'OTHERS'];
 export const PROJECT_STATUSES = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED'];
 export const MILESTONE_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'DELAYED'];

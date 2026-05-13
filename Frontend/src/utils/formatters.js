@@ -18,6 +18,15 @@ export const formatDateTime = (dateStr) => {
   }
 };
 
+export const formatTime = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    return format(parseISO(dateStr), 'HH:mm');
+  } catch {
+    return '';
+  }
+};
+
 export const timeAgo = (dateStr) => {
   if (!dateStr) return '—';
   try {

@@ -75,6 +75,10 @@ export default function AuditsPage() {
   const [updateStatus, setUpdateStatus] = useState("PLANNED");
   const [updateFindings, setUpdateFindings] = useState("");
 
+  // Text-view modal — shows the full Scope or Findings when a cell is clicked.
+  // Shape: { title: 'Scope' | 'Findings', text: '...' } or null when closed.
+  const [viewText, setViewText] = useState(null);
+
   // The three forward steps shown in the progress bar
   const lifecycleSteps = ["PLANNED", "IN_PROGRESS", "COMPLETED"];
 
@@ -130,15 +134,9 @@ export default function AuditsPage() {
   async function handleCreate() {
     setIsCreating(true);
     try {
-      // The form shows the officer ID with an "AUD100" prefix.
-      // Strip it before sending so the backend gets a plain number.
-      let officerIdNumeric = officerId;
-      if (officerIdNumeric.startsWith("AUD100")) {
-        officerIdNumeric = officerIdNumeric.substring("AUD100".length);
-      }
       const trimmedFindings = findings.trim();
       const payload = {
-        officerId: parseInt(officerIdNumeric),
+        officerId: parseInt(officerId),
         scope: scope.trim(),
         findings: trimmedFindings ? trimmedFindings : null,
       };
@@ -185,31 +183,43 @@ export default function AuditsPage() {
     }
   }
 
-  // Compute the numeric part of officerId for validation
-  let officerIdForCheck = officerId;
-  if (officerIdForCheck.startsWith("AUD100")) {
-    officerIdForCheck = officerIdForCheck.substring("AUD100".length);
-  }
-  const isCreateDisabled =
-    !officerIdForCheck || isNaN(parseInt(officerIdForCheck)) || !scope.trim();
+  // Validation for the Create Audit form
+  const officerIdTrimmed = officerId.trim();
+  const scopeTrimmed = scope.trim();
+  const officerIdValid = /^\d{4}$/.test(officerIdTrimmed);
+  const scopeValid = scopeTrimmed.length >= 10;
+  const showOfficerIdError = officerIdTrimmed.length > 0 && !officerIdValid;
+  const showScopeError = scopeTrimmed.length > 0 && !scopeValid;
+  const isCreateDisabled = !officerIdValid || !scopeValid;
 
   const columns = [
     {
       key: "auditId",
       label: "ID",
-      render: (r) => <span className="text-xs text-bark-400">{r.auditId}</span>,
+      render: (r) => <span className="text-sm text-bark-700">{r.auditId}</span>,
     },
     {
       key: "officerId",
       label: "Officer ID",
-      render: (r) => <span className="text-xs font-medium">{r.officerId}</span>,
+      render: (r) => <span className="text-sm text-bark-800 font-medium whitespace-nowrap">{r.officerId}</span>,
     },
     {
       key: "scope",
       label: "Scope",
       sortable: true,
       render: (r) => (
-        <span className="text-xs max-w-[200px] truncate block">{r.scope}</span>
+        r.scope ? (
+          <button
+            type="button"
+            onClick={() => setViewText({ title: 'Scope', text: r.scope })}
+            title="Click to view full scope"
+            className="text-sm text-bark-700 max-w-[200px] truncate block text-left hover:text-forest-700 hover:underline cursor-pointer"
+          >
+            {r.scope}
+          </button>
+        ) : (
+          <span className="text-sm text-bark-400">—</span>
+        )
       ),
     },
     {
@@ -221,16 +231,25 @@ export default function AuditsPage() {
       key: "date",
       label: "Date",
       render: (r) => (
-        <span className="text-xs text-bark-400">{formatDateTime(r.date)}</span>
+        <span className="text-sm text-bark-700 whitespace-nowrap">{formatDateTime(r.date)}</span>
       ),
     },
     {
       key: "findings",
       label: "Findings",
       render: (r) => (
-        <span className="text-xs text-bark-400 truncate max-w-[150px] block">
-          {r.findings || "—"}
-        </span>
+        r.findings ? (
+          <button
+            type="button"
+            onClick={() => setViewText({ title: 'Findings', text: r.findings })}
+            title="Click to view full findings"
+            className="text-sm text-bark-600 truncate max-w-[200px] block text-left hover:text-forest-700 hover:underline cursor-pointer"
+          >
+            {r.findings}
+          </button>
+        ) : (
+          <span className="text-sm text-bark-400">—</span>
+        )
       ),
     },
     {
@@ -471,6 +490,17 @@ export default function AuditsPage() {
       </div>
 
       <Modal
+        open={viewText !== null}
+        onClose={() => setViewText(null)}
+        title={viewText ? viewText.title : ''}
+        size="sm"
+      >
+        <div className="text-sm text-bark-700 whitespace-pre-wrap break-words">
+          {viewText ? viewText.text : ''}
+        </div>
+      </Modal>
+
+      <Modal
         open={createModalOpen}
         onClose={closeCreateModal}
         title="Create Audit"
@@ -482,11 +512,20 @@ export default function AuditsPage() {
             </label>
             <input
               type="text"
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              inputMode="numeric"
+              maxLength={4}
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${showOfficerIdError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={officerId}
-              onChange={(e) => setOfficerId(e.target.value)}
-              placeholder="Enter officer ID"
+              onChange={(e) => {
+                const v = e.target.value;
+                // Only accept digits, up to 4 characters
+                if (/^\d{0,4}$/.test(v)) setOfficerId(v);
+              }}
+              placeholder="4-digit ID (e.g. 1023)"
             />
+            {showOfficerIdError && (
+              <p className="text-xs text-red-500 mt-1">Officer ID must be exactly 4 digits.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">
@@ -494,11 +533,16 @@ export default function AuditsPage() {
             </label>
             <input
               type="text"
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${showScopeError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={scope}
               onChange={(e) => setScope(e.target.value)}
-              placeholder="Describe the audit scope…"
+              placeholder="Describe scope (min 10 characters)…"
             />
+            <p className={`text-xs mt-1 ${showScopeError ? 'text-red-500' : 'text-bark-400'}`}>
+              {showScopeError
+                ? `Scope must be at least 10 characters (${scopeTrimmed.length}/10).`
+                : `${scopeTrimmed.length} character${scopeTrimmed.length === 1 ? '' : 's'} — minimum 10.`}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">

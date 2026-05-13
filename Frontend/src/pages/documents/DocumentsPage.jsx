@@ -9,7 +9,7 @@ import FileUpload from '../../components/common/FileUpload';
 import { Plus, Download, Trash2, FileText } from 'lucide-react';
 import * as emissionsApi from '../../api/emissionsApi';
 import { useRole } from '../../hooks/useRole';
-import { formatDateTime } from '../../utils/formatters';
+import { formatDate, formatTime } from '../../utils/formatters';
 import { DOC_TYPES } from '../../utils/constants';
 import { toast } from 'sonner';
 
@@ -22,6 +22,9 @@ export default function DocumentsPage() {
 
   // Modal open/close
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Description that the user clicked on, shown in a small modal
+  const [viewDescription, setViewDescription] = useState(null);
 
   // Upload form fields — one state variable per field
   const [registrationNumber, setRegistrationNumber] = useState('');
@@ -138,19 +141,56 @@ export default function DocumentsPage() {
 
   const columns = [
     { key: 'documentId', label: 'ID', render: (row) => <span className="text-sm text-bark-700">{row.documentId}</span> },
-    { key: 'industryName', label: 'Industry', sortable: true, render: (row) => <span className="text-sm text-bark-700">{row.industryName}</span> },
-    { key: 'registrationNumber', label: 'Reg. Number', render: (row) => <code className="text-xs font-mono bg-bark-100 text-bark-700 px-1.5 py-0.5 rounded">{row.registrationNumber}</code> },
-    { key: 'docType', label: 'Type', render: (row) => <span className="text-sm text-bark-700">{row.docType}</span> },
-    { key: 'description', label: 'Description', render: (row) => <span title={row.description || ''} className="text-sm text-bark-600 truncate max-w-[120px] block">{row.description || '—'}</span> },
     {
-      key: 'verificationStatus', label: 'Status', render: (row) => (
-        <div className="flex flex-col gap-0.5">
-          <StatusBadge status={row.verificationStatus} />
-          {row.updatedAt && <span className="text-xs text-bark-400">{formatDateTime(row.updatedAt)}</span>}
+      key: 'industryName', label: 'Industry', sortable: true,
+      render: (row) => (
+        <div className="flex flex-col whitespace-nowrap">
+          <span className="text-sm text-bark-800">{row.industryName}</span>
+          <code className="text-[10px] font-mono text-black mt-0.5">{row.registrationNumber}</code>
         </div>
       )
     },
-    { key: 'uploadedDate', label: 'Uploaded', render: (row) => <span className="text-sm text-bark-700">{formatDateTime(row.uploadedDate)}</span> },
+    { key: 'docType', label: 'Type', render: (row) => <span className="text-sm text-bark-700 whitespace-nowrap">{row.docType}</span> },
+    {
+      key: 'description', label: 'Description',
+      render: (row) => (
+        row.description ? (
+          <button
+            type="button"
+            onClick={() => setViewDescription(row.description)}
+            title="Click to view full description"
+            className="text-sm text-bark-600 truncate max-w-[140px] block text-left hover:text-forest-700 hover:underline cursor-pointer"
+          >
+            {row.description}
+          </button>
+        ) : (
+          <span className="text-sm text-bark-400">—</span>
+        )
+      )
+    },
+    {
+      key: 'verificationStatus', label: 'Status',
+      render: (row) => (
+        <div className="flex flex-col gap-0.5">
+          <StatusBadge status={row.verificationStatus} />
+          {row.updatedAt && (
+            <div className="flex flex-col whitespace-nowrap leading-tight">
+              <span className="text-[10px] text-bark-400">{formatDate(row.updatedAt)}</span>
+              <span className="text-[10px] text-bark-400">{formatTime(row.updatedAt)}</span>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'uploadedDate', label: 'Uploaded',
+      render: (row) => (
+        <div className="flex flex-col whitespace-nowrap">
+          <span className="text-sm text-bark-700">{formatDate(row.uploadedDate)}</span>
+          {formatTime(row.uploadedDate) && <span className="text-xs text-bark-400">{formatTime(row.uploadedDate)}</span>}
+        </div>
+      )
+    },
     {
       label: 'Actions', render: (row) => (
         <div className="flex items-center gap-1">
@@ -193,6 +233,12 @@ export default function DocumentsPage() {
           <DataTable columns={columns} data={docs} loading={isLoading} />
         )}
       </div>
+
+      <Modal open={viewDescription !== null} onClose={() => setViewDescription(null)} title="Description" size="sm">
+        <div className="text-sm text-bark-700 whitespace-pre-wrap break-words">
+          {viewDescription}
+        </div>
+      </Modal>
 
       <Modal open={modalOpen} onClose={closeModal} title="Submit Compliance Document" size="lg">
         <div className="space-y-4">
