@@ -20,6 +20,8 @@ public class IssueResponse {
     private LocalDateTime date;
     private IssueStatus status;
     private List<String> mediaUrls;
+    private String deletionReason;
+    private LocalDateTime deletedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

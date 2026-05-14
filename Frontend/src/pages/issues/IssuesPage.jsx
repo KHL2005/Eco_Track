@@ -6,9 +6,8 @@ import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
 import StatusBadge from '../../components/common/StatusBadge';
 import DataTable from '../../components/common/DataTable';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Modal from '../../components/common/Modal';
-import { Plus, Trash2, Eye, MapPin, Calendar, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Eye, MapPin, Calendar, ChevronRight, AlertOctagon } from 'lucide-react';
 import * as issuesApi from '../../api/issuesApi';
 import { useRole } from '../../hooks/useRole';
 import { useAuth } from '../../context/AuthContext';
@@ -41,6 +40,7 @@ const STATUS_HINT = {
   IN_PROGRESS: { text: 'Officer is working on this', dot: 'bg-yellow-400' },
   RESOLVED:    { text: 'Issue resolved by officer',  dot: 'bg-green-500'  },
   CLOSED:      { text: 'Issue closed',               dot: 'bg-slate-400'  },
+  DELETED:     { text: 'Removed by admin',           dot: 'bg-red-500'    },
 };
 
 function CitizenIssueCard({ issue }) {
@@ -48,7 +48,8 @@ function CitizenIssueCard({ issue }) {
   const mediaUrls  = issue.mediaUrls ?? [];
   const imageCount = mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length;
   const videoCount = mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length;
-  const hint       = STATUS_HINT[issue.status] || STATUS_HINT.OPEN;
+  const isDeleted  = !!issue.deletionReason;
+  const hint       = isDeleted ? STATUS_HINT.DELETED : (STATUS_HINT[issue.status] || STATUS_HINT.OPEN);
 
   return (
     <Link
@@ -65,7 +66,7 @@ function CitizenIssueCard({ issue }) {
             {labelify(issue.type)}
           </span>
         </div>
-        <StatusBadge status={issue.status} />
+        <StatusBadge status={isDeleted ? 'DELETED' : issue.status} />
       </div>
 
       {/* Location + date */}
@@ -75,6 +76,19 @@ function CitizenIssueCard({ issue }) {
         )}
         <span className="flex items-center gap-1"><Calendar size={11} /> {formatDateTime(issue.createdAt)}</span>
       </div>
+
+      {/* Deletion banner — shown only for issues an admin removed */}
+      {isDeleted && (
+        <div className="mt-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
+          <AlertOctagon size={14} className="text-red-600 mt-0.5 shrink-0" />
+          <div className="text-xs text-red-700 leading-relaxed">
+            <span className="font-semibold">Removed by admin.</span>
+            {issue.deletionReason && (
+              <> Reason: <span className="font-medium">{issue.deletionReason}</span></>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Footer: hint + media badge + arrow */}
       <div className="mt-3 pt-3 border-t border-[#dcfce7] flex items-center justify-between gap-2">
@@ -103,6 +117,7 @@ export default function IssuesPage({ mine = false }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
   const [statusModal, setStatusModal] = useState(false);
@@ -120,10 +135,32 @@ export default function IssuesPage({ mine = false }) {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id) => issuesApi.deleteIssue(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['issues'] }); toast.success('Issue deleted'); setDeleteTarget(null); },
-    onError: () => toast.error('Failed to delete issue'),
+    mutationFn: ({ id, reason }) => issuesApi.deleteIssue(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['issues'] });
+      qc.invalidateQueries({ queryKey: ['issue'] });
+      qc.invalidateQueries({ queryKey: ['issues', 'citizen'] });
+      toast.success('Issue deleted');
+      setDeleteTarget(null);
+      setDeleteReason('');
+    },
+    onError: (error) => {
+      const message = error.response?.data?.message
+        || error.response?.data?.messages?.reason
+        || error.message
+        || 'Failed to delete issue';
+      toast.error(message);
+    },
   });
+
+  const handleConfirmDelete = () => {
+    const reason = deleteReason.trim();
+    if (reason.length < 5) {
+      toast.error('Please enter a reason (at least 5 characters)');
+      return;
+    }
+    deleteMut.mutate({ id: deleteTarget?.issueId, reason });
+  };
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }) => issuesApi.updateIssueStatus(id, status),
@@ -220,7 +257,7 @@ export default function IssuesPage({ mine = false }) {
       <Link to={`/issues/${r.issueId}`} className="font-medium text-forest-600 hover:text-forest-700 hover:underline">{r.title}</Link>
     )},
     { key: 'type',       label: 'Type',        render: r => <span className="text-xs text-bark-600">{labelify(r.type)}</span> },
-    { key: 'status',     label: 'Status',      render: r => <StatusBadge status={r.status} /> },
+    { key: 'status',     label: 'Status',      render: r => <StatusBadge status={r.deletionReason ? 'DELETED' : r.status} /> },
     { key: 'citizenName',label: 'Reported By', sortable: true },
     { key: 'createdAt',  label: 'Date',        sortable: true, render: r => <span className="text-xs text-bark-400">{formatDateTime(r.createdAt)}</span> },
     {
@@ -233,7 +270,7 @@ export default function IssuesPage({ mine = false }) {
               <Button size="sm" variant="ghost" onClick={() => { setSelectedIssue(r); setNewStatus(r.status); setStatusModal(true); }}>
                 Status
               </Button>
-              <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={() => setDeleteTarget(r)}>
+              <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={() => { setDeleteTarget(r); setDeleteReason(''); }}>
                 <Trash2 size={14} />
               </Button>
             </>
@@ -281,14 +318,40 @@ export default function IssuesPage({ mine = false }) {
         <DataTable columns={columns} data={filtered} loading={isLoading} searchPlaceholder="Search issues…" />
       </div>
 
-      <ConfirmDialog
+      {/* Delete Modal — reason required, soft-deletes and shows on citizen card */}
+      <Modal
         open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteMut.mutate(deleteTarget?.issueId)}
-        title="Delete Issue"
-        message={`Are you sure you want to delete issue "${deleteTarget?.title}"? This action cannot be undone.`}
-        loading={deleteMut.isPending}
-      />
+        onClose={() => { if (!deleteMut.isPending) { setDeleteTarget(null); setDeleteReason(''); } }}
+        title={`Delete Issue #${deleteTarget?.issueId}`}
+        size="sm"
+      >
+        <p className="text-sm text-bark-600 mb-2">
+          Deleting <span className="font-semibold">&ldquo;{deleteTarget?.title}&rdquo;</span>. The reporting citizen will see this in their dashboard along with the reason below.
+        </p>
+        <label className="block text-xs font-medium text-bark-600 mb-1.5">
+          Reason <span className="text-danger">*</span>
+        </label>
+        <textarea
+          className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-danger/30 min-h-[88px]"
+          placeholder="e.g. Duplicate of issue #12, or insufficient evidence to proceed."
+          value={deleteReason}
+          onChange={e => setDeleteReason(e.target.value)}
+          maxLength={500}
+          autoFocus
+        />
+        <p className="text-xs text-bark-400 mb-4">{deleteReason.trim().length}/500 — minimum 5 characters.</p>
+        <div className="flex gap-3 justify-end">
+          <Button variant="secondary" onClick={() => { setDeleteTarget(null); setDeleteReason(''); }} disabled={deleteMut.isPending}>Cancel</Button>
+          <Button
+            className="bg-danger hover:bg-danger/90 text-white"
+            onClick={handleConfirmDelete}
+            loading={deleteMut.isPending}
+            disabled={deleteReason.trim().length < 5}
+          >
+            Delete
+          </Button>
+        </div>
+      </Modal>
 
       {/* Status Modal */}
       <Modal open={statusModal} onClose={() => setStatusModal(false)} title={`Update Status for Issue #${selectedIssue?.issueId}`} size="sm">

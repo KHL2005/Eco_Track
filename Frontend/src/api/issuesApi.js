@@ -10,7 +10,8 @@ export const createIssue = (data) => axiosInstance.post('/issues', data);
 export const updateIssue = (id, data) => axiosInstance.patch(`/issues/${id}`, data);
 export const updateIssueStatus = (id, status) =>
   axiosInstance.patch(`/issues/${id}/status`, { status });
-export const deleteIssue = (id) => axiosInstance.delete(`/issues/${id}`);
+export const deleteIssue = (id, reason) =>
+  axiosInstance.delete(`/issues/${id}`, { params: { reason } });
 
 // Media
 export const uploadMedia = (issueId, file, onProgress) => {

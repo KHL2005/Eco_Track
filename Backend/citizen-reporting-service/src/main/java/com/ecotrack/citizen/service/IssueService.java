@@ -106,19 +106,35 @@ public class IssueService {
     @Transactional
     public IssueResponse updateIssueStatus(Long id, IssueStatusUpdateRequest request) {
         Issue issue = findIssueById(id);
+        if (issue.getDeletionReason() != null) {
+            throw new BadRequestException("Issue has been deleted by an admin and cannot be modified");
+        }
         validateStatusTransition(issue.getStatus(), request.getStatus());
         issue.setStatus(request.getStatus());
         return toIssueResponse(issueRepository.save(issue));
     }
 
     @Transactional
-    public void deleteIssue(Long id) {
-        findIssueById(id); // validates existence, throws IssueNotFoundException
-        // Delete linked resolution first to avoid FK constraint violation
+    public void deleteIssue(Long id, String reason) {
+        if (reason == null || reason.trim().length() < 5) {
+            throw new BadRequestException("Please provide a reason of at least 5 characters for deleting this issue");
+        }
+        if (reason.length() > 500) {
+            throw new BadRequestException("Deletion reason must be 500 characters or less");
+        }
+        Issue issue = findIssueById(id);
+        if (issue.getDeletionReason() != null) {
+            throw new BadRequestException("Issue is already deleted");
+        }
+        // Soft-delete via deletion_reason marker (status enum stays unchanged so we
+        // don't have to alter the existing MySQL ENUM column). Linked resolution
+        // is hard-deleted because it's an officer-internal artifact.
         resolutionRepository.findByIssueId(id)
                 .ifPresent(r -> resolutionRepository.deleteById(r.getResolutionId()));
-        issueRepository.deleteById(id);
-        log.info("Issue {} and linked resolution deleted", id);
+        issue.setDeletionReason(reason);
+        issue.setDeletedAt(java.time.LocalDateTime.now());
+        issueRepository.save(issue);
+        log.info("Issue {} soft-deleted. Reason: {}", id, reason);
     }
 
     // ─── Media Upload / Delete ────────────────────────────────────
@@ -320,6 +336,8 @@ public class IssueService {
                 .date(issue.getDate())
                 .status(issue.getStatus())
                 .mediaUrls(mediaUrls)
+                .deletionReason(issue.getDeletionReason())
+                .deletedAt(issue.getDeletedAt())
                 .createdAt(issue.getCreatedAt())
                 .updatedAt(issue.getUpdatedAt())
                 .build();

@@ -55,7 +55,13 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
         if (request.getName() != null) user.setName(request.getName());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getPhone() != null) {
+            if (!request.getPhone().isBlank()
+                    && userRepository.existsByPhoneAndUserIdNot(request.getPhone(), id)) {
+                throw new DuplicateResourceException("Phone number already registered: " + request.getPhone());
+            }
+            user.setPhone(request.getPhone());
+        }
         if (request.getStatus() != null) user.setStatus(request.getStatus());
         return toResponse(userRepository.save(user));
     }
@@ -80,6 +86,11 @@ public class UserService {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Email already registered: " + request.getEmail());
+        }
+
+        if (request.getPhone() != null && !request.getPhone().isBlank()
+                && userRepository.existsByPhone(request.getPhone())) {
+            throw new DuplicateResourceException("Phone number already registered: " + request.getPhone());
         }
 
         // Enforce role hierarchy
@@ -124,7 +135,13 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (request.getName() != null) user.setName(request.getName());
-        if (request.getPhoneNumber() != null) user.setPhone(request.getPhoneNumber());
+        if (request.getPhoneNumber() != null) {
+            if (!request.getPhoneNumber().isBlank()
+                    && userRepository.existsByPhoneAndUserIdNot(request.getPhoneNumber(), user.getUserId())) {
+                throw new DuplicateResourceException("Phone number already registered: " + request.getPhoneNumber());
+            }
+            user.setPhone(request.getPhoneNumber());
+        }
         // Email cannot be changed here
         return toResponse(userRepository.save(user));
     }

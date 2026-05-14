@@ -36,7 +36,7 @@ public class IssueController {
 
     @PostMapping
     @Operation(summary = "Report a new environmental issue")
-    @PreAuthorize("hasAnyAuthority('CITIZEN','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CITIZEN','AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<IssueResponse> createIssue(@Valid @RequestBody IssueRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(issueService.createIssue(request));
     }
@@ -73,7 +73,7 @@ public class IssueController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Partially update issue fields (location, description, type)")
-    @PreAuthorize("hasAnyAuthority('CITIZEN','AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CITIZEN','AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<IssueResponse> updateIssue(@PathVariable("id") Long id,
                                                       @RequestBody IssueRequest request) {
         return ResponseEntity.ok(issueService.updateIssue(id, request));
@@ -81,17 +81,18 @@ public class IssueController {
 
     @PatchMapping("/{id}/status")
     @Operation(summary = "Update issue status (OPEN->IN_PROGRESS->RESOLVED->CLOSED)")
-    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<IssueResponse> updateIssueStatus(@PathVariable("id") Long id,
                                                             @Valid @RequestBody IssueStatusUpdateRequest request) {
         return ResponseEntity.ok(issueService.updateIssueStatus(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete issue and its linked resolution")
-    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
-    public ResponseEntity<Void> deleteIssue(@PathVariable("id") Long id) {
-        issueService.deleteIssue(id);
+    @Operation(summary = "Soft-delete issue with a reason. The issue stays visible to the reporting citizen so they can see why it was removed.")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteIssue(@PathVariable("id") Long id,
+                                             @RequestParam("reason") String reason) {
+        issueService.deleteIssue(id, reason);
         return ResponseEntity.noContent().build();
     }
 
@@ -143,7 +144,7 @@ public class IssueController {
      */
     @DeleteMapping("/{id}/media/{fileName:.+}")
     @Operation(summary = "Delete a specific media file from an issue")
-    @PreAuthorize("hasAnyAuthority('CITIZEN','AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('CITIZEN','AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<IssueResponse> deleteMedia(
             @PathVariable("id") Long id,
             @PathVariable("fileName") String fileName) {
@@ -154,7 +155,7 @@ public class IssueController {
 
     @PostMapping("/{issueId}/resolutions")
     @Operation(summary = "Add a resolution for a specific issue")
-    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ResolutionResponse> addResolution(@PathVariable("issueId") Long issueId,
                                                               @Valid @RequestBody ResolutionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(issueService.addResolution(issueId, request));
@@ -192,7 +193,7 @@ public class IssueController {
 
     @PatchMapping("/resolutions/{resolutionId}")
     @Operation(summary = "Update resolution status and/or actions (partial update)")
-    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ResolutionResponse> updateResolution(@PathVariable("resolutionId") Long resolutionId,
                                                                 @Valid @RequestBody ResolutionStatusUpdateRequest request) {
         return ResponseEntity.ok(issueService.updateResolution(resolutionId, request));
@@ -200,7 +201,7 @@ public class IssueController {
 
     @DeleteMapping("/resolutions/{resolutionId}")
     @Operation(summary = "Delete a resolution (reverts issue status to OPEN)")
-    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<Void> deleteResolution(@PathVariable("resolutionId") Long resolutionId) {
         issueService.deleteResolution(resolutionId);
         return ResponseEntity.noContent().build();

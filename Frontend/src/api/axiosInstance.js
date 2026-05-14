@@ -1,6 +1,20 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 
+// Globally suppress api-gateway "service temporarily unavailable" fallback toasts.
+// GatewayFallbackController returns 503 with messages like
+// "<service> is temporarily unavailable. Please try again shortly." for every
+// downstream service when its circuit breaker is open. Surfacing that to end users
+// is unhelpful, so we wrap toast.error once (sonner's `toast` is a shared singleton)
+// to drop any message containing the fallback phrase. Page code keeps calling
+// toast.error normally — no per-page changes needed.
+const FALLBACK_PHRASE = 'temporarily unavailable. Please try again shortly.';
+const _originalToastError = toast.error.bind(toast);
+toast.error = (message, options) => {
+  if (typeof message === 'string' && message.includes(FALLBACK_PHRASE)) return;
+  return _originalToastError(message, options);
+};
+
 const axiosInstance = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },

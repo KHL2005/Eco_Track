@@ -37,6 +37,11 @@ public class AuthService {
             throw new DuplicateResourceException("Email already registered: " + request.getEmail());
         }
 
+        if (request.getPhone() != null && !request.getPhone().isBlank()
+                && userRepository.existsByPhone(request.getPhone())) {
+            throw new DuplicateResourceException("Phone number already registered: " + request.getPhone());
+        }
+
         User user=User.builder()
                 .name(request.getName())
                 .email(request.getEmail())

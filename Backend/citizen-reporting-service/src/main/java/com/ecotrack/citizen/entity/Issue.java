@@ -48,6 +48,14 @@ public class Issue {
     @Builder.Default
     private List<String> mediaUrls = new ArrayList<>();
 
+    // Populated only when an admin soft-deletes the issue. Kept on the record so
+    // the reporting citizen can still see what happened and why.
+    @Column(name = "deletion_reason", length = 500)
+    private String deletionReason;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

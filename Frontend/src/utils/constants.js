@@ -68,6 +68,7 @@ export const STATUS_COLORS = {
   IN_PROGRESS: 'bg-yellow-100 text-yellow-700',
   RESOLVED: 'bg-green-100 text-green-700',
   CLOSED: 'bg-gray-100 text-gray-600',
+  DELETED: 'bg-red-100 text-red-700',
   // Resolutions / general
   PENDING: 'bg-orange-100 text-orange-700',
   COMPLETED: 'bg-green-100 text-green-700',

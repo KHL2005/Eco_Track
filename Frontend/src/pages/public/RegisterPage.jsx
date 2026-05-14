@@ -70,7 +70,12 @@ export default function RegisterPage() {
         setErrors(data.messages);
         setApiError('Please fix the highlighted fields and try again.');
       } else {
-        setApiError(data?.message || data?.error || 'Registration failed. Please try again.');
+        const msg = data?.message || data?.error || 'Registration failed. Please try again.';
+        // 409 duplicate-resource — route the message to the offending field too
+        const lower = msg.toLowerCase();
+        if (lower.includes('phone')) setErrors((p) => ({ ...p, phone: 'This phone number is already registered. Please use a different number.' }));
+        else if (lower.includes('email')) setErrors((p) => ({ ...p, email: 'This email is already registered. Try signing in instead.' }));
+        setApiError(msg);
       }
     } finally {
       setLoading(false);
