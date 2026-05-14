@@ -13,6 +13,7 @@ import com.ecotrack.industry.feign.NotificationClient;
 import com.ecotrack.industry.feign.NotificationRequest;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
+import com.ecotrack.industry.storage.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,7 +30,7 @@ public class IndustryService {
 
     private final EmissionLogRepository      emissionLogRepository;
     private final IndustryDocumentRepository documentRepository;
-    private final GridFsService              gridFsService;
+    private final FileStorageService         fileStorageService;
     private final NotificationClient         notificationClient;
 
     // ─── Emission Log CRUD ────────────────────────────────────────────────────
@@ -105,33 +105,28 @@ public class IndustryService {
     // ─── Industry Document CRUD ───────────────────────────────────────────────
 
     /**
-     * Saves metadata to MySQL and uploads the PDF to MongoDB GridFS in one call.
-     * fileUri is auto-set to "/api/v1/industry-documents/{id}?view=true".
+     * Stores the uploaded file on the local filesystem and saves document metadata to MySQL.
+     * The absolute disk path is stored in {@code fileUri} (internal — not returned to clients).
      */
     @Transactional
     public IndustryDocumentResponse submitDocument(IndustryDocumentRequest request, MultipartFile file, Long industryUserId) {
-        // Step 1 – save metadata with temporary fileUri
+        StoredFileInfo fileInfo = fileStorageService.store(file, industryUserId, request.getDocType().name());
+
         IndustryDocument doc = IndustryDocument.builder()
                 .industryId(industryUserId)
                 .registrationNumber(request.getRegistrationNumber().trim())
                 .industryName(request.getIndustryName().trim())
                 .docType(request.getDocType())
-                .fileUri("pending")
+                .fileUri(fileInfo.filePath())
+                .fileName(fileInfo.originalFilename())
+                .contentType(fileInfo.contentType())
+                .fileSize(fileInfo.fileSize())
                 .description(request.getDescription())
                 .verificationStatus(VerificationStatus.SUBMITTED)
                 .build();
         doc = documentRepository.save(doc);
 
-        // Step 2 – upload PDF to GridFS (validates type + 10 MB limit internally)
-        String gridFsId = gridFsService.storePdf(file, doc.getDocumentId());
-
-        // Step 3 – store the GridFS ObjectId, original filename, and self-serving view URL
-        doc.setGridFsFileId(gridFsId);
-        doc.setFileName(file.getOriginalFilename());
-        doc.setFileUri("/api/v1/industry-documents/" + doc.getDocumentId() + "?view=true");
-        doc = documentRepository.save(doc);
-
-        log.info("Document {} saved, PDF stored in GridFS id={}", doc.getDocumentId(), gridFsId);
+        log.info("Document {} saved, file stored at {}", doc.getDocumentId(), fileInfo.filePath());
         IndustryDocumentResponse response = toDocumentResponse(doc);
         notify(industryUserId, response.getDocumentId(),
                 "Your compliance document has been submitted and is pending review.",
@@ -180,36 +175,23 @@ public class IndustryService {
     }
 
     /**
-     * Deletes MySQL metadata AND the linked PDF from MongoDB GridFS together.
+     * Deletes the MySQL record and the corresponding file from the local filesystem.
      */
     @Transactional
     public void deleteDocument(Long docId) {
         IndustryDocument doc = findDocumentById(docId);
-        try {
-            if (doc.getGridFsFileId() != null && !doc.getGridFsFileId().isBlank()) {
-                gridFsService.deletePdfById(doc.getGridFsFileId());
-            } else {
-                gridFsService.deletePdfByDocumentId(docId);
-            }
-            log.info("PDF deleted from GridFS for documentId={}", docId);
-        } catch (Exception e) {
-            log.warn("No PDF found in GridFS for documentId={} — skipping GridFS delete", docId);
-        }
         documentRepository.deleteById(docId);
+        fileStorageService.delete(doc.getFileUri());
         log.info("IndustryDocument {} deleted", docId);
     }
 
     /**
-     * Fetches the raw PDF bytes from GridFS — called by the controller for view/download.
-     * Uses the stored GridFS ObjectId for an exact, reliable lookup.
+     * Reads the stored file path from MySQL and returns a streamable Resource for the controller.
      */
-    public Map<String, Object> getPdfForDocument(Long docId) {
+    public DownloadPayload getFileForDocument(Long docId) {
         IndustryDocument doc = findDocumentById(docId);
-        if (doc.getGridFsFileId() == null || doc.getGridFsFileId().isBlank()) {
-            // Fallback for documents uploaded before this fix (no gridFsFileId stored)
-            return gridFsService.getPdfByDocumentId(docId);
-        }
-        return gridFsService.getPdfById(doc.getGridFsFileId());
+        return fileStorageService.loadAsResource(
+                doc.getFileUri(), doc.getFileName(), doc.getContentType(), doc.getFileSize());
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────
@@ -269,10 +251,11 @@ public class IndustryService {
     private IndustryDocumentResponse toDocumentResponse(IndustryDocument d) {
         return IndustryDocumentResponse.builder()
                 .documentId(d.getDocumentId()).industryId(d.getIndustryId()).registrationNumber(d.getRegistrationNumber()).industryName(d.getIndustryName())
-                .docType(d.getDocType()).fileUri(d.getFileUri()).fileName(d.getFileName()).description(d.getDescription())
+                .docType(d.getDocType())
+                .fileUri("/api/v1/industry-documents/" + d.getDocumentId() + "?download=true")
+                .fileName(d.getFileName()).description(d.getDescription())
                 .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus()).rejectionReason(d.getRejectionReason())
                 .createdAt(d.getCreatedAt()).updatedAt(d.getUpdatedAt())
                 .build();
     }
 }
-

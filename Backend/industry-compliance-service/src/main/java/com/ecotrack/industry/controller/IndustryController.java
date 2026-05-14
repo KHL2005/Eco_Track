@@ -8,13 +8,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -77,19 +77,11 @@ public class IndustryController {
 
     /**
      * POST /api/v1/industry-documents  — multipart/form-data
-     *
-     * Form fields:
-     *   industryId   (Long)
-     *   industryName (String)
-     *   docType      (PERMIT | COMPLIANCE | OTHERS)
-     *   description  (String, optional)
-     *   file         (PDF, max 10 MB)
-     *
-     * Stores metadata in MySQL and PDF in MongoDB GridFS.
-     * Returns JSON where fileUri = "/api/v1/industry-documents/{id}?view=true"
+     * Stores file on local filesystem; saves metadata + disk path in MySQL.
+     * Returns JSON where fileUri = "/api/v1/industry-documents/{id}?download=true"
      */
     @PostMapping(value = "/api/v1/industry-documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Submit compliance document + upload PDF in one request (max 10 MB)")
+    @Operation(summary = "Submit compliance document + upload file (PDF/PNG/JPG, max 10 MB)")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
     public ResponseEntity<IndustryDocumentResponse> submitDocument(
             @ModelAttribute @Valid IndustryDocumentRequest request,
@@ -100,10 +92,6 @@ public class IndustryController {
                 .body(industryService.submitDocument(request, file, industryUserId));
     }
 
-    /**
-     * GET /api/v1/industry-documents
-     * Returns JSON list — each item has fileUri pointing to its PDF view URL.
-     */
     @GetMapping("/api/v1/industry-documents")
     @Operation(summary = "Get all industry documents (JSON metadata list)")
     public ResponseEntity<List<IndustryDocumentResponse>> getAllDocuments(
@@ -114,41 +102,35 @@ public class IndustryController {
 
     /**
      * GET /api/v1/industry-documents/{docId}
-     *   (no params)       → JSON metadata
-     *   ?view=true        → stream PDF inline  (browser renders it)
-     *   ?download=true    → stream PDF as file download
+     *   (no params)    → JSON metadata
+     *   ?view=true     → stream file inline  (browser renders it)
+     *   ?download=true → stream file as attachment download
      */
     @GetMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Get JSON metadata OR stream PDF. Use ?download=true to download, ?view=true to view inline.")
+    @Operation(summary = "Get JSON metadata OR stream file. Use ?download=true to download, ?view=true to view inline.")
     public ResponseEntity<?> getDocumentById(
             @PathVariable Long docId,
             @RequestParam(value = "download", required = false, defaultValue = "false") boolean download,
             @RequestParam(value = "view",     required = false, defaultValue = "false") boolean view) {
 
         if (download || view) {
-            Map<String, Object> pdf = industryService.getPdfForDocument(docId);
-            byte[] data        = (byte[])  pdf.get("data");
-            String fileName    = (String)  pdf.get("fileName");
-            String contentType = (String)  pdf.get("contentType");
-            long   fileSize    = (long)    pdf.get("fileSize");
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType(contentType));
-            headers.setContentLength(fileSize);
-            headers.setContentDisposition(
-                    ContentDisposition.builder(view ? "inline" : "attachment")
-                                      .filename(fileName)
-                                      .build());
-            return new ResponseEntity<>(data, headers, HttpStatus.OK);
+            DownloadPayload payload = industryService.getFileForDocument(docId);
+            String ct = payload.contentType() != null
+                    ? payload.contentType()
+                    : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(ct))
+                    .contentLength(payload.fileSize() != null ? payload.fileSize() : -1L)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.builder(view ? "inline" : "attachment")
+                                              .filename(payload.originalFilename())
+                                              .build().toString())
+                    .body((Resource) payload.resource());
         }
 
         return ResponseEntity.ok(industryService.getDocumentById(docId));
     }
 
-    /**
-     * GET /api/v1/industry-documents/industry?industryName=Steel Industries
-     * Returns JSON list for the given industry.
-     */
     @GetMapping("/api/v1/industry-documents/industry")
     @Operation(summary = "Get all documents for a specific industry by name")
     public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByIndustryName(
@@ -168,10 +150,10 @@ public class IndustryController {
 
     /**
      * DELETE /api/v1/industry-documents/{docId}
-     * Deletes BOTH MySQL metadata AND the PDF from MongoDB GridFS.
+     * Deletes BOTH MySQL metadata AND the file from the local filesystem.
      */
     @DeleteMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Delete document metadata + its PDF from GridFS in one call")
+    @Operation(summary = "Delete document metadata + its file from disk in one call")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long docId) {
         industryService.deleteDocument(docId);

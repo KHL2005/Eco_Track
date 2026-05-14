@@ -25,15 +25,14 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
 
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/ecotrack_pdf_store
-
   servlet:
     multipart:
       enabled: true
       max-file-size: 10MB
       max-request-size: 10MB
+
+app:
+  upload-dir: uploads/industry-documents
 
 eureka:
   client:
@@ -41,4 +40,3 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
-

@@ -23,47 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │  JWT Authentication – Global Pre-Filter (order = -100)                 │
- * │                                                                         │
- * │  Runs on EVERY inbound request BEFORE any route filter or downstream   │
- * │  service is touched. The order=-100 guarantees it fires before all     │
- * │  other GlobalFilters (default order=0) and well before routing.        │
- * │                                                                         │
- * │  Decision tree:                                                         │
- * │  1. OPTIONS (CORS preflight)       → pass-through (no auth)           │
- * │  2. Open path (public endpoints)   → pass-through (no auth)           │
- * │  3. Missing / non-Bearer header    → 401 + JSON body                  │
- * │  4. Expired token                  → 401 + JSON body (error=expired)  │
- * │  5. Malformed / bad-sig token      → 401 + JSON body (error=invalid)  │
- * │  6. Role not permitted for path    → 403 + JSON body                  │
- * │  7. Valid token, permitted role    → forward with X-User-* headers    │
- * │                                                                         │
- * │  Every rejected request also gets:                                      │
- * │  • Content-Type: application/json                                       │
- * │  • WWW-Authenticate: Bearer realm="EcoTrack", error="..."             │
- * │  • X-Request-Id: <UUID> (same id logged server-side for tracing)      │
- * └─────────────────────────────────────────────────────────────────────────┘
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
-
-    /**
-     * Run at -100 so this filter fires before all other GlobalFilters
-     * (default order = 0) and route-specific filters.
-     * CorsWebFilter is a WebFilter (Ordered.HIGHEST_PRECEDENCE) and
-     * executes in the WebFlux layer before any GlobalFilter — so CORS
-     * headers are always present even when we return 4xx here.
-     */
-    @Override
-    public int getOrder() {
-        return -100;
-    }
 
     // ── Public / open paths (JWT not required) ────────────────────────────────
     //
@@ -323,5 +288,18 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private String escapeJson(String value) {
         if (value == null) return "";
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /**
+     * Run at -100 so this filter fires before all other GlobalFilters
+     * (default order = 0) and route-specific filters.
+     * CorsWebFilter is a WebFilter (Ordered.HIGHEST_PRECEDENCE) and
+     * executes in the WebFlux layer before any GlobalFilter — so CORS
+     * headers are always present even when we return 4xx here.
+     */
+    @Override
+    public int getOrder() {
+
+        return -100;
     }
 }
