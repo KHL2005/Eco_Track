@@ -20,6 +20,7 @@ public class IndustryDocumentResponse {
     private String description;
     private LocalDateTime uploadedDate;
     private VerificationStatus verificationStatus;
+    private String rejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

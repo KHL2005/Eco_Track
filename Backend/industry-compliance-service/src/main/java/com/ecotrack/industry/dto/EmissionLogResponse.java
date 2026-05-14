@@ -20,6 +20,7 @@ public class EmissionLogResponse {
     private String description;
     private LocalDateTime date;
     private EmissionStatus status;
+    private String rejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

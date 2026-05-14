@@ -22,6 +22,7 @@ public class IndustryDocument {
     @Column(name = "uploaded_date", nullable = false) private LocalDateTime uploadedDate;
     @Enumerated(EnumType.STRING) @Column(name = "verification_status", nullable = false) @Builder.Default
     private VerificationStatus verificationStatus = VerificationStatus.SUBMITTED;
+    @Column(name = "rejection_reason", length = 1000) private String rejectionReason;
     @Column(name = "created_at") private LocalDateTime createdAt;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
     @PrePersist protected void onCreate() {

@@ -56,11 +56,13 @@ public class IndustryController {
     }
 
     @PatchMapping("/api/v1/emissions/{id}/status")
-    @Operation(summary = "Update emission status (SUBMITTED → APPROVED / REJECTED)")
+    @Operation(summary = "Update emission status (SUBMITTED → APPROVED / REJECTED). Reason is required when status is REJECTED.")
     @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMIN')")
     public ResponseEntity<EmissionLogResponse> updateEmissionStatus(
-            @PathVariable Long id, @RequestParam("status") EmissionStatus status) {
-        return ResponseEntity.ok(industryService.updateEmissionStatus(id, status));
+            @PathVariable Long id,
+            @RequestParam("status") EmissionStatus status,
+            @RequestParam(value = "rejectionReason", required = false) String rejectionReason) {
+        return ResponseEntity.ok(industryService.updateEmissionStatus(id, status, rejectionReason));
     }
 
     @DeleteMapping("/api/v1/emissions/{id}")
@@ -155,11 +157,13 @@ public class IndustryController {
     }
 
     @PatchMapping("/api/v1/industry-documents/{docId}/verify")
-    @Operation(summary = "Verify or reject a document (SUBMITTED → APPROVED / REJECTED)")
+    @Operation(summary = "Verify or reject a document (SUBMITTED → APPROVED / REJECTED). Reason is required when status is REJECTED.")
     @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMIN')")
     public ResponseEntity<IndustryDocumentResponse> verifyDocument(
-            @PathVariable Long docId, @RequestParam("status") VerificationStatus status) {
-        return ResponseEntity.ok(industryService.verifyDocument(docId, status));
+            @PathVariable Long docId,
+            @RequestParam("status") VerificationStatus status,
+            @RequestParam(value = "rejectionReason", required = false) String rejectionReason) {
+        return ResponseEntity.ok(industryService.verifyDocument(docId, status, rejectionReason));
     }
 
     /**

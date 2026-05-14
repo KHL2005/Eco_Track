@@ -6,8 +6,11 @@ export const getEmissionById = (id) => axiosInstance.get(`/emissions/${id}`);
 export const getEmissionsByIndustry = (industryName) =>
   axiosInstance.get('/emissions/industry', { params: { industryName } });
 export const logEmission = (data) => axiosInstance.post('/emissions', data);
-export const updateEmissionStatus = (id, status) =>
-  axiosInstance.patch(`/emissions/${id}/status`, null, { params: { status } });
+export const updateEmissionStatus = (id, status, rejectionReason) => {
+  const params = { status };
+  if (rejectionReason) params.rejectionReason = rejectionReason;
+  return axiosInstance.patch(`/emissions/${id}/status`, null, { params });
+};
 export const deleteEmission = (id) => axiosInstance.delete(`/emissions/${id}`);
 
 // Industry Documents
@@ -26,7 +29,10 @@ export const submitDocument = (formData, onProgress) =>
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: onProgress,
   });
-export const verifyDocument = (docId, status) =>
-  axiosInstance.patch(`/industry-documents/${docId}/verify`, null, { params: { status } });
+export const verifyDocument = (docId, status, rejectionReason) => {
+  const params = { status };
+  if (rejectionReason) params.rejectionReason = rejectionReason;
+  return axiosInstance.patch(`/industry-documents/${docId}/verify`, null, { params });
+};
 export const deleteDocument = (docId) => axiosInstance.delete(`/industry-documents/${docId}`);
 

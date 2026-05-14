@@ -5,7 +5,7 @@ import Button from '../../components/common/Button';
 import StatusBadge from '../../components/common/StatusBadge';
 import DataTable from '../../components/common/DataTable';
 import Modal from '../../components/common/Modal';
-import { Plus, Trash2, Factory, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Factory, AlertTriangle, Info } from 'lucide-react';
 import * as emissionsApi from '../../api/emissionsApi';
 import { useRole } from '../../hooks/useRole';
 import { formatDate, formatTime } from '../../utils/formatters';
@@ -24,6 +24,14 @@ export default function EmissionsPage() {
 
   // Description that the user clicked on, shown in a small modal
   const [viewDescription, setViewDescription] = useState(null);
+
+  // Reject-reason modal state. Holds the row being rejected and the typed reason.
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  // Read-only modal that shows the stored rejection reason when a REJECTED badge is clicked.
+  const [viewRejectionReason, setViewRejectionReason] = useState(null);
 
   // Modal open/close
   const [modalOpen, setModalOpen] = useState(false);
@@ -95,6 +103,36 @@ export default function EmissionsPage() {
     }
   }
 
+  function openRejectModal(row) {
+    setRejectTarget(row);
+    setRejectReason('');
+  }
+
+  function closeRejectModal() {
+    setRejectTarget(null);
+    setRejectReason('');
+  }
+
+  async function handleConfirmReject() {
+    const trimmed = rejectReason.trim();
+    if (trimmed.length < 10) return;
+    setIsRejecting(true);
+    try {
+      await emissionsApi.updateEmissionStatus(rejectTarget.logId, 'REJECTED', trimmed);
+      toast.success('Emission rejected');
+      closeRejectModal();
+      fetchEmissions();
+    } catch (error) {
+      let msg = 'Failed to reject emission';
+      if (error.response && error.response.data && error.response.data.message) {
+        msg = error.response.data.message;
+      }
+      toast.error(msg);
+    } finally {
+      setIsRejecting(false);
+    }
+  }
+
   async function handleDelete(id) {
     try {
       await emissionsApi.deleteEmission(id);
@@ -155,17 +193,33 @@ export default function EmissionsPage() {
     },
     {
       key: 'status', label: 'Status',
-      render: (row) => (
-        <div className="flex flex-col gap-0.5">
-          <StatusBadge status={row.status} />
-          {row.updatedAt && (
-            <div className="flex flex-col whitespace-nowrap leading-tight">
-              <span className="text-[10px] text-bark-400">{formatDate(row.updatedAt)}</span>
-              <span className="text-[10px] text-bark-400">{formatTime(row.updatedAt)}</span>
+      render: (row) => {
+        const isRejected = row.status === 'REJECTED';
+        const reason = row.rejectionReason ? row.rejectionReason : 'No reason provided';
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <StatusBadge status={row.status} />
+              {isRejected && (
+                <button
+                  type="button"
+                  onClick={() => setViewRejectionReason(reason)}
+                  title="View rejection reason"
+                  className="p-1 rounded-full text-red-500 hover:bg-red-50 cursor-pointer"
+                >
+                  <Info size={14} />
+                </button>
+              )}
             </div>
-          )}
-        </div>
-      )
+            {row.updatedAt && (
+              <div className="flex flex-col whitespace-nowrap leading-tight">
+                <span className="text-[10px] text-bark-400">{formatDate(row.updatedAt)}</span>
+                <span className="text-[10px] text-bark-400">{formatTime(row.updatedAt)}</span>
+              </div>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'date', label: 'Date',
@@ -182,7 +236,7 @@ export default function EmissionsPage() {
           {(isAdmin || isComplianceOfficer) && row.status === 'SUBMITTED' && (
             <>
               <Button size="sm" variant="outline" className="text-xs" onClick={() => handleUpdateStatus(row.logId, 'APPROVED')}>Approve</Button>
-              <Button size="sm" variant="danger" className="text-xs" onClick={() => handleUpdateStatus(row.logId, 'REJECTED')}>Reject</Button>
+              <Button size="sm" variant="danger" className="text-xs" onClick={() => openRejectModal(row)}>Reject</Button>
             </>
           )}
           {isIndustry && row.status === 'SUBMITTED' && (
@@ -234,6 +288,49 @@ export default function EmissionsPage() {
         <div className="text-sm text-bark-700 whitespace-pre-wrap break-words">
           {viewDescription}
         </div>
+      </Modal>
+
+      <Modal open={viewRejectionReason !== null} onClose={() => setViewRejectionReason(null)} title="Rejection Reason" size="sm">
+        <div className="text-sm text-bark-700 whitespace-pre-wrap break-words bg-red-50 border border-red-200 rounded-xl p-3">
+          {viewRejectionReason}
+        </div>
+      </Modal>
+
+      <Modal open={rejectTarget !== null} onClose={closeRejectModal} title="Reject Emission" size="sm">
+        {rejectTarget !== null && (() => {
+          const trimmed = rejectReason.trim();
+          const valid = trimmed.length >= 10;
+          const showError = trimmed.length > 0 && !valid;
+          return (
+            <div className="space-y-4">
+              <div className="text-xs text-bark-500 bg-bark-50 rounded-xl px-3 py-2">
+                Rejecting emission <span className="font-medium text-bark-700">#{rejectTarget.logId}</span>
+                {' · '}<span className="font-medium text-bark-700">{rejectTarget.industryName}</span>
+                {' · '}<span className="font-medium text-bark-700">{rejectTarget.type}</span>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-bark-600 mb-1">Reason for rejection</label>
+                <textarea
+                  rows={4}
+                  autoFocus
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${showError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Explain why this emission is being rejected (min 10 characters)…"
+                />
+                <p className={`text-xs mt-1 ${showError ? 'text-red-500' : 'text-bark-400'}`}>
+                  {showError
+                    ? `Reason must be at least 10 characters (${trimmed.length}/10).`
+                    : `${trimmed.length} character${trimmed.length === 1 ? '' : 's'} — minimum 10.`}
+                </p>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button variant="secondary" onClick={closeRejectModal}>Cancel</Button>
+                <Button variant="danger" onClick={handleConfirmReject} loading={isRejecting} disabled={!valid}>Reject</Button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       <Modal open={modalOpen} onClose={closeModal} title="Log Emission" size="lg">

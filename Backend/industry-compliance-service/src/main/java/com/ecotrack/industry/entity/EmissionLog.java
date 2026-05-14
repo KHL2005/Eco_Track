@@ -21,6 +21,7 @@ public class EmissionLog {
     @Column(nullable = false) private LocalDateTime date;
     @Enumerated(EnumType.STRING) @Column(nullable = false) @Builder.Default
     private EmissionStatus status = EmissionStatus.SUBMITTED;
+    @Column(name = "rejection_reason", length = 1000) private String rejectionReason;
     @Column(name = "created_at") private LocalDateTime createdAt;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
     @PrePersist protected void onCreate() {

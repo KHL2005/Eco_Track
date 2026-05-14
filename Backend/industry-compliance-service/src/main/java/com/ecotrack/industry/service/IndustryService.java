@@ -72,15 +72,25 @@ public class IndustryService {
     }
 
     @Transactional
-    public EmissionLogResponse updateEmissionStatus(Long id, EmissionStatus status) {
+    public EmissionLogResponse updateEmissionStatus(Long id, EmissionStatus status, String rejectionReason) {
         if (status == null) throw new BadRequestException("Status is required");
         EmissionLog emissionLog = findEmissionById(id);
         validateEmissionStatusTransition(emissionLog.getStatus(), status);
+
+        if (status == EmissionStatus.REJECTED) {
+            if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+                throw new BadRequestException("Rejection reason is required when rejecting an emission");
+            }
+            emissionLog.setRejectionReason(rejectionReason.trim());
+        } else {
+            emissionLog.setRejectionReason(null);
+        }
         emissionLog.setStatus(status);
+
         EmissionLogResponse response = toEmissionResponse(emissionLogRepository.save(emissionLog));
         String msg = status == EmissionStatus.APPROVED
                 ? "Your emission log has been approved."
-                : "Your emission log has been rejected.";
+                : "Your emission log has been rejected. Reason: " + emissionLog.getRejectionReason();
         notify(emissionLog.getIndustryId(), emissionLog.getLogId(), msg, NotificationCategory.EMISSION);
         return response;
     }
@@ -146,15 +156,25 @@ public class IndustryService {
     }
 
     @Transactional
-    public IndustryDocumentResponse verifyDocument(Long docId, VerificationStatus status) {
+    public IndustryDocumentResponse verifyDocument(Long docId, VerificationStatus status, String rejectionReason) {
         if (status == null) throw new BadRequestException("Verification status is required");
         IndustryDocument doc = findDocumentById(docId);
         validateDocumentStatusTransition(doc.getVerificationStatus(), status);
+
+        if (status == VerificationStatus.REJECTED) {
+            if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+                throw new BadRequestException("Rejection reason is required when rejecting a document");
+            }
+            doc.setRejectionReason(rejectionReason.trim());
+        } else {
+            doc.setRejectionReason(null);
+        }
         doc.setVerificationStatus(status);
+
         IndustryDocumentResponse response = toDocumentResponse(documentRepository.save(doc));
         String msg = status == VerificationStatus.APPROVED
                 ? "Your compliance document has been approved."
-                : "Your compliance document has been rejected.";
+                : "Your compliance document has been rejected. Reason: " + doc.getRejectionReason();
         notify(doc.getIndustryId(), doc.getDocumentId(), msg, NotificationCategory.COMPLIANCE);
         return response;
     }
@@ -242,7 +262,7 @@ public class IndustryService {
         return EmissionLogResponse.builder()
                 .logId(e.getLogId()).industryId(e.getIndustryId()).registrationNumber(e.getRegistrationNumber()).industryName(e.getIndustryName())
                 .type(e.getType()).quantity(e.getQuantity()).description(e.getDescription()).date(e.getDate())
-                .status(e.getStatus()).createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
+                .status(e.getStatus()).rejectionReason(e.getRejectionReason()).createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
                 .build();
     }
 
@@ -250,7 +270,7 @@ public class IndustryService {
         return IndustryDocumentResponse.builder()
                 .documentId(d.getDocumentId()).industryId(d.getIndustryId()).registrationNumber(d.getRegistrationNumber()).industryName(d.getIndustryName())
                 .docType(d.getDocType()).fileUri(d.getFileUri()).fileName(d.getFileName()).description(d.getDescription())
-                .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus())
+                .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus()).rejectionReason(d.getRejectionReason())
                 .createdAt(d.getCreatedAt()).updatedAt(d.getUpdatedAt())
                 .build();
     }
