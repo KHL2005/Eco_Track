@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, X, Check } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import * as notifApi from '../../api/notificationsApi';
 import { timeAgo } from '../../utils/formatters';
@@ -8,24 +7,37 @@ import { timeAgo } from '../../utils/formatters';
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
-  const qc = useQueryClient();
+  const [notifications, setNotifications] = useState([]);
 
-  const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications', 'unread', user?.userId],
-    queryFn: () => notifApi.getUnreadByUser(user?.userId).then(r => r.data).catch(() => []),
-    enabled: !!user?.userId,
-    refetchInterval: 30000,
-  });
+  async function loadNotifications() {
+    if (!user?.userId) return;
+    try {
+      const res = await notifApi.getUnreadByUser(user?.userId);
+      setNotifications(res.data);
+    } catch {
+      setNotifications([]);
+    }
+  }
 
-  const markRead = useMutation({
-    mutationFn: (id) => notifApi.markAsRead(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  useEffect(() => {
+    loadNotifications();
+    const timer = setInterval(loadNotifications, 30000);
+    return () => clearInterval(timer);
+  }, [user?.userId]);
 
-  const markAll = useMutation({
-    mutationFn: () => notifApi.markAllRead(user?.userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  const handleMarkRead = async (id) => {
+    try {
+      await notifApi.markAsRead(id);
+      await loadNotifications();
+    } catch {}
+  };
+
+  const handleMarkAll = async () => {
+    try {
+      await notifApi.markAllRead(user?.userId);
+      await loadNotifications();
+    } catch {}
+  };
 
   const unreadCount = notifications.length;
 
@@ -49,7 +61,7 @@ export default function NotificationBell() {
             <span className="font-semibold text-bark-800 text-sm">Notifications</span>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
-                <button onClick={() => markAll.mutate()} className="text-xs text-forest-600 hover:text-forest-700">
+                <button onClick={handleMarkAll} className="text-xs text-forest-600 hover:text-forest-700">
                   Mark all read
                 </button>
               )}
@@ -67,7 +79,7 @@ export default function NotificationBell() {
                     <p className="text-sm text-bark-800 leading-snug">{n.message}</p>
                     <p className="text-xs text-bark-400 mt-0.5">{timeAgo(n.createdDate)}</p>
                   </div>
-                  <button onClick={() => markRead.mutate(n.notificationId)} className="text-bark-400 hover:text-forest-600 flex-shrink-0">
+                  <button onClick={() => handleMarkRead(n.notificationId)} className="text-bark-400 hover:text-forest-600 flex-shrink-0">
                     <Check size={14} />
                   </button>
                 </div>

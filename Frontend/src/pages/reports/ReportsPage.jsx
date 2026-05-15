@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
@@ -14,26 +13,47 @@ import { toast } from 'sonner';
 
 export default function ReportsPage() {
   const { canManageIssues, isAdmin, isAgencyOfficer, isScientist, isIndustry } = useRole();
-  const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [view, setView] = useState(null);
   const [form, setForm] = useState({ title: '', scope: 'ISSUE', description: '', content: '' });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const [reports, setReports] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
 
   // Mirror the API Gateway's per-role allow-list so we don't fire forbidden requests.
   const canViewReports = isAdmin || isAgencyOfficer || isScientist || isIndustry;
 
-  const { data: reports = [], isLoading } = useQuery({
-    queryKey: ['reports'],
-    queryFn: () => reportsApi.getReports().then(r => r.data).catch(() => []),
-    enabled: canViewReports,
-  });
+  async function loadReports() {
+    if (!canViewReports) return;
+    setIsLoading(true);
+    try {
+      const res = await reportsApi.getReports();
+      setReports(res.data);
+    } catch {
+      setReports([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const createMut = useMutation({
-    mutationFn: (d) => reportsApi.createReport(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['reports'] }); toast.success('Report generated'); setModal(false); },
-    onError: () => toast.error('Failed to generate report'),
-  });
+  useEffect(() => {
+    loadReports();
+  }, [canViewReports]);
+
+  const handleCreateReport = async () => {
+    setCreateLoading(true);
+    try {
+      await reportsApi.createReport({ scope: form.scope, metrics: form.content });
+      await loadReports();
+      toast.success('Report generated');
+      setModal(false);
+    } catch {
+      toast.error('Failed to generate report');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
 
    const columns = [
      { key: 'reportId', label: '#', render: r => <span className="text-xs text-bark-400">#{r.reportId}</span> },
@@ -77,7 +97,7 @@ export default function ReportsPage() {
           </div>
            <div className="flex gap-3 justify-end">
              <Button variant="secondary" onClick={() => setModal(false)}>Cancel</Button>
-             <Button onClick={() => createMut.mutate({ scope: form.scope, metrics: form.content })} loading={createMut.isPending}>Generate</Button>
+             <Button onClick={handleCreateReport} loading={createLoading}>Generate</Button>
            </div>
         </div>
       </Modal>

@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
@@ -16,7 +15,6 @@ import { toast } from 'sonner';
 
 export default function AdminUsersPage() {
   const { role } = useRole();
-  const qc = useQueryClient();
   const [createModal, setCreateModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -27,28 +25,72 @@ export default function AdminUsersPage() {
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const setE = (k) => (e) => setEditForm(f => ({ ...f, [k]: e.target.value }));
 
-  const { data: users = [], isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => usersApi.getUsers().then(r => r.data).catch(() => []),
-  });
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const createMut = useMutation({
-    mutationFn: (d) => usersApi.createUser(d, role),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User created'); setCreateModal(false); setShowCreatePw(false); setPwFocused(false); setForm({ name: '', email: '', password: '', phone: '', role: 'AGENCY_OFFICER' }); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to create user'),
-  });
+  async function loadUsers() {
+    setIsLoading(true);
+    try {
+      const res = await usersApi.getUsers();
+      setUsers(res.data);
+    } catch {
+      setUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const updateMut = useMutation({
-    mutationFn: ({ id, data }) => usersApi.updateUser(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User updated'); setEditTarget(null); },
-    onError: () => toast.error('Failed to update user'),
-  });
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => usersApi.deleteUser(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User deleted'); setDeleteTarget(null); },
-    onError: () => toast.error('Failed to delete user'),
-  });
+  const handleCreateUser = async () => {
+    setCreateLoading(true);
+    try {
+      await usersApi.createUser(form, role);
+      await loadUsers();
+      toast.success('User created');
+      setCreateModal(false);
+      setShowCreatePw(false);
+      setPwFocused(false);
+      setForm({ name: '', email: '', password: '', phone: '', role: 'AGENCY_OFFICER' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create user');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    setUpdateLoading(true);
+    try {
+      await usersApi.updateUser(editTarget?.userId, editForm);
+      await loadUsers();
+      toast.success('User updated');
+      setEditTarget(null);
+    } catch {
+      toast.error('Failed to update user');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    setDeleteLoading(true);
+    try {
+      await usersApi.deleteUser(deleteTarget?.userId);
+      await loadUsers();
+      toast.success('User deleted');
+      setDeleteTarget(null);
+    } catch {
+      toast.error('Failed to delete user');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   const columns = [
     { key: 'userId', label: 'ID', sortable: true, render: r => <span className="text-xs text-bark-400">{r.userId}</span> },
@@ -142,7 +184,7 @@ export default function AdminUsersPage() {
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => { setCreateModal(false); setShowCreatePw(false); setPwFocused(false); }}>Cancel</Button>
-            <Button onClick={() => createMut.mutate(form)} loading={createMut.isPending}>Create</Button>
+            <Button onClick={handleCreateUser} loading={createLoading}>Create</Button>
           </div>
         </div>
       </Modal>
@@ -165,7 +207,7 @@ export default function AdminUsersPage() {
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button onClick={() => updateMut.mutate({ id: editTarget?.userId, data: editForm })} loading={updateMut.isPending}>Save</Button>
+            <Button onClick={handleUpdateUser} loading={updateLoading}>Save</Button>
           </div>
         </div>
       </Modal>
@@ -173,10 +215,10 @@ export default function AdminUsersPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteMut.mutate(deleteTarget?.userId)}
+        onConfirm={handleDeleteUser}
         title="Delete User"
         message={`Are you sure you want to delete ${deleteTarget?.name}? This cannot be undone.`}
-        loading={deleteMut.isPending}
+        loading={deleteLoading}
       />
     </DashboardLayout>
   );

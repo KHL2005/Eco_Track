@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 
-/** Read the stored JWT token from localStorage */
 function getToken() {
   try {
     const stored = localStorage.getItem('ecotrack_auth');
@@ -10,11 +9,6 @@ function getToken() {
   }
 }
 
-/**
- * Fetch any /api/v1/... URL that requires JWT auth.
- * Uses native fetch() so there is NO baseURL concatenation issue.
- * Returns a local blob:// URL safe to use in <img> / <video>.
- */
 async function fetchAuthBlob(url) {
   const token = getToken();
   const res = await fetch(url, {
@@ -25,11 +19,10 @@ async function fetchAuthBlob(url) {
   return URL.createObjectURL(blob);
 }
 
-/* ─── Shared hook ─────────────────────────────────────────────── */
-function useAuthBlob(src) {
+export function AuthenticatedImage({ src, alt = '', className = '', onClick }) {
   const [blobUrl, setBlobUrl] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error,   setError  ] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!src) return;
@@ -45,20 +38,6 @@ function useAuthBlob(src) {
 
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [src]);
-
-  return { blobUrl, loading, error };
-}
-
-/* ─── AuthenticatedImage ───────────────────────────────────────── */
-/**
- * Props:
- *  src       – /api/v1/issues/{id}/media/{file}
- *  alt       – img alt
- *  className – CSS classes for <img>
- *  onClick   – called with (blobUrl) → pass to lightbox
- */
-export function AuthenticatedImage({ src, alt = '', className = '', onClick }) {
-  const { blobUrl, loading, error } = useAuthBlob(src);
 
   if (loading) {
     return <div className="w-full h-full bg-earth-100 animate-pulse rounded-xl" />;
@@ -80,14 +59,25 @@ export function AuthenticatedImage({ src, alt = '', className = '', onClick }) {
   );
 }
 
-/* ─── AuthenticatedVideo ───────────────────────────────────────── */
-/**
- * Props:
- *  src       – /api/v1/issues/{id}/media/{file}
- *  className – CSS classes for <video>
- */
 export function AuthenticatedVideo({ src, className = '' }) {
-  const { blobUrl, loading, error } = useAuthBlob(src);
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!src) return;
+    let objectUrl = null;
+    setLoading(true);
+    setError(false);
+    setBlobUrl(null);
+
+    fetchAuthBlob(src)
+      .then(url => { objectUrl = url; setBlobUrl(url); })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src]);
 
   if (loading) {
     return (

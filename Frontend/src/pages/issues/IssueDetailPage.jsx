@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -19,7 +18,6 @@ import { toast } from 'sonner';
 export default function IssueDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const { canManageIssues } = useRole();
   const { user } = useAuth();
   const [statusModal, setStatusModal] = useState(false);
@@ -30,6 +28,13 @@ export default function IssueDetailPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileRef = useRef();
+  const [issue, setIssue] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [resolution, setResolution] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [addResLoading, setAddResLoading] = useState(false);
+  const [updateResLoading, setUpdateResLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   // Close lightbox on Escape key
   useEffect(() => {
@@ -38,48 +43,89 @@ export default function IssueDetailPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const { data: issue, isLoading } = useQuery({
-    queryKey: ['issue', id],
-    queryFn: () => issuesApi.getIssueById(id).then(r => r.data),
-  });
+  async function loadIssue() {
+    setIsLoading(true);
+    try {
+      const res = await issuesApi.getIssueById(id);
+      setIssue(res.data);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const { data: resolution } = useQuery({
-    queryKey: ['resolution', 'issue', id],
-    queryFn: () => issuesApi.getResolutionByIssue(id).then(r => r.data).catch(() => null),
-  });
+  async function loadResolution() {
+    try {
+      const res = await issuesApi.getResolutionByIssue(id);
+      setResolution(res.data);
+    } catch {
+      setResolution(null);
+    }
+  }
 
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }) => issuesApi.updateIssueStatus(id, status),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['issue', id] }); toast.success('Status updated'); setStatusModal(false); },
-    onError: (error) => {
+  useEffect(() => {
+    loadIssue();
+    loadResolution();
+  }, [id]);
+
+  const handleUpdateStatus = async () => {
+    setStatusLoading(true);
+    try {
+      await issuesApi.updateIssueStatus(id, newStatus);
+      await loadIssue();
+      toast.success('Status updated');
+      setStatusModal(false);
+    } catch (error) {
       const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update status';
       toast.error(message);
-    },
-  });
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
-  const addResolution = useMutation({
-    mutationFn: (data) => issuesApi.addResolution(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['resolution', 'issue', id] }); toast.success('Resolution added'); setResolutionModal(false); },
-    onError: (error) => {
+  const handleAddResolution = async (data) => {
+    setAddResLoading(true);
+    try {
+      await issuesApi.addResolution(id, data);
+      await loadResolution();
+      toast.success('Resolution added');
+      setResolutionModal(false);
+    } catch (error) {
       const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to add resolution';
       toast.error(message);
-    },
-  });
+    } finally {
+      setAddResLoading(false);
+    }
+  };
 
-  const updateResolution = useMutation({
-    mutationFn: ({ id: resId, data }) => issuesApi.updateResolution(resId, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['resolution', 'issue', id] }); toast.success('Resolution updated'); setResolutionModal(false); },
-    onError: (error) => {
+  const handleUpdateResolution = async (resId, data) => {
+    setUpdateResLoading(true);
+    try {
+      await issuesApi.updateResolution(resId, data);
+      await loadResolution();
+      toast.success('Resolution updated');
+      setResolutionModal(false);
+    } catch (error) {
       const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update resolution';
       toast.error(message);
-    },
-  });
+    } finally {
+      setUpdateResLoading(false);
+    }
+  };
 
-  const uploadMedia = useMutation({
-    mutationFn: (file) => issuesApi.uploadMedia(id, file, (e) => setUploadProgress(Math.round(e.loaded / e.total * 100))),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['issue', id] }); toast.success('File uploaded'); setUploadProgress(0); },
-    onError: () => { toast.error('Upload failed'); setUploadProgress(0); },
-  });
+  const handleUploadMedia = async (file) => {
+    setUploadLoading(true);
+    try {
+      await issuesApi.uploadMedia(id, file, (e) => setUploadProgress(Math.round(e.loaded / e.total * 100)));
+      await loadIssue();
+      toast.success('File uploaded');
+      setUploadProgress(0);
+    } catch {
+      toast.error('Upload failed');
+      setUploadProgress(0);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
 
   if (isLoading) return <DashboardLayout><div className="animate-pulse h-64 bg-green-50 rounded-2xl" /></DashboardLayout>;
   if (!issue) return <DashboardLayout><p className="text-slate-400">Issue not found.</p></DashboardLayout>;
@@ -154,8 +200,8 @@ export default function IssueDetailPage() {
             {canManageIssues && (
               <div>
                 <input ref={fileRef} type="file" className="hidden" accept="image/*,video/*"
-                  onChange={e => e.target.files[0] && uploadMedia.mutate(e.target.files[0])} />
-                <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} loading={uploadMedia.isPending}>
+                  onChange={e => e.target.files[0] && handleUploadMedia(e.target.files[0])} />
+                <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} loading={uploadLoading}>
                   <Upload size={14} /> Upload
                 </Button>
               </div>
@@ -343,7 +389,7 @@ export default function IssueDetailPage() {
         </select>
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" onClick={() => setStatusModal(false)}>Cancel</Button>
-          <Button onClick={() => updateStatus.mutate({ id, status: newStatus })} loading={updateStatus.isPending}>Update</Button>
+          <Button onClick={handleUpdateStatus} loading={statusLoading}>Update</Button>
         </div>
       </Modal>
 
@@ -370,11 +416,11 @@ export default function IssueDetailPage() {
                  return;
                }
                if (editingResolution) {
-                 updateResolution.mutate({ id: resolution.resolutionId, data: { actions: resForm.actions, status: resForm.status } });
+                 handleUpdateResolution(resolution.resolutionId, { actions: resForm.actions, status: resForm.status });
                } else {
-                 addResolution.mutate({ actions: resForm.actions, officerId: user?.userId });
+                 handleAddResolution({ actions: resForm.actions, officerId: user?.userId });
                }
-             }} loading={editingResolution ? updateResolution.isPending : addResolution.isPending} disabled={!resForm.actions.trim() || !id}>
+             }} loading={editingResolution ? updateResLoading : addResLoading} disabled={!resForm.actions.trim() || !id}>
               {editingResolution ? "Update Resolution" : "Submit"}
             </Button>
           </div>

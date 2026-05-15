@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
@@ -115,7 +114,6 @@ function CitizenIssueCard({ issue }) {
 export default function IssuesPage({ mine = false }) {
   const { canManageIssues, isCitizen, isAgencyOfficer } = useRole();
   const { user } = useAuth();
-  const qc = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -123,61 +121,70 @@ export default function IssuesPage({ mine = false }) {
   const [statusModal, setStatusModal] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [newStatus, setNewStatus] = useState('');
+  const [issues, setIssues] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
 
-  const queryKey = mine ? ['issues', 'citizen', user?.userId] : ['issues'];
-  const { data: issues = [], isLoading } = useQuery({
-    queryKey,
-    queryFn: () => (mine
-      ? issuesApi.getIssuesByCitizen(user?.userId)
-      : issuesApi.getIssues()
-    ).then(r => r.data).catch(() => []),
-    enabled: !mine || !!user?.userId,
-  });
+  async function loadIssues() {
+    if (mine && !user?.userId) return;
+    setIsLoading(true);
+    try {
+      const res = mine
+        ? await issuesApi.getIssuesByCitizen(user?.userId)
+        : await issuesApi.getIssues();
+      setIssues(res.data);
+    } catch {
+      setIssues([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: ({ id, reason }) => issuesApi.deleteIssue(id, reason),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['issues'] });
-      qc.invalidateQueries({ queryKey: ['issue'] });
-      qc.invalidateQueries({ queryKey: ['issues', 'citizen'] });
-      toast.success('Issue deleted');
-      setDeleteTarget(null);
-      setDeleteReason('');
-    },
-    onError: (error) => {
-      const message = error.response?.data?.message
-        || error.response?.data?.messages?.reason
-        || error.message
-        || 'Failed to delete issue';
-      toast.error(message);
-    },
-  });
+  useEffect(() => {
+    loadIssues();
+  }, [mine, user?.userId]);
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     const reason = deleteReason.trim();
     if (reason.length < 5) {
       toast.error('Please enter a reason (at least 5 characters)');
       return;
     }
-    deleteMut.mutate({ id: deleteTarget?.issueId, reason });
+    setDeleteLoading(true);
+    try {
+      await issuesApi.deleteIssue(deleteTarget?.issueId, reason);
+      await loadIssues();
+      toast.success('Issue deleted');
+      setDeleteTarget(null);
+      setDeleteReason('');
+    } catch (error) {
+      const message = error.response?.data?.message
+        || error.response?.data?.messages?.reason
+        || error.message
+        || 'Failed to delete issue';
+      toast.error(message);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }) => issuesApi.updateIssueStatus(id, status),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['issues'] });
-      qc.invalidateQueries({ queryKey: ['issue'] });
-      qc.invalidateQueries({ queryKey: ['issues', 'citizen'] });
+  const handleUpdateStatus = async () => {
+    setStatusLoading(true);
+    try {
+      await issuesApi.updateIssueStatus(selectedIssue?.issueId, newStatus);
+      await loadIssues();
       toast.success('Status updated');
       setStatusModal(false);
       setSelectedIssue(null);
-    },
-    onError: (error) => {
+    } catch (error) {
       const message = error.response?.data?.message || error.message || 'Failed to update status';
       console.error('Status update error:', message, error);
       toast.error(message);
-    },
-  });
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   const filtered = issues.filter(i => {
     if (filterStatus && i.status !== filterStatus) return false;
@@ -321,7 +328,7 @@ export default function IssuesPage({ mine = false }) {
       {/* Delete Modal — reason required, soft-deletes and shows on citizen card */}
       <Modal
         open={!!deleteTarget}
-        onClose={() => { if (!deleteMut.isPending) { setDeleteTarget(null); setDeleteReason(''); } }}
+        onClose={() => { if (!deleteLoading) { setDeleteTarget(null); setDeleteReason(''); } }}
         title={`Delete Issue #${deleteTarget?.issueId}`}
         size="sm"
       >
@@ -341,11 +348,11 @@ export default function IssuesPage({ mine = false }) {
         />
         <p className="text-xs text-bark-400 mb-4">{deleteReason.trim().length}/500 — minimum 5 characters.</p>
         <div className="flex gap-3 justify-end">
-          <Button variant="secondary" onClick={() => { setDeleteTarget(null); setDeleteReason(''); }} disabled={deleteMut.isPending}>Cancel</Button>
+          <Button variant="secondary" onClick={() => { setDeleteTarget(null); setDeleteReason(''); }} disabled={deleteLoading}>Cancel</Button>
           <Button
             className="bg-danger hover:bg-danger/90 text-white"
             onClick={handleConfirmDelete}
-            loading={deleteMut.isPending}
+            loading={deleteLoading}
             disabled={deleteReason.trim().length < 5}
           >
             Delete
@@ -364,7 +371,7 @@ export default function IssuesPage({ mine = false }) {
         </select>
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" onClick={() => setStatusModal(false)}>Cancel</Button>
-          <Button onClick={() => updateStatus.mutate({ id: selectedIssue?.issueId, status: newStatus })} loading={updateStatus.isPending}>Update</Button>
+          <Button onClick={handleUpdateStatus} loading={statusLoading}>Update</Button>
         </div>
       </Modal>
     </DashboardLayout>

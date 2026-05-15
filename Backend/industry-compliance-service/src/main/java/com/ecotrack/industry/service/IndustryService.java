@@ -7,20 +7,29 @@ import com.ecotrack.industry.enums.EmissionStatus;
 import com.ecotrack.industry.enums.EmissionType;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
+import com.ecotrack.industry.exception.FileStorageException;
 import com.ecotrack.industry.exception.ResourceNotFoundException;
 import com.ecotrack.industry.feign.NotificationCategory;
 import com.ecotrack.industry.feign.NotificationClient;
 import com.ecotrack.industry.feign.NotificationRequest;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
-import com.ecotrack.industry.storage.FileStorageService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.*;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,8 +39,29 @@ public class IndustryService {
 
     private final EmissionLogRepository      emissionLogRepository;
     private final IndustryDocumentRepository documentRepository;
-    private final FileStorageService         fileStorageService;
     private final NotificationClient         notificationClient;
+
+    // ─── File Storage Setup ───────────────────────────────────────────────────
+
+    private static final Set<String> ALLOWED_TYPES = Set.of(
+            "application/pdf", "image/png", "image/jpeg"
+    );
+
+    @Value("${app.upload-dir}")
+    private String uploadDirPath;
+
+    private Path uploadDir;
+
+    @PostConstruct
+    private void initUploadDir() {
+        this.uploadDir = Paths.get(uploadDirPath).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(this.uploadDir);
+            log.info("File storage initialized at: {}", this.uploadDir);
+        } catch (IOException e) {
+            throw new FileStorageException("Could not create upload directory: " + uploadDirPath, e);
+        }
+    }
 
     // ─── Emission Log CRUD ────────────────────────────────────────────────────
 
@@ -104,13 +134,9 @@ public class IndustryService {
 
     // ─── Industry Document CRUD ───────────────────────────────────────────────
 
-    /**
-     * Stores the uploaded file on the local filesystem and saves document metadata to MySQL.
-     * The absolute disk path is stored in {@code fileUri} (internal — not returned to clients).
-     */
     @Transactional
     public IndustryDocumentResponse submitDocument(IndustryDocumentRequest request, MultipartFile file, Long industryUserId) {
-        StoredFileInfo fileInfo = fileStorageService.store(file, industryUserId, request.getDocType().name());
+        StoredFileInfo fileInfo = storeFile(file, industryUserId, request.getDocType().name());
 
         IndustryDocument doc = IndustryDocument.builder()
                 .industryId(industryUserId)
@@ -174,24 +200,81 @@ public class IndustryService {
         return response;
     }
 
-    /**
-     * Deletes the MySQL record and the corresponding file from the local filesystem.
-     */
     @Transactional
     public void deleteDocument(Long docId) {
         IndustryDocument doc = findDocumentById(docId);
         documentRepository.deleteById(docId);
-        fileStorageService.delete(doc.getFileUri());
+        deleteFile(doc.getFileUri());
         log.info("IndustryDocument {} deleted", docId);
     }
 
-    /**
-     * Reads the stored file path from MySQL and returns a streamable Resource for the controller.
-     */
     public DownloadPayload getFileForDocument(Long docId) {
         IndustryDocument doc = findDocumentById(docId);
-        return fileStorageService.loadAsResource(
-                doc.getFileUri(), doc.getFileName(), doc.getContentType(), doc.getFileSize());
+        return loadFileAsResource(doc.getFileUri(), doc.getFileName(), doc.getContentType(), doc.getFileSize());
+    }
+
+    // ─── File Storage Operations ──────────────────────────────────────────────
+
+    private StoredFileInfo storeFile(MultipartFile file, Long ownerId, String category) {
+        if (file == null || file.isEmpty())
+            throw new FileStorageException("File must not be empty");
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank())
+            throw new FileStorageException("Original filename must not be null");
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase()))
+            throw new BadRequestException("Unsupported file type: " + contentType + ". Allowed: pdf, png, jpg, jpeg");
+
+        String sanitized = sanitizeFilename(originalFilename);
+        String uniqueName = ownerId + "_" + category + "_" + UUID.randomUUID() + "_" + sanitized;
+
+        Path targetPath = uploadDir.resolve(uniqueName).normalize();
+        if (!targetPath.startsWith(uploadDir))
+            throw new FileStorageException("Security violation: filename resolves outside upload directory");
+
+        try {
+            Files.createDirectories(targetPath.getParent());
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("File stored: owner={}, category={}, path={}", ownerId, category, targetPath);
+            return new StoredFileInfo(targetPath.toAbsolutePath().toString(), originalFilename, contentType, file.getSize());
+        } catch (IOException e) {
+            throw new FileStorageException("Failed to write file to disk: " + originalFilename, e);
+        }
+    }
+
+    private DownloadPayload loadFileAsResource(String filePath, String originalFilename, String contentType, Long fileSize) {
+        try {
+            Path path = Paths.get(filePath);
+            Resource resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable())
+                throw new FileStorageException("File not found or not readable at: " + filePath);
+            log.info("File loaded for download: {}", filePath);
+            return new DownloadPayload(resource, originalFilename, contentType, fileSize);
+        } catch (MalformedURLException e) {
+            throw new FileStorageException("Invalid file path: " + filePath, e);
+        }
+    }
+
+    private void deleteFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) return;
+        try {
+            boolean deleted = Files.deleteIfExists(Paths.get(filePath));
+            if (deleted) log.info("File deleted from disk: {}", filePath);
+            else         log.warn("File not found on disk, skipping delete: {}", filePath);
+        } catch (IOException e) {
+            log.error("Failed to delete file at {}: {}", filePath, e.getMessage());
+        }
+    }
+
+    private String sanitizeFilename(String filename) {
+        if (filename.contains(".."))
+            throw new FileStorageException("Filename contains path traversal sequence: " + filename);
+        String name = Paths.get(filename).getFileName().toString();
+        if (name.isBlank())
+            throw new FileStorageException("Invalid filename: " + filename);
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────

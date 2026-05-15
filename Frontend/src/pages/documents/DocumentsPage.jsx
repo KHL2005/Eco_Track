@@ -43,6 +43,12 @@ export default function DocumentsPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Form validation errors
+  const [regNumError, setRegNumError] = useState('');
+  const [industryNameError, setIndustryNameError] = useState('');
+  const [descriptionError, setDescriptionError] = useState('');
+  const [fileError, setFileError] = useState('');
+
   // Fetch documents when the page first loads
   useEffect(() => {
     fetchDocuments();
@@ -72,6 +78,10 @@ export default function DocumentsPage() {
     setDescription('');
     setFile(null);
     setUploadProgress(0);
+    setRegNumError('');
+    setIndustryNameError('');
+    setDescriptionError('');
+    setFileError('');
   }
 
   async function handleDownloadPdf(docId, fileName) {
@@ -90,15 +100,70 @@ export default function DocumentsPage() {
     }
   }
 
+  function validate() {
+    let valid = true;
+
+    // Registration Number: required, min 3, max 15
+    if (!registrationNumber.trim()) {
+      setRegNumError('Registration number is required');
+      valid = false;
+    } else if (registrationNumber.trim().length < 3 || registrationNumber.trim().length > 15) {
+      setRegNumError('Must be 3–15 characters');
+      valid = false;
+    } else {
+      setRegNumError('');
+    }
+
+    // Industry Name: required, min 3, max 100, letters/spaces/hyphens only
+    if (!industryName.trim()) {
+      setIndustryNameError('Industry name is required');
+      valid = false;
+    } else if (industryName.trim().length < 3 || industryName.trim().length > 100) {
+      setIndustryNameError('Must be 3–100 characters, letters and spaces only');
+      valid = false;
+    } else if (!/^[A-Za-z\s-]+$/.test(industryName.trim())) {
+      setIndustryNameError('Must be 3–100 characters, letters and spaces only');
+      valid = false;
+    } else {
+      setIndustryNameError('');
+    }
+
+    // Description: required, min 10, max 500
+    if (!description.trim()) {
+      setDescriptionError('Minimum 10 characters required');
+      valid = false;
+    } else if (description.trim().length < 10) {
+      setDescriptionError('Minimum 10 characters required');
+      valid = false;
+    } else if (description.trim().length > 500) {
+      setDescriptionError('Must be under 500 characters');
+      valid = false;
+    } else {
+      setDescriptionError('');
+    }
+
+    // File: null check, extension, MIME type, size
+    if (!file) {
+      setFileError('Please select a PDF file');
+      valid = false;
+    } else if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setFileError('File must have a .pdf extension');
+      valid = false;
+    } else if (file.type !== 'application/pdf') {
+      setFileError('Only PDF files are accepted');
+      valid = false;
+    } else if (file.size > 10 * 1024 * 1024) {
+      setFileError('File size must be under 10 MB');
+      valid = false;
+    } else {
+      setFileError('');
+    }
+
+    return valid;
+  }
+
   async function handleSubmit() {
-    if (file.type !== 'application/pdf') {
-      toast.error('Only PDF files are accepted');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be under 10 MB');
-      return;
-    }
+    if (!validate()) return;
 
     setIsSubmitting(true);
     try {
@@ -345,19 +410,21 @@ export default function DocumentsPage() {
               <label className="block text-sm font-medium text-bark-600 mb-1">Registration Number (e.g. TNPCB-IND-1023)</label>
               <input
                 type="text"
-                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${regNumError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
                 value={registrationNumber}
                 onChange={(e) => setRegistrationNumber(e.target.value)}
               />
+              {regNumError && <p className="mt-1 text-xs text-red-500">{regNumError}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-bark-600 mb-1">Industry Name</label>
               <input
                 type="text"
-                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${industryNameError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
                 value={industryName}
                 onChange={(e) => setIndustryName(e.target.value)}
               />
+              {industryNameError && <p className="mt-1 text-xs text-red-500">{industryNameError}</p>}
             </div>
           </div>
           <div>
@@ -373,13 +440,17 @@ export default function DocumentsPage() {
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
             <input
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${descriptionError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
             />
+            {descriptionError && <p className="mt-1 text-xs text-red-500">{descriptionError}</p>}
           </div>
-          <FileUpload onFile={setFile} accept=".pdf" label="Upload PDF (max 10 MB)" progress={uploadProgress} />
+          <div>
+            <FileUpload onFile={setFile} accept=".pdf" label="Upload PDF (max 10 MB)" progress={uploadProgress} />
+            {fileError && <p className="mt-1 text-xs text-red-500">{fileError}</p>}
+          </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={closeModal}>Cancel</Button>
             <Button onClick={handleSubmit} loading={isSubmitting} disabled={isSubmitDisabled}>Submit</Button>

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
@@ -13,33 +13,54 @@ import { toast } from 'sonner';
 
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const qc = useQueryClient();
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications', 'all', user?.userId],
-    queryFn: () => notifApi.getNotificationsByUser(user?.userId).then(r => r.data).catch(() => []),
-    enabled: !!user?.userId,
-  });
+  async function loadNotifications() {
+    if (!user?.userId) return;
+    setIsLoading(true);
+    try {
+      const res = await notifApi.getNotificationsByUser(user?.userId);
+      setNotifications(res.data);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const markRead = useMutation({
-    mutationFn: (id) => notifApi.markAsRead(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  useEffect(() => {
+    loadNotifications();
+  }, [user?.userId]);
 
-  const archive = useMutation({
-    mutationFn: (id) => notifApi.markAsArchived(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  const handleMarkRead = async (id) => {
+    try {
+      await notifApi.markAsRead(id);
+      await loadNotifications();
+    } catch {}
+  };
 
-  const del = useMutation({
-    mutationFn: (id) => notifApi.deleteNotification(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notifications'] }); toast.success('Deleted'); },
-  });
+  const handleArchive = async (id) => {
+    try {
+      await notifApi.markAsArchived(id);
+      await loadNotifications();
+    } catch {}
+  };
 
-  const markAll = useMutation({
-    mutationFn: () => notifApi.markAllRead(user?.userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  const handleDelete = async (id) => {
+    try {
+      await notifApi.deleteNotification(id);
+      await loadNotifications();
+      toast.success('Deleted');
+    } catch {}
+  };
+
+  const handleMarkAll = async () => {
+    try {
+      await notifApi.markAllRead(user?.userId);
+      await loadNotifications();
+    } catch {}
+  };
 
   const unread = notifications.filter(n => n.status === 'UNREAD');
 
@@ -48,7 +69,7 @@ export default function NotificationsPage() {
   return (
     <DashboardLayout>
       <PageHeader emoji="🔔" title="Notifications" description={`${unread.length} unread`}
-        action={unread.length > 0 && <Button variant="outline" size="sm" onClick={() => markAll.mutate()}>Mark all read</Button>}
+        action={unread.length > 0 && <Button variant="outline" size="sm" onClick={handleMarkAll}>Mark all read</Button>}
       />
 
       {isLoading ? (
@@ -71,14 +92,14 @@ export default function NotificationsPage() {
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {n.status === 'UNREAD' && (
-                  <button onClick={() => markRead.mutate(n.notificationId)} className="p-1.5 rounded-lg hover:bg-earth-100 text-bark-400 hover:text-forest-600 transition-colors" title="Mark read">
+                  <button onClick={() => handleMarkRead(n.notificationId)} className="p-1.5 rounded-lg hover:bg-earth-100 text-bark-400 hover:text-forest-600 transition-colors" title="Mark read">
                     <Check size={14} />
                   </button>
                 )}
-                <button onClick={() => archive.mutate(n.notificationId)} className="p-1.5 rounded-lg hover:bg-earth-100 text-bark-400 hover:text-bark-600 transition-colors" title="Archive">
+                <button onClick={() => handleArchive(n.notificationId)} className="p-1.5 rounded-lg hover:bg-earth-100 text-bark-400 hover:text-bark-600 transition-colors" title="Archive">
                   <Archive size={14} />
                 </button>
-                <button onClick={() => del.mutate(n.notificationId)} className="p-1.5 rounded-lg hover:bg-danger-light text-bark-400 hover:text-danger transition-colors" title="Delete">
+                <button onClick={() => handleDelete(n.notificationId)} className="p-1.5 rounded-lg hover:bg-danger-light text-bark-400 hover:text-danger transition-colors" title="Delete">
                   <Trash2 size={14} />
                 </button>
               </div>

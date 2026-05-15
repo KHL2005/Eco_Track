@@ -44,6 +44,13 @@ export default function EmissionsPage() {
   const [value, setValue] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Form validation errors
+  const [regNumError, setRegNumError] = useState('');
+  const [industryNameError, setIndustryNameError] = useState('');
+  const [valueError, setValueError] = useState('');
+  const [emissionTypeError, setEmissionTypeError] = useState('');
+  const [notesError, setNotesError] = useState('');
+
   // Fetch emissions when the page first loads
   useEffect(() => {
     fetchEmissions();
@@ -68,12 +75,92 @@ export default function EmissionsPage() {
     setEmissionType('CO2');
     setValue('');
     setNotes('');
+    setRegNumError('');
+    setIndustryNameError('');
+    setValueError('');
+    setEmissionTypeError('');
+    setNotesError('');
   }
 
   // Filter the list by selected status
   const filtered = statusFilter ? emissions.filter(e => e.status === statusFilter) : emissions;
 
+  function validate() {
+    let valid = true;
+
+    // Registration Number: required, min 3, max 15
+    if (!registrationNumber.trim()) {
+      setRegNumError('Registration number is required');
+      valid = false;
+    } else if (registrationNumber.trim().length < 3 || registrationNumber.trim().length > 15) {
+      setRegNumError('Must be 3–15 characters');
+      valid = false;
+    } else {
+      setRegNumError('');
+    }
+
+    // Industry Name: required, min 3, max 100, letters/spaces/hyphens only
+    if (!industryName.trim()) {
+      setIndustryNameError('Industry name is required');
+      valid = false;
+    } else if (industryName.trim().length < 3 || industryName.trim().length > 100) {
+      setIndustryNameError('Must be 3–100 characters, letters and spaces only');
+      valid = false;
+    } else if (!/^[A-Za-z\s-]+$/.test(industryName.trim())) {
+      setIndustryNameError('Must be 3–100 characters, letters and spaces only');
+      valid = false;
+    } else {
+      setIndustryNameError('');
+    }
+
+    // Value: required, finite number, > 0, max 4 decimal places, max 9,999,999
+    const num = parseFloat(value);
+    if (!value) {
+      setValueError('Must be a positive number with up to 4 decimal places');
+      valid = false;
+    } else if (isNaN(num) || !isFinite(num)) {
+      setValueError('Must be a positive number with up to 4 decimal places');
+      valid = false;
+    } else if (num <= 0) {
+      setValueError('Must be a positive number with up to 4 decimal places');
+      valid = false;
+    } else if (num > 9999999) {
+      setValueError('Value cannot exceed 9,999,999');
+      valid = false;
+    } else if (!/^\d+(\.\d{1,4})?$/.test(value)) {
+      setValueError('Must be a positive number with up to 4 decimal places');
+      valid = false;
+    } else {
+      setValueError('');
+    }
+
+    // Emission Type: must be one of the allowed values
+    if (!emissionType || !EMISSION_TYPES.includes(emissionType)) {
+      setEmissionTypeError('Select an emission type');
+      valid = false;
+    } else {
+      setEmissionTypeError('');
+    }
+
+    // Description: required, min 10, max 500
+    if (!notes.trim()) {
+      setNotesError('Minimum 10 characters required');
+      valid = false;
+    } else if (notes.trim().length < 10) {
+      setNotesError('Minimum 10 characters required');
+      valid = false;
+    } else if (notes.trim().length > 500) {
+      setNotesError('Must be under 500 characters');
+      valid = false;
+    } else {
+      setNotesError('');
+    }
+
+    return valid;
+  }
+
   async function handleCreate() {
+    if (!validate()) return;
     setIsSubmitting(true);
     try {
       await emissionsApi.logEmission({
@@ -339,48 +426,53 @@ export default function EmissionsPage() {
             <label className="block text-sm font-medium text-bark-600 mb-1">Registration Number (e.g. TNPCB-IND-1023)</label>
             <input
               type="text"
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${regNumError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={registrationNumber}
               onChange={(e) => setRegistrationNumber(e.target.value)}
             />
+            {regNumError && <p className="mt-1 text-xs text-red-500">{regNumError}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Industry Name</label>
             <input
               type="text"
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${industryNameError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={industryName}
               onChange={(e) => setIndustryName(e.target.value)}
             />
+            {industryNameError && <p className="mt-1 text-xs text-red-500">{industryNameError}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Value (mg/Nm³)</label>
             <input
               type="number"
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${valueError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
+            {valueError && <p className="mt-1 text-xs text-red-500">{valueError}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Emission Type</label>
             <select
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${emissionTypeError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={emissionType}
               onChange={(e) => setEmissionType(e.target.value)}
             >
               {EMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+            {emissionTypeError && <p className="mt-1 text-xs text-red-500">{emissionTypeError}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
             <textarea
               rows={2}
-              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${notesError ? 'border-red-400 focus:ring-red-400/30' : 'border-bark-400/20 focus:ring-forest-600/30'}`}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               required
             />
+            {notesError && <p className="mt-1 text-xs text-red-500">{notesError}</p>}
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={closeModal}>Cancel</Button>

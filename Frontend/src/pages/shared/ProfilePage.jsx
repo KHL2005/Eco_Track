@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Card from '../../components/common/Card';
@@ -28,18 +27,8 @@ export default function ProfilePage() {
 
   const handleProfileChange = (k) => (e) => setProfileForm(f => ({ ...f, [k]: e.target.value }));
 
-  const updateProfileMutation = useMutation({
-    mutationFn: (data) => usersApi.updateOwnProfile({
-      name: data.name,
-      phoneNumber: data.phone
-    }),
-    onSuccess: (res) => {
-      setUser({ ...user, ...res.data.data });
-      setEditing(false);
-      toast.success('Profile updated!');
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Could not update profile.'),
-  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
   const handleEditProfile = () => {
     setProfileForm({
@@ -50,8 +39,18 @@ export default function ProfilePage() {
     setEditing(true);
   };
 
-  const handleSaveProfile = () => {
-    updateProfileMutation.mutate(profileForm);
+  const handleSaveProfile = async () => {
+    setProfileLoading(true);
+    try {
+      const res = await usersApi.updateOwnProfile({ name: profileForm.name, phoneNumber: profileForm.phone });
+      setUser({ ...user, ...res.data.data });
+      setEditing(false);
+      toast.success('Profile updated!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update profile.');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -63,19 +62,23 @@ export default function ProfilePage() {
     });
   };
 
-  const changePw = useMutation({
-    mutationFn: () => usersApi.changePassword({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
-    onSuccess: () => { toast.success('Password changed successfully'); setPwForm({ currentPassword: '', newPassword: '', confirm: '' }); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to change password'),
-  });
-
-  const handleChangePw = () => {
+  const handleChangePw = async () => {
     const e = {};
     if (!pwForm.currentPassword) e.currentPassword = 'Required';
     if (!pwForm.newPassword || pwForm.newPassword.length < 8) e.newPassword = 'Min 8 characters';
     if (pwForm.newPassword !== pwForm.confirm) e.confirm = 'Passwords do not match';
     setErrors(e);
-    if (Object.keys(e).length === 0) changePw.mutate();
+    if (Object.keys(e).length > 0) return;
+    setPwLoading(true);
+    try {
+      await usersApi.changePassword({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword });
+      toast.success('Password changed successfully');
+      setPwForm({ currentPassword: '', newPassword: '', confirm: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   return (
@@ -141,7 +144,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <Button onClick={handleSaveProfile} loading={updateProfileMutation.isLoading}>
+                  <Button onClick={handleSaveProfile} loading={profileLoading}>
                     Save
                   </Button>
                   <Button variant="secondary" onClick={handleCancelEdit}>
@@ -183,7 +186,7 @@ export default function ProfilePage() {
                 {errors[k] && <p className="text-xs text-danger mt-1">{errors[k]}</p>}
               </div>
             ))}
-            <Button onClick={handleChangePw} loading={changePw.isPending}>Update Password</Button>
+            <Button onClick={handleChangePw} loading={pwLoading}>Update Password</Button>
           </div>
         </Card>
       </div>
