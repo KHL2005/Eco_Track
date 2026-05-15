@@ -22,12 +22,14 @@ export default function ComplianceDashboard() {
   const [complianceRecords, setComplianceRecords] = useState([]);
   const [auditsList, setAuditsList] = useState([]);
   const [emissions, setEmissions] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
-  // Fetch all three lists when the page first loads
+  // Fetch all lists when the page first loads
   useEffect(() => {
     fetchComplianceRecords();
     fetchAudits();
     fetchEmissions();
+    fetchDocuments();
   }, []);
 
   async function fetchComplianceRecords() {
@@ -57,6 +59,15 @@ export default function ComplianceDashboard() {
     }
   }
 
+  async function fetchDocuments() {
+    try {
+      const response = await emissionsApi.getDocuments();
+      setDocuments(response.data);
+    } catch (error) {
+      setDocuments([]);
+    }
+  }
+
   // Count compliance records by result
   let compliantCount = 0;
   let nonCompliantCount = 0;
@@ -77,6 +88,12 @@ export default function ComplianceDashboard() {
   let pendingEmissions = 0;
   for (const e of emissions) {
     if (e.status === 'SUBMITTED') pendingEmissions += 1;
+  }
+
+  // Count documents waiting for verification
+  let pendingDocuments = 0;
+  for (const d of documents) {
+    if (d.verificationStatus === 'SUBMITTED') pendingDocuments += 1;
   }
 
   // Overall compliance rate (compliant / total). 0 when there are no records.
@@ -219,6 +236,23 @@ export default function ComplianceDashboard() {
                   {pendingEmissions} emission{pendingEmissions > 1 ? 's' : ''} awaiting review
                 </p>
                 <p className="text-xs text-bark-400">Go to Emissions to approve or reject pending submissions.</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Pending documents spotlight */}
+        {pendingDocuments > 0 && (
+          <Card className="border-l-4 border-l-amber-400 bg-amber-50/50">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Clock size={18} className="text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-bark-800">
+                  {pendingDocuments} document{pendingDocuments > 1 ? 's' : ''} awaiting review
+                </p>
+                <p className="text-xs text-bark-400">Go to Documents to verify or reject pending submissions.</p>
               </div>
             </div>
           </Card>
