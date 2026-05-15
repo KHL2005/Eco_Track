@@ -7,10 +7,10 @@ import StatusBadge from '../../components/common/StatusBadge';
 import Modal from '../../components/common/Modal';
 import MilestoneManagement from '../../components/projects/MilestoneManagement';
 import ImpactManagement from '../../components/projects/ImpactManagement';
-import { ArrowLeft, Calendar, DollarSign, User, TreePine, Droplets, Wind, Edit, Trash2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Calendar, User, TreePine, Droplets, Wind, Edit, Trash2, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import * as projectsApi from '../../api/projectsApi';
-import { formatDate, formatCurrency, formatNumber, labelify } from '../../utils/formatters';
+import { formatDate, formatCurrency, formatNumber, labelify, formatIndianRupee } from '../../utils/formatters';
 import { PROJECT_STATUSES } from '../../utils/constants';
 import { useRole } from '../../hooks/useRole';
 import { toast } from 'sonner';
@@ -122,17 +122,28 @@ export default function ProjectDetailPageEnhanced() {
     }
   };
 
-  const handleUpdateSubmit = () => {
-    if (!editForm.title) {
-      toast.error('Title is required');
-      return;
-    }
-    const data = {
-      ...editForm,
-      budget: editForm.budget ? parseFloat(editForm.budget) : null,
-    };
-    handleUpdate(data);
-  };
+   const handleUpdateSubmit = () => {
+     if (!editForm.title) {
+       toast.error('Title is required');
+       return;
+     }
+     if (editForm.endDate && editForm.startDate > editForm.endDate) {
+       toast.error('End date must be after start date');
+       return;
+     }
+     if (editForm.budget) {
+       const budgetVal = parseFloat(editForm.budget);
+       if (budgetVal <= 0) {
+         toast.error('Budget must be greater than zero');
+         return;
+       }
+     }
+     const data = {
+       ...editForm,
+       budget: editForm.budget ? parseFloat(editForm.budget) : null,
+     };
+     handleUpdate(data);
+   };
 
   if (isLoading) {
     return (
@@ -210,12 +221,11 @@ export default function ProjectDetailPageEnhanced() {
                  </span>
                </div>
              )}
-             {project.budget && (
-               <div className="flex items-center gap-2">
-                 <DollarSign size={16} className="text-forest-600" />
-                 <span>{formatCurrency(project.budget)}</span>
-               </div>
-             )}
+               {project.budget && (
+                <div className="flex items-center gap-2">
+                  <span className="text-forest-600 font-medium">{formatIndianRupee(project.budget)}</span>
+                </div>
+              )}
              <div className="flex items-center gap-2">
                <BarChart3 size={16} className="text-forest-600" />
                <span className="font-medium">{progressPercent}% Progress</span>
@@ -247,12 +257,13 @@ export default function ProjectDetailPageEnhanced() {
               </span>
             )}
           </h2>
-          <MilestoneManagement
-            projectId={id}
-            milestones={milestones}
-            onRefresh={loadMilestones}
-            canEdit={canManageProjects}
-          />
+           <MilestoneManagement
+             projectId={id}
+             milestones={milestones}
+             onRefresh={loadMilestones}
+             canEdit={canManageProjects}
+             project={project}
+           />
         </Card>
 
         {/* Impact Section */}
@@ -331,7 +342,7 @@ export default function ProjectDetailPageEnhanced() {
              </div>
            ))}
            <div className="grid sm:grid-cols-2 gap-4">
-             {[['startDate', 'Start Date', 'date'], ['endDate', 'End Date', 'date'], ['budget', 'Budget (USD)', 'number']].map(([k, label, type]) => (
+              {[['startDate', 'Start Date', 'date'], ['endDate', 'End Date', 'date'], ['budget', 'Budget (₹)', 'number']].map(([k, label, type]) => (
                <div key={k}>
                  <label className="block text-sm font-medium text-bark-600 mb-1">{label}</label>
                  <input

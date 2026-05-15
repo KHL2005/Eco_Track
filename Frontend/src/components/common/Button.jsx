@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 const variants = {
   primary: 'bg-forest-600 hover:bg-forest-700 text-white shadow-sm',
   secondary: 'bg-earth-100 hover:bg-earth-100/80 text-bark-800 border border-bark-400/30',
-  danger: 'bg-danger hover:bg-red-700 text-white',
+  danger: 'bg-red-600 hover:bg-red-700 text-white',
   ghost: 'hover:bg-earth-100 text-bark-600',
   outline: 'border border-forest-600 text-forest-600 hover:bg-forest-600 hover:text-white',
 };

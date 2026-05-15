@@ -41,13 +41,17 @@ export const formatNumber = (num) => {
   return new Intl.NumberFormat().format(num);
 };
 
-export const formatCurrency = (num, currency = 'USD') => {
+export const formatCurrency = (num, currency = 'INR') => {
   if (num == null) return '—';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(num);
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(num);
+};
+
+export const formatIndianRupee = (num) => {
+  if (num == null) return '—';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(num);
 };
 
 export const labelify = (str) => {
   if (!str) return '';
   return str.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
-

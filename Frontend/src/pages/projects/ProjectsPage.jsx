@@ -8,10 +8,10 @@ import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
 import EmptyState from '../../components/common/EmptyState';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
-import { Plus, Calendar, DollarSign, Edit, Trash2, BarChart3 } from 'lucide-react';
+import { Plus, Calendar, Edit, Trash2, BarChart3 } from 'lucide-react';
 import * as projectsApi from '../../api/projectsApi';
 import { useRole } from '../../hooks/useRole';
-import { formatDate, labelify, formatCurrency } from '../../utils/formatters';
+import { formatDate, labelify, formatCurrency, formatIndianRupee } from '../../utils/formatters';
 import { PROJECT_STATUSES } from '../../utils/constants';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -114,22 +114,33 @@ export default function ProjectsPage() {
     setModal(true);
   };
 
-  const handleSubmit = () => {
-    if (!form.title) {
-      toast.error('Title is required');
-      return;
-    }
-    if (!form.startDate) {
-      toast.error('Start date is required');
-      return;
-    }
-    const data = { ...form, budget: form.budget ? parseFloat(form.budget) : null };
-    if (editId) {
-      handleUpdate(data);
-    } else {
-      handleCreate(data);
-    }
-  };
+   const handleSubmit = () => {
+     if (!form.title) {
+       toast.error('Title is required');
+       return;
+     }
+     if (!form.startDate) {
+       toast.error('Start date is required');
+       return;
+     }
+     if (form.endDate && form.startDate > form.endDate) {
+       toast.error('End date must be after start date');
+       return;
+     }
+     if (form.budget) {
+       const budgetVal = parseFloat(form.budget);
+       if (budgetVal <= 0) {
+         toast.error('Budget must be greater than zero');
+         return;
+       }
+     }
+     const data = { ...form, budget: form.budget ? parseFloat(form.budget) : null };
+     if (editId) {
+       handleUpdate(data);
+     } else {
+       handleCreate(data);
+     }
+   };
 
   return (
     <DashboardLayout>
@@ -167,10 +178,10 @@ export default function ProjectsPage() {
                    <StatusBadge status={p.status} />
                  </div>
                  <p className="text-xs text-bark-400 line-clamp-2 mb-4">{p.description}</p>
-                 <div className="space-y-1.5 text-xs text-bark-400">
-                   {p.startDate && <div className="flex items-center gap-1.5"><Calendar size={12} />{formatDate(p.startDate)} → {p.endDate ? formatDate(p.endDate) : 'Ongoing'}</div>}
-                   {p.budget && <div className="flex items-center gap-1.5"><DollarSign size={12} />Budget: {formatCurrency(p.budget)}</div>}
-                 </div>
+                  <div className="space-y-1.5 text-xs text-bark-400">
+                    {p.startDate && <div className="flex items-center gap-1.5"><Calendar size={12} />{formatDate(p.startDate)} → {p.endDate ? formatDate(p.endDate) : 'Ongoing'}</div>}
+                    {p.budget && <div className="flex items-center gap-1.5">Budget: <span className="font-medium text-forest-600">{formatIndianRupee(p.budget)}</span></div>}
+                  </div>
                  <div className="mt-4 flex gap-2">
                    <Link to={`/projects/${p.projectId}`} className="flex-1">
                      <Button size="sm" variant="outline" className="w-full">View Details</Button>
@@ -213,21 +224,25 @@ export default function ProjectsPage() {
                )}
              </div>
            ))}
-           <div className="grid sm:grid-cols-2 gap-4">
-             {[['startDate', 'Start Date', 'date'], ['endDate', 'End Date', 'date'], ['budget', 'Budget (USD)', 'number']].map(([k, label, type]) => (
-               <div key={k}>
-                 <label className="block text-sm font-medium text-bark-600 mb-1">{label}{k === 'startDate' && <span className="text-red-500 ml-1">*</span>}</label>
-                 <input type={type} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={form[k]} onChange={set(k)} />
-               </div>
-             ))}
-             <div>
-               <label className="block text-sm font-medium text-bark-600 mb-1">Status</label>
-               <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-                 value={form.status} onChange={set('status')}>
-                 {PROJECT_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
-               </select>
-             </div>
-           </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {[['startDate', 'Start Date', 'date'], ['endDate', 'End Date', 'date']].map(([k, label, type]) => (
+                <div key={k}>
+                  <label className="block text-sm font-medium text-bark-600 mb-1">{label}{k === 'startDate' && <span className="text-red-500 ml-1">*</span>}</label>
+                  <input type={type} className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={form[k]} onChange={set(k)} />
+                </div>
+              ))}
+              <div>
+                <label className="block text-sm font-medium text-bark-600 mb-1">Budget (₹)</label>
+                <input type="number" step="0.01" className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" placeholder="e.g., 2,50,000" value={form.budget} onChange={set('budget')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-bark-600 mb-1">Status</label>
+                <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                  value={form.status} onChange={set('status')}>
+                  {PROJECT_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
+                </select>
+              </div>
+            </div>
            <div className="flex gap-3 justify-end">
              <Button variant="secondary" onClick={() => { setModal(false); resetForm(); }}>Cancel</Button>
              <Button onClick={handleSubmit} loading={saveLoading}>{editId ? 'Update' : 'Create'}</Button>

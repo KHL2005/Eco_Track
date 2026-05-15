@@ -40,6 +40,12 @@ public class ProjectService {
                 && request.getEndDate().isBefore(request.getStartDate())) {
             throw new BadRequestException("End date cannot be before start date");
         }
+        
+        // Validate budget
+        if (request.getBudget() != null && request.getBudget().signum() <= 0) {
+            throw new BadRequestException("Budget must be greater than zero");
+        }
+        
         Project project = Project.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
@@ -95,6 +101,9 @@ public class ProjectService {
             project.setEndDate(request.getEndDate());
         }
         if (request.getBudget() != null) {
+            if (request.getBudget().signum() <= 0) {
+                throw new BadRequestException("Budget must be greater than zero");
+            }
             project.setBudget(request.getBudget());
         }
         if (request.getStatus() != null) {
@@ -117,7 +126,27 @@ public class ProjectService {
 
     @Transactional
     public MilestoneResponse addMilestone(Long projectId, MilestoneRequest request) {
-        findProjectById(projectId); // validates project exists, throws ProjectNotFoundException
+        Project project = findProjectById(projectId); // validates project exists, throws ProjectNotFoundException
+        
+        // Validate milestone date is within project duration
+        if (request.getDate().isBefore(project.getStartDate())) {
+            throw new BadRequestException("Milestone date cannot be before project start date (" + project.getStartDate() + ")");
+        }
+        if (project.getEndDate() != null && request.getDate().isAfter(project.getEndDate())) {
+            throw new BadRequestException("Milestone date cannot be after project end date (" + project.getEndDate() + ")");
+        }
+        
+        // Validate sequential order - milestone date should be >= latest existing milestone date
+        List<Milestone> existingMilestones = milestoneRepository.findByProjectId(projectId);
+        if (!existingMilestones.isEmpty()) {
+            Milestone latestMilestone = existingMilestones.stream()
+                    .max((m1, m2) -> m1.getDate().compareTo(m2.getDate()))
+                    .orElse(null);
+            if (latestMilestone != null && request.getDate().isBefore(latestMilestone.getDate())) {
+                throw new BadRequestException("Milestone date must be after the latest milestone date (" + latestMilestone.getDate() + ")");
+            }
+        }
+        
         Milestone milestone = Milestone.builder()
                 .projectId(projectId)
                 .title(request.getTitle())
@@ -161,6 +190,7 @@ public class ProjectService {
     public MilestoneResponse updateMilestone(Long milestoneId, MilestoneRequest request) {
         Milestone milestone = findMilestoneById(milestoneId);
         Long projectId = milestone.getProjectId();
+        Project project = findProjectById(projectId);
         
         // Partial update — only update provided fields
         if (request.getTitle() != null && !request.getTitle().isBlank()) {
@@ -170,6 +200,33 @@ public class ProjectService {
             milestone.setDescription(request.getDescription());
         }
         if (request.getDate() != null) {
+            // Validate new milestone date is within project duration
+            if (request.getDate().isBefore(project.getStartDate())) {
+                throw new BadRequestException("Milestone date cannot be before project start date (" + project.getStartDate() + ")");
+            }
+            if (project.getEndDate() != null && request.getDate().isAfter(project.getEndDate())) {
+                throw new BadRequestException("Milestone date cannot be after project end date (" + project.getEndDate() + ")");
+            }
+            
+            // Validate sequential order
+            List<Milestone> otherMilestones = milestoneRepository.findByProjectId(projectId).stream()
+                    .filter(m -> !m.getMilestoneId().equals(milestoneId))
+                    .toList();
+            
+            Milestone latestBefore = otherMilestones.stream()
+                    .filter(m -> m.getDate().isBefore(request.getDate()))
+                    .max((m1, m2) -> m1.getDate().compareTo(m2.getDate()))
+                    .orElse(null);
+            
+            Milestone earliestAfter = otherMilestones.stream()
+                    .filter(m -> m.getDate().isAfter(request.getDate()))
+                    .min((m1, m2) -> m1.getDate().compareTo(m2.getDate()))
+                    .orElse(null);
+            
+            if (earliestAfter != null) {
+                throw new BadRequestException("New milestone date conflicts with later milestone (" + earliestAfter.getDate() + ")");
+            }
+            
             milestone.setDate(request.getDate());
         }
         if (request.getStatus() != null) {

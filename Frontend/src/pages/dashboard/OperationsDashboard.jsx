@@ -18,7 +18,7 @@ import { ROLE_LABELS } from '../../utils/constants';
 import * as issuesApi from '../../api/issuesApi';
 import * as projectsApi from '../../api/projectsApi';
 import * as sensorsApi from '../../api/sensorsApi';
-import * as officerApi from '../../api/officerApi';
+import * as reportsApi from '../../api/reportsApi';
 
 export default function OperationsDashboard() {
   const { user } = useAuth();
@@ -37,7 +37,7 @@ export default function OperationsDashboard() {
     if (showSensors) {
       sensorsApi.getSensors().then(r => setSensors(r.data)).catch(() => setSensors([]));
     }
-    officerApi.getAllReports().then(r => setReports(r.data)).catch(() => setReports([]));
+    reportsApi.getReports().then(r => setReports(Array.isArray(r.data) ? r.data : [])).catch(() => setReports([]));
   }, [showSensors]);
 
   const openIssues     = issues.filter(i => i.status === 'OPEN').length;

@@ -584,6 +584,17 @@ export default function ProjectDetailPage() {
         size="md"
       >
         <div className="space-y-4">
+          {project && (
+            <div className="bg-earth-100 rounded-lg p-3 border border-earth-300 text-sm text-bark-700 mb-4">
+              <p className="font-medium mb-1">Project Duration:</p>
+              <p>{formatDate(project.startDate)} → {project.endDate ? formatDate(project.endDate) : 'Ongoing'}</p>
+              {milestones.length > 0 && (
+                <p className="mt-2 text-xs text-bark-600">
+                  Latest Milestone: {milestones.reduce((max, m) => new Date(m.date) > new Date(max.date) ? m : max).date}
+                </p>
+              )}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-2">Title *</label>
             <input
@@ -604,6 +615,16 @@ export default function ProjectDetailPage() {
                 onChange={(e) => setMilestoneForm({ ...milestoneForm, date: e.target.value })}
                 className="w-full border border-bark-400/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               />
+              {milestoneForm.date && project && (
+                <p className="text-xs text-bark-500 mt-1">
+                  {new Date(milestoneForm.date) < new Date(project.startDate) && (
+                    <span className="text-red-600">⚠️ Must be on or after: {formatDate(project.startDate)}</span>
+                  )}
+                  {project.endDate && new Date(milestoneForm.date) > new Date(project.endDate) && (
+                    <span className="text-red-600">⚠️ Must be on or before: {formatDate(project.endDate)}</span>
+                  )}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-bark-600 mb-2">Status</label>
@@ -647,6 +668,12 @@ export default function ProjectDetailPage() {
         size="md"
       >
         <div className="space-y-4">
+          {project && (
+            <div className="bg-earth-100 rounded-lg p-3 border border-earth-300 text-sm text-bark-700 mb-4">
+              <p className="font-medium mb-1">Project Duration:</p>
+              <p>{formatDate(project.startDate)} → {project.endDate ? formatDate(project.endDate) : 'Ongoing'}</p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-2">Title *</label>
             <input
@@ -666,6 +693,16 @@ export default function ProjectDetailPage() {
                 onChange={(e) => setMilestoneForm({ ...milestoneForm, date: e.target.value })}
                 className="w-full border border-bark-400/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
               />
+              {milestoneForm.date && project && (
+                <p className="text-xs text-bark-500 mt-1">
+                  {new Date(milestoneForm.date) < new Date(project.startDate) && (
+                    <span className="text-red-600">⚠️ Must be on or after: {formatDate(project.startDate)}</span>
+                  )}
+                  {project.endDate && new Date(milestoneForm.date) > new Date(project.endDate) && (
+                    <span className="text-red-600">⚠️ Must be on or before: {formatDate(project.endDate)}</span>
+                  )}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-bark-600 mb-2">Status</label>

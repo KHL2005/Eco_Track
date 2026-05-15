@@ -21,7 +21,7 @@ const statusBgColor = {
   DELAYED: 'bg-red-100',
 };
 
-export default function MilestoneManagement({ projectId, milestones, onRefresh, canEdit }) {
+export default function MilestoneManagement({ projectId, milestones, onRefresh, canEdit, project }) {
    const [modal, setModal] = useState(false);
    const [editId, setEditId] = useState(null);
    const [statusModal, setStatusModal] = useState(null);
@@ -106,17 +106,53 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
     }
   }
 
+   const validateMilestoneDate = () => {
+      if (!form.date) return null;
+
+      // Check if milestone date is within project timeline
+      if (project?.startDate && form.date < project.startDate) {
+        return `Milestone date must be on or after project start date (${formatDate(project.startDate)})`;
+      }
+
+      if (project?.endDate && form.date > project.endDate) {
+        return `Milestone date must be on or before project end date (${formatDate(project.endDate)})`;
+      }
+
+      // Check sequential order (only for new milestones, not when editing)
+      if (!editId && milestones.length > 0) {
+        const sortedMilestones = [...milestones].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const latestMilestoneDate = sortedMilestones[sortedMilestones.length - 1].date;
+
+        if (form.date <= latestMilestoneDate) {
+          return `Milestone date must be after the latest milestone (${formatDate(latestMilestoneDate)})`;
+        }
+      }
+
+      return null;
+    };
+
    const handleSubmit = () => {
-     if (!form.title || !form.date) {
-       toast.error('Title and date are required');
-       return;
-     }
-     if (editId) {
-       handleUpdate(form);
-     } else {
-       handleCreate(form);
-     }
-   };
+      if (!form.title || !form.date) {
+        toast.error('Title and date are required');
+        return;
+      }
+
+      const validationError = validateMilestoneDate();
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+
+      if (editId) {
+        handleUpdate(form);
+      } else {
+        handleCreate(form);
+      }
+    };
+
+   const latestMilestoneDate = milestones.length > 0
+     ? formatDate([...milestones].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date)
+     : null;
 
    return (
      <>
@@ -191,55 +227,71 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
         </Button>
       )}
 
-       {/* Create/Edit Modal */}
-       <Modal open={modal} onClose={() => { setModal(false); resetForm(); }} title={editId ? 'Edit Milestone' : 'Add Milestone'} size="md">
-         <div className="space-y-4">
-           <div>
-             <label className="block text-sm font-medium text-bark-600 mb-1">Title *</label>
-             <input
-               className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-               value={form.title}
-               onChange={set('title')}
-               placeholder="Milestone title"
-             />
-           </div>
-           <div>
-             <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
-             <textarea
-               className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-               value={form.description}
-               onChange={set('description')}
-               placeholder="Milestone description"
-               rows={3}
-             />
-           </div>
-           <div>
-             <label className="block text-sm font-medium text-bark-600 mb-1">Date *</label>
-             <input
-               type="date"
-               className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-               value={form.date}
-               onChange={set('date')}
-             />
-           </div>
-           <div>
-             <label className="block text-sm font-medium text-bark-600 mb-1">Status</label>
-             <select
-               className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
-               value={form.status}
-               onChange={set('status')}
-             >
-               {MILESTONE_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
-             </select>
-           </div>
-           <div className="flex gap-3 justify-end">
-             <Button variant="secondary" onClick={() => { setModal(false); resetForm(); }}>Cancel</Button>
-             <Button onClick={handleSubmit} loading={saveLoading}>
-               {editId ? 'Update' : 'Create'}
-             </Button>
-           </div>
-         </div>
-       </Modal>
+        {/* Create/Edit Modal */}
+        <Modal open={modal} onClose={() => { setModal(false); resetForm(); }} title={editId ? 'Edit Milestone' : 'Add Milestone'} size="md">
+          <div className="space-y-4">
+            {/* Project Timeline Info */}
+            {project && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-green-900 mb-2">📅 Project Timeline</p>
+                <div className="text-xs text-green-800 space-y-1">
+                  <p><strong>Duration:</strong> {formatDate(project.startDate)} → {project.endDate ? formatDate(project.endDate) : 'Ongoing'}</p>
+                  {latestMilestoneDate && <p><strong>Latest Milestone:</strong> {latestMilestoneDate}</p>}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-bark-600 mb-1">Title *</label>
+              <input
+                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                value={form.title}
+                onChange={set('title')}
+                placeholder="Milestone title"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-bark-600 mb-1">Description</label>
+              <textarea
+                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                value={form.description}
+                onChange={set('description')}
+                placeholder="Milestone description"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-bark-600 mb-1">Date *</label>
+              <input
+                type="date"
+                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                value={form.date}
+                onChange={set('date')}
+                min={project?.startDate}
+                max={project?.endDate}
+              />
+              {form.date && validateMilestoneDate() && (
+                <p className="text-xs text-red-600 mt-1">⚠ {validateMilestoneDate()}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-bark-600 mb-1">Status</label>
+              <select
+                className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+                value={form.status}
+                onChange={set('status')}
+              >
+                {MILESTONE_STATUSES.map(s => <option key={s} value={s}>{labelify(s)}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="secondary" onClick={() => { setModal(false); resetForm(); }}>Cancel</Button>
+              <Button onClick={handleSubmit} loading={saveLoading} disabled={!!validateMilestoneDate()}>
+                {editId ? 'Update' : 'Create'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
       {/* Status Change Modal */}
       <Modal open={!!statusModal} onClose={() => setStatusModal(null)} title="Change Milestone Status" size="sm">
