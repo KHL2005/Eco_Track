@@ -7,7 +7,13 @@ import com.ecotrack.project.enums.*;
 import com.ecotrack.project.exception.BadRequestException;
 import com.ecotrack.project.exception.ProjectNotFoundException;
 import com.ecotrack.project.exception.ResourceNotFoundException;
+import com.ecotrack.project.feign.NotificationCategory;
+import com.ecotrack.project.feign.NotificationClient;
+import com.ecotrack.project.feign.NotificationRequest;
 import com.ecotrack.project.repository.*;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +30,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final MilestoneRepository milestoneRepository;
     private final ImpactRepository impactRepository;
+    private final NotificationClient notificationClient;
 
     // ─── Project CRUD ─────────────────────────────────────────────
 
@@ -42,6 +49,12 @@ public class ProjectService {
                 .status(request.getStatus() != null ? request.getStatus() : ProjectStatus.PLANNED)
                 .build();
         project = projectRepository.save(project);
+        Long userId = getUserIdFromRequest();
+        if (userId != null) {
+            notify(userId, project.getProjectId(),
+                    "Project '" + project.getTitle() + "' has been created successfully.",
+                    NotificationCategory.PROJECT);
+        }
         return toProjectResponse(project);
     }
 
@@ -113,10 +126,16 @@ public class ProjectService {
                 .status(request.getStatus() != null ? request.getStatus() : MilestoneStatus.PENDING)
                 .build();
         Milestone saved = milestoneRepository.save(milestone);
-        
+
         // Auto-update project status based on milestones
         updateProjectStatusBasedOnMilestones(projectId);
-        
+
+        Long userId = getUserIdFromRequest();
+        if (userId != null) {
+            notify(userId, saved.getMilestoneId(),
+                    "Milestone '" + saved.getTitle() + "' has been added to project #" + projectId + ".",
+                    NotificationCategory.PROJECT);
+        }
         return toMilestoneResponse(saved);
     }
 
@@ -157,10 +176,18 @@ public class ProjectService {
             milestone.setStatus(request.getStatus());
         }
         Milestone saved = milestoneRepository.save(milestone);
-        
+
         // Auto-update project status based on milestones
         updateProjectStatusBasedOnMilestones(projectId);
-        
+
+        if (request.getStatus() != null) {
+            Long userId = getUserIdFromRequest();
+            if (userId != null) {
+                notify(userId, saved.getMilestoneId(),
+                        "Milestone '" + saved.getTitle() + "' status updated to " + saved.getStatus() + ".",
+                        NotificationCategory.PROJECT);
+            }
+        }
         return toMilestoneResponse(saved);
     }
 
@@ -311,7 +338,14 @@ public class ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Impact not found for project: " + projectId));
         impact.setStatus(status);
-        return toImpactResponse(impactRepository.save(impact));
+        Impact saved = impactRepository.save(impact);
+        Long userId = getUserIdFromRequest();
+        if (userId != null) {
+            notify(userId, saved.getImpactId(),
+                    "Impact status for project #" + projectId + " updated to " + status + ".",
+                    NotificationCategory.PROJECT);
+        }
+        return toImpactResponse(saved);
     }
 
     @Transactional
@@ -324,6 +358,36 @@ public class ProjectService {
     }
 
     // ─── Private Helpers ─────────────────────────────────────────
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private Long getUserIdFromRequest() {
+        try {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                String userId = attrs.getRequest().getHeader("X-User-Id");
+                if (userId != null && !userId.isBlank()) {
+                    return Long.parseLong(userId);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not extract X-User-Id from request context: {}", e.getMessage());
+        }
+        return null;
+    }
 
     /**
      * Auto-update project status based on milestone conditions:

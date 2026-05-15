@@ -11,11 +11,14 @@ import com.ecotrack.monitoring.exception.BadRequestException;
 import com.ecotrack.monitoring.exception.ResourceNotFoundException;
 import com.ecotrack.monitoring.exception.AgencyOfficerNotFoundException;
 import com.ecotrack.monitoring.exception.UnauthorizedException;
+import com.ecotrack.monitoring.feign.IamServiceClient;
+import com.ecotrack.monitoring.feign.NotificationCategory;
+import com.ecotrack.monitoring.feign.NotificationClient;
+import com.ecotrack.monitoring.feign.NotificationRequest;
+import com.ecotrack.monitoring.feign.UserDto;
 import com.ecotrack.monitoring.repository.AnalysisRepository;
 import com.ecotrack.monitoring.repository.SensorDataRepository;
 import com.ecotrack.monitoring.repository.SensorRepository;
-import com.ecotrack.monitoring.feign.IamServiceClient;
-import com.ecotrack.monitoring.feign.UserDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,7 @@ public class MonitoringService {
     private final SensorDataRepository sensorDataRepository;
     private final AnalysisRepository analysisRepository;
     private final IamServiceClient iamServiceClient;
+    private final NotificationClient notificationClient;
 
     // ─── Sensors ─────────────────────────────────────────────────
 
@@ -114,7 +118,6 @@ public class MonitoringService {
 
     // ─── Sensor Data ─────────────────────────────────────────────
 
-    @Transactional
     public SensorDataResponse addSensorData(SensorDataRequest request) {
         // Validate sensor exists
         findSensorById(request.getSensorId());
@@ -263,6 +266,18 @@ public class MonitoringService {
         analysis = analysisRepository.save(analysis);
 
         log.info("Analysis {} reviewed by agency officer {} (role: {}). Status: {}", id, reviewerId, userRole, status);
+        try {
+            List<UserDto> scientists = iamServiceClient.getUsersByRole("SCIENTIST");
+            if (scientists != null) {
+                for (UserDto scientist : scientists) {
+                    notify(scientist.getUserId(), id,
+                            "Analysis #" + id + " has been reviewed and marked as " + status + ".",
+                            NotificationCategory.GENERAL);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch scientists to notify for analysis review: {}", e.getMessage());
+        }
         return toAnalysisResponse(analysis);
     }
 
@@ -329,8 +344,13 @@ public class MonitoringService {
                     .findings(findings)
                     .status(hasViolation ? AnalysisStatus.FLAGGED : AnalysisStatus.PENDING)
                     .build();
-            analysisRepository.save(analysis);
+            Analysis savedAnalysis = analysisRepository.save(analysis);
             log.info("Auto-analysis triggered for sensorData id={}, flagged={}, agencyOfficerId={}", data.getDataId(), hasViolation, agencyOfficerId);
+            if (hasViolation && agencyOfficerId != null) {
+                notify(agencyOfficerId, savedAnalysis.getAnalysisId(),
+                        "Environmental violations detected on sensor #" + data.getSensorId() + ". Analysis flagged for your review.",
+                        NotificationCategory.GENERAL);
+            }
         } catch (Exception e) {
             log.error("Failed to trigger auto-analysis for dataId={}: {}", data.getDataId(), e.getMessage());
         }
@@ -441,6 +461,20 @@ public class MonitoringService {
             log.warn("Failed to parse parameters JSON: {}", e.getMessage());
         }
         return map;
+    }
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
     }
 
     // ─── Mappers ─────────────────────────────────────────────────

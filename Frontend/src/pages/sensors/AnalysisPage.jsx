@@ -144,10 +144,23 @@ export default function AnalysisPage() {
     try {
       const res = await sensorsApi.uploadCsv(csvFile, csvForm.sensorId, csvForm.sensorType,
         (e) => setCsvProgress(Math.round(e.loaded / e.total * 100)));
-      toast.success(`CSV uploaded: ${res.data.successCount} records inserted successfully`, {
-        description: `Total rows: ${res.data.totalRows}, Failed: ${res.data.failCount}`,
-        duration: 4000,
-      });
+      const { successCount, failCount, totalRows } = res.data;
+      if (successCount === 0) {
+        toast.error(`CSV upload failed: 0 records inserted`, {
+          description: `Total rows: ${totalRows}, Failed: ${failCount}. Check that the Sensor ID exists and the CSV columns match the sensor type.`,
+          duration: 6000,
+        });
+      } else if (failCount > 0) {
+        toast.warning(`CSV partially uploaded: ${successCount} of ${totalRows} records inserted`, {
+          description: `Failed: ${failCount} rows. Some rows may have invalid data or a mismatched Sensor ID.`,
+          duration: 6000,
+        });
+      } else {
+        toast.success(`CSV uploaded: ${successCount} records inserted successfully`, {
+          description: `Total rows: ${totalRows}`,
+          duration: 4000,
+        });
+      }
       setCsvModal(false);
       setCsvProgress(0);
       setCsvFile(null);
@@ -325,13 +338,24 @@ export default function AnalysisPage() {
       <Modal open={csvModal} onClose={() => setCsvModal(false)} title="Bulk CSV Upload">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-bark-600 mb-1">Sensor ID</label>
-            <input type="number" className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={csvForm.sensorId} onChange={setCsv('sensorId')} />
+            <label className="block text-sm font-medium text-bark-600 mb-1">Sensor ID <span className="text-red-500">*</span></label>
+            <select
+              className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30"
+              value={csvForm.sensorId}
+              onChange={setCsv('sensorId')}
+            >
+              <option value="">Select a sensor...</option>
+              {sensors.map(s => (
+                <option key={s.sensorId} value={s.sensorId}>
+                  SNS{String(s.sensorId).padStart(2, '0')} — {s.type} ({s.location})
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-bark-600 mb-1">Sensor Type</label>
             <select className="w-full border border-bark-400/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/30" value={csvForm.sensorType} onChange={setCsv('sensorType')}>
-              {['AIR', 'WATER', 'NOISE', 'SOIL'].map(t => <option key={t} value={t}>{t}</option>)}
+              {['AIR', 'WATER', 'NOISE'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <FileUpload onFile={setCsvFile} accept=".csv" label="Upload CSV File" progress={csvProgress} />
