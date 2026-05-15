@@ -1,12 +1,15 @@
 package com.ecotrack.iam.controller;
 
 import com.ecotrack.iam.dto.UserResponse;
+import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Internal controller for service-to-service communication only.
@@ -35,6 +38,13 @@ public class InternalUserController {
         } catch (Exception e) {
             return ResponseEntity.ok(false);
         }
+    }
+
+    @GetMapping("/users/role/{role}")
+    @Operation(summary = "Get users by role (internal - no auth)")
+    public ResponseEntity<List<UserResponse>> getUsersByRole(@PathVariable("role") String role) {
+        UserRole userRole = UserRole.valueOf(role.toUpperCase());
+        return ResponseEntity.ok(userService.getUsersByRole(userRole));
     }
 }
 

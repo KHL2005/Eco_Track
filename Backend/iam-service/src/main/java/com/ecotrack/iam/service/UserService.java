@@ -1,11 +1,14 @@
 package com.ecotrack.iam.service;
 
+import com.ecotrack.iam.client.NotificationClient;
 import com.ecotrack.iam.dto.ChangePasswordRequest;
 import com.ecotrack.iam.dto.CreateUserRequest;
+import com.ecotrack.iam.dto.NotificationRequest;
 import com.ecotrack.iam.dto.UpdateUserRequest;
 import com.ecotrack.iam.dto.UpdateProfileRequest;
 import com.ecotrack.iam.dto.UserResponse;
 import com.ecotrack.iam.entity.User;
+import com.ecotrack.iam.enums.NotificationCategory;
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.enums.UserStatus;
 import com.ecotrack.iam.exception.BadRequestException;
@@ -29,6 +32,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationClient notificationClient;
 
     private static final Set<UserRole> PRIVILEGED_ROLES = Set.of(UserRole.SUPER_ADMIN, UserRole.ADMINISTRATOR);
 
@@ -63,7 +67,13 @@ public class UserService {
             user.setPhone(request.getPhone());
         }
         if (request.getStatus() != null) user.setStatus(request.getStatus());
-        return toResponse(userRepository.save(user));
+        User saved = userRepository.save(user);
+        if (request.getStatus() != null) {
+            notify(saved.getUserId(), saved.getUserId(),
+                    "Your account status has been updated to " + request.getStatus() + ".",
+                    NotificationCategory.GENERAL);
+        }
+        return toResponse(saved);
     }
 
     @Transactional
@@ -108,7 +118,11 @@ public class UserService {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        return toResponse(userRepository.save(user));
+        User created = userRepository.save(user);
+        notify(created.getUserId(), created.getUserId(),
+                "Your account has been created by an administrator. Role: " + targetRole + ".",
+                NotificationCategory.GENERAL);
+        return toResponse(created);
     }
 
     /**
@@ -125,6 +139,8 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        notify(user.getUserId(), user.getUserId(),
+                "Your password has been changed successfully.", NotificationCategory.GENERAL);
     }
 
     /**
@@ -144,6 +160,19 @@ public class UserService {
         }
         // Email cannot be changed here
         return toResponse(userRepository.save(user));
+    }
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            NotificationRequest req = new NotificationRequest();
+            req.setUserId(userId);
+            req.setEntityId(entityId);
+            req.setMessage(message);
+            req.setCategory(category);
+            notificationClient.createNotification(req);
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
     }
 
     public UserResponse toResponse(User user) {

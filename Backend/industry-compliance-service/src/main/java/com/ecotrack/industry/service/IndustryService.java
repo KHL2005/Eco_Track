@@ -9,9 +9,11 @@ import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
 import com.ecotrack.industry.exception.FileStorageException;
 import com.ecotrack.industry.exception.ResourceNotFoundException;
+import com.ecotrack.industry.feign.IamServiceClient;
 import com.ecotrack.industry.feign.NotificationCategory;
 import com.ecotrack.industry.feign.NotificationClient;
 import com.ecotrack.industry.feign.NotificationRequest;
+import com.ecotrack.industry.feign.UserDto;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
 import jakarta.annotation.PostConstruct;
@@ -40,11 +42,12 @@ public class IndustryService {
     private final EmissionLogRepository      emissionLogRepository;
     private final IndustryDocumentRepository documentRepository;
     private final NotificationClient         notificationClient;
+    private final IamServiceClient           iamServiceClient;
 
     // ─── File Storage Setup ───────────────────────────────────────────────────
 
     private static final Set<String> ALLOWED_TYPES = Set.of(
-            "application/pdf", "image/png", "image/jpeg"
+            "application/pdf"
     );
 
     @Value("${app.upload-dir}")
@@ -81,6 +84,9 @@ public class IndustryService {
         EmissionLogResponse response = toEmissionResponse(emissionLogRepository.save(emissionLog));
         notify(industryUserId, response.getLogId(),
                 "Your emission log for '" + normalizedName + "' has been submitted for review.",
+                NotificationCategory.EMISSION);
+        notifyRoleUsers("COMPLIANCE_OFFICER", response.getLogId(),
+                normalizedName + " has submitted an emission log. Please review it.",
                 NotificationCategory.EMISSION);
         return response;
     }
@@ -157,6 +163,9 @@ public class IndustryService {
         notify(industryUserId, response.getDocumentId(),
                 "Your compliance document has been submitted and is pending review.",
                 NotificationCategory.COMPLIANCE);
+        notifyRoleUsers("COMPLIANCE_OFFICER", response.getDocumentId(),
+                request.getIndustryName().trim() + " has submitted a compliance document. Please review it.",
+                NotificationCategory.COMPLIANCE);
         return response;
     }
 
@@ -225,7 +234,7 @@ public class IndustryService {
 
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase()))
-            throw new BadRequestException("Unsupported file type: " + contentType + ". Allowed: pdf, png, jpg, jpeg");
+            throw new BadRequestException("Unsupported file type: " + contentType + ". Only PDF files are accepted.");
 
         String sanitized = sanitizeFilename(originalFilename);
         String uniqueName = ownerId + "_" + category + "_" + UUID.randomUUID() + "_" + sanitized;
@@ -290,6 +299,19 @@ public class IndustryService {
                             .build());
         } catch (Exception e) {
             log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private void notifyRoleUsers(String role, Long entityId, String message, NotificationCategory category) {
+        try {
+            List<UserDto> users = iamServiceClient.getUsersByRole(role);
+            if (users != null) {
+                for (UserDto user : users) {
+                    notify(user.getUserId(), entityId, message, category);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch users for role={} to notify: {}", role, e.getMessage());
         }
     }
 

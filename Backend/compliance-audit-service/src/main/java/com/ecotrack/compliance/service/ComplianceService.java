@@ -7,6 +7,9 @@ import com.ecotrack.compliance.enums.AuditStatus;
 import com.ecotrack.compliance.enums.ComplianceResult;
 import com.ecotrack.compliance.enums.ComplianceType;
 import com.ecotrack.compliance.exception.ResourceNotFoundException;
+import com.ecotrack.compliance.feign.NotificationCategory;
+import com.ecotrack.compliance.feign.NotificationClient;
+import com.ecotrack.compliance.feign.NotificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.ecotrack.compliance.repository.AuditRepository;
@@ -30,6 +33,7 @@ public class ComplianceService {
 
     private final ComplianceRecordRepository complianceRecordRepository;
     private final AuditRepository auditRepository;
+    private final NotificationClient notificationClient;
 
     @Transactional
     public ComplianceRecordResponse createRecord(ComplianceRecordRequest request) {
@@ -40,7 +44,8 @@ public class ComplianceService {
                 .notes(request.getNotes())
                 .build();
         record = complianceRecordRepository.save(record);
-
+        notify(record.getEntityId(), record.getComplianceId(),
+                "A new compliance record has been created for your entity.", NotificationCategory.COMPLIANCE);
         return toRecordResponse(record);
     }
 
@@ -75,7 +80,10 @@ public class ComplianceService {
                 .orElseThrow(() -> new ResourceNotFoundException("ComplianceRecord", id));
         record.setResult(result);
         if (notes != null) record.setNotes(notes);
-        return toRecordResponse(complianceRecordRepository.save(record));
+        record = complianceRecordRepository.save(record);
+        notify(record.getEntityId(), record.getComplianceId(),
+                "Your compliance record result has been updated to " + result + ".", NotificationCategory.COMPLIANCE);
+        return toRecordResponse(record);
     }
 
     @Transactional
@@ -91,7 +99,10 @@ public class ComplianceService {
                 .scope(request.getScope())
                 .findings(request.getFindings())
                 .build();
-        return toAuditResponse(auditRepository.save(audit));
+        Audit saved = auditRepository.save(audit);
+        notify(saved.getOfficerId(), saved.getAuditId(),
+                "A new audit has been assigned to you.", NotificationCategory.AUDIT);
+        return toAuditResponse(saved);
     }
 
     public List<AuditResponse> getAllAudits() {
@@ -115,7 +126,10 @@ public class ComplianceService {
         validateAuditTransition(audit.getStatus(), status);
         audit.setStatus(status);
         if (findings != null) audit.setFindings(findings);
-        return toAuditResponse(auditRepository.save(audit));
+        Audit saved = auditRepository.save(audit);
+        notify(saved.getOfficerId(), saved.getAuditId(),
+                "Your audit status has been updated to " + status + ".", NotificationCategory.AUDIT);
+        return toAuditResponse(saved);
     }
 
     /**
@@ -207,6 +221,20 @@ public class ComplianceService {
                 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0;
         String escaped = s.replace("\"", "\"\"");
         return needsQuote ? "\"" + escaped + "\"" : escaped;
+    }
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
     }
 
     private ComplianceRecordResponse toRecordResponse(ComplianceRecord r) {

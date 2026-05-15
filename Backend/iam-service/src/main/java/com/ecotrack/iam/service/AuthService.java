@@ -1,9 +1,12 @@
 package com.ecotrack.iam.service;
 
+import com.ecotrack.iam.client.NotificationClient;
 import com.ecotrack.iam.dto.AuthResponse;
 import com.ecotrack.iam.dto.LoginRequest;
+import com.ecotrack.iam.dto.NotificationRequest;
 import com.ecotrack.iam.dto.RegisterRequest;
 import com.ecotrack.iam.entity.User;
+import com.ecotrack.iam.enums.NotificationCategory;
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.enums.UserStatus;
 import com.ecotrack.iam.exception.BadRequestException;
@@ -11,6 +14,7 @@ import com.ecotrack.iam.exception.DuplicateResourceException;
 import com.ecotrack.iam.repository.UserRepository;
 import com.ecotrack.iam.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -24,12 +28,14 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final NotificationClient notificationClient;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -52,6 +58,8 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+        notify(user.getUserId(), user.getUserId(),
+                "Welcome to EcoTrack! Your account has been created successfully.", NotificationCategory.GENERAL);
 
         UserDetails userDetails = buildUserDetails(user);
         String token = jwtUtil.generateToken(userDetails, Map.of(
@@ -103,6 +111,19 @@ public class AuthService {
                 user.getPassword(),
                 List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
+    }
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            NotificationRequest req = new NotificationRequest();
+            req.setUserId(userId);
+            req.setEntityId(entityId);
+            req.setMessage(message);
+            req.setCategory(category);
+            notificationClient.createNotification(req);
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
     }
 }
 

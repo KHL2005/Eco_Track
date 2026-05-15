@@ -10,6 +10,9 @@ import com.ecotrack.citizen.exception.BadRequestException;
 import com.ecotrack.citizen.exception.DuplicateResourceException;
 import com.ecotrack.citizen.exception.IssueNotFoundException;
 import com.ecotrack.citizen.exception.ResourceNotFoundException;
+import com.ecotrack.citizen.feign.NotificationCategory;
+import com.ecotrack.citizen.feign.NotificationClient;
+import com.ecotrack.citizen.feign.NotificationRequest;
 import com.ecotrack.citizen.repository.IssueRepository;
 import com.ecotrack.citizen.repository.ResolutionRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class IssueService {
     private final IssueRepository issueRepository;
     private final ResolutionRepository resolutionRepository;
     private final MediaStorageService mediaStorageService;
+    private final NotificationClient notificationClient;
 
     // ─── Issue CRUD ───────────────────────────────────────────────
 
@@ -43,7 +47,9 @@ public class IssueService {
                 .status(IssueStatus.OPEN)
                 .build();
         issue = issueRepository.save(issue);
-
+        notify(issue.getCitizenId(), issue.getIssueId(),
+                "Your issue '" + issue.getTitle() + "' has been submitted successfully.",
+                NotificationCategory.ISSUE);
         return toIssueResponse(issue);
     }
 
@@ -111,7 +117,11 @@ public class IssueService {
         }
         validateStatusTransition(issue.getStatus(), request.getStatus());
         issue.setStatus(request.getStatus());
-        return toIssueResponse(issueRepository.save(issue));
+        Issue saved = issueRepository.save(issue);
+        notify(saved.getCitizenId(), saved.getIssueId(),
+                "Your issue status has been updated to " + request.getStatus() + ".",
+                NotificationCategory.ISSUE);
+        return toIssueResponse(saved);
     }
 
     @Transactional
@@ -202,7 +212,9 @@ public class IssueService {
             issue.setStatus(IssueStatus.IN_PROGRESS);
             issueRepository.save(issue);
         }
-
+        notify(issue.getCitizenId(), issueId,
+                "A resolution has been assigned to your issue.",
+                NotificationCategory.ISSUE);
         return toResolutionResponse(resolution);
     }
 
@@ -262,6 +274,8 @@ public class IssueService {
                     issue.setStatus(IssueStatus.RESOLVED);
                     issueRepository.save(issue);
                 }
+                notify(issue.getCitizenId(), issue.getIssueId(),
+                        "Your issue has been resolved.", NotificationCategory.ISSUE);
             });
         }
 
@@ -285,6 +299,20 @@ public class IssueService {
     }
 
     // ─── Private Helpers ─────────────────────────────────────────
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
 
     private Issue findIssueById(Long id) {
         return issueRepository.findById(id)

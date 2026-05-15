@@ -86,8 +86,21 @@ export const formatParameterWithRange = (parameter, value) => {
 
     // Noise Parameters
     'Noise Level': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'noise level': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'NOISE_LEVEL': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'noise_level': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'noiseLevel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'noise': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'Noise': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'NOISE': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
     'decibel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
     'Decibel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'DECIBEL': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'dB': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'db': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'DB': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'soundLevel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
+    'sound_level': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
 
     // Temperature (common to all)
     'Temperature': { min: 15, max: 35, unit: '°C', label: 'Temperature' },

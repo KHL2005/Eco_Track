@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -64,30 +62,6 @@ export default function ScientistDashboard() {
         <KpiCard emoji="⚠️" label="Flagged" value={flaggedAnalyses} sub="Violations detected" bg="bg-orange-50" glow="hover:shadow-orange-200/60" />
         <KpiCard emoji="✅" label="Reviewed" value={reviewedAnalyses} sub="Completed reviews" bg="bg-green-50" glow="hover:shadow-green-200/60" />
       </div>
-
-      {/* Quick Action Card for Analysis */}
-      {(pendingAnalyses + flaggedAnalyses) > 0 && (
-        <Card className="border-l-4 border-l-forest-500 bg-forest-50/50 mb-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-forest-100 flex items-center justify-center">
-                <AlertTriangle size={18} className="text-forest-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-bark-800">
-                  {pendingAnalyses} pending review
-                </p>
-                <p className="text-xs text-bark-400">Review your assigned analyses to keep the network running smoothly.</p>
-              </div>
-            </div>
-            <Link to="/analysis"
-              className="inline-flex items-center gap-1 px-4 py-2 bg-forest-600 hover:bg-forest-700 text-white text-sm font-medium rounded-xl transition-colors whitespace-nowrap">
-              <span>Review now</span>
-              <ArrowRight size={14} />
-            </Link>
-          </div>
-        </Card>
-      )}
 
       {/* Sensor Network Overview */}
       <SectionHeading emoji="📊" title="Sensor Network at a Glance" subtitle="Live status across the deployed sensor fleet" />
