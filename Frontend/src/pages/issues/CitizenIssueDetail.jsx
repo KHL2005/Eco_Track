@@ -1,5 +1,5 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -8,38 +8,98 @@ import { ArrowLeft, MapPin, Calendar, User, File } from 'lucide-react';
 import * as issuesApi from '../../api/issuesApi';
 import { formatDateTime, labelify } from '../../utils/formatters';
 
+// Helper: returns true if the filename ends with an image extension
+function isImageFile(fileName) {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.jpg')) return true;
+  if (lower.endsWith('.jpeg')) return true;
+  if (lower.endsWith('.png')) return true;
+  if (lower.endsWith('.gif')) return true;
+  return false;
+}
+
+// Helper: gets the last part of a URL path
+function getFileNameFromUrl(url) {
+  const parts = url.split('/');
+  return parts[parts.length - 1];
+}
+
 export default function CitizenIssueDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { data: issue, isLoading } = useQuery({
-    queryKey: ['issue', id],
-    queryFn: () => issuesApi.getIssueById(id).then(r => r.data),
-  });
+  const [issue, setIssue] = useState(null);
+  const [resolution, setResolution] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: resolution } = useQuery({
-    queryKey: ['resolution', 'issue', id],
-    queryFn: () => issuesApi.getResolutionByIssue(id).then(r => r.data).catch(() => null),
-  });
+  // Load the issue
+  useEffect(() => {
+    setIsLoading(true);
+    issuesApi.getIssueById(id)
+      .then(function (res) {
+        setIssue(res.data);
+      })
+      .catch(function () {
+        setIssue(null);
+      })
+      .finally(function () {
+        setIsLoading(false);
+      });
+  }, [id]);
 
-  if (isLoading) return <DashboardLayout><div className="animate-pulse h-64 bg-earth-100 rounded-2xl" /></DashboardLayout>;
-  if (!issue) return <DashboardLayout><p className="text-bark-400">Issue not found.</p></DashboardLayout>;
+  // Load the resolution (separate request)
+  useEffect(() => {
+    issuesApi.getResolutionByIssue(id)
+      .then(function (res) {
+        setResolution(res.data);
+      })
+      .catch(function () {
+        setResolution(null);
+      });
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="animate-pulse h-64 bg-earth-100 rounded-2xl" />
+      </DashboardLayout>
+    );
+  }
+
+  if (!issue) {
+    return (
+      <DashboardLayout>
+        <p className="text-bark-400">Issue not found.</p>
+      </DashboardLayout>
+    );
+  }
+
+  let mediaUrls = [];
+  if (issue.mediaUrls) {
+    mediaUrls = issue.mediaUrls;
+  }
 
   return (
     <DashboardLayout>
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/citizen/issues')}><ArrowLeft size={16} /> Back to My Issues</Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/citizen/issues')}>
+            <ArrowLeft size={16} /> Back to My Issues
+          </Button>
         </div>
 
         <Card className="mb-4">
           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-bark-800 flex items-center gap-2"><span aria-hidden="true">⚠️</span> <span>{issue.title}</span></h1>
+              <h1 className="text-xl font-bold text-bark-800 flex items-center gap-2">
+                <span aria-hidden="true">⚠️</span> <span>{issue.title}</span>
+              </h1>
               <div className="flex items-center gap-4 mt-2 text-sm text-bark-400">
                 <span className="flex items-center gap-1"><User size={14} />{issue.citizenName}</span>
                 <span className="flex items-center gap-1"><Calendar size={14} />{formatDateTime(issue.createdAt)}</span>
-                {issue.location && <span className="flex items-center gap-1"><MapPin size={14} />{issue.location}</span>}
+                {issue.location && (
+                  <span className="flex items-center gap-1"><MapPin size={14} />{issue.location}</span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -58,14 +118,14 @@ export default function CitizenIssueDetail() {
         {/* Media */}
         <Card className="mb-4">
           <h3 className="font-semibold text-bark-800 mb-4">Media</h3>
-          {issue.mediaUrls?.length > 0 ? (
+          {mediaUrls.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {issue.mediaUrls.map((url) => {
-                const fileName = url.split('/').pop();
+              {mediaUrls.map(function (url) {
+                const fileName = getFileNameFromUrl(url);
                 const imgUrl = issuesApi.getMediaUrl(id, fileName);
                 return (
                   <div key={url} className="aspect-video bg-earth-100 rounded-xl overflow-hidden flex flex-col items-center justify-center p-4">
-                    {/\.(jpg|jpeg|png|gif)$/.test(fileName) ? (
+                    {isImageFile(fileName) ? (
                       <img src={imgUrl} alt={fileName} className="w-full h-full object-cover rounded" />
                     ) : (
                       <File size={40} className="text-bark-400 mb-2" />
@@ -75,7 +135,9 @@ export default function CitizenIssueDetail() {
                 );
               })}
             </div>
-          ) : <p className="text-sm text-bark-400">No media attached.</p>}
+          ) : (
+            <p className="text-sm text-bark-400">No media attached.</p>
+          )}
         </Card>
 
         {/* Resolution */}

@@ -14,41 +14,94 @@ import { formatDateTime, labelify } from '../../utils/formatters';
 import { ISSUE_STATUSES, ISSUE_TYPES } from '../../utils/constants';
 import { toast } from 'sonner';
 
-// ── Status filter pill ────────────────────────────────────────
-// Active (selected) styles
-const STATUS_PILL_STYLES = {
-  '':            'bg-[#f0fdf4] text-[#14532d] border-[#bbf7d0]',
-  OPEN:          'bg-orange-100 text-orange-700 border-orange-200',
-  IN_PROGRESS:   'bg-yellow-100 text-yellow-700 border-yellow-200',
-  RESOLVED:      'bg-green-100 text-green-700 border-green-200',
-  CLOSED:        'bg-gray-100  text-gray-600   border-gray-200',
-};
+// ── Helpers for citizen view ──────────────────────────────────
 
-// Hover styles for unselected pills
-const STATUS_PILL_HOVER = {
-  '':            'hover:bg-[#f0fdf4] hover:text-[#14532d] hover:border-[#bbf7d0]',
-  OPEN:          'hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200',
-  IN_PROGRESS:   'hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-200',
-  RESOLVED:      'hover:bg-green-50  hover:text-green-600  hover:border-green-200',
-  CLOSED:        'hover:bg-gray-50   hover:text-gray-500   hover:border-gray-200',
-};
+// Returns the active (selected) pill style for a given status
+function getStatusPillActiveClass(status) {
+  if (status === '') return 'bg-[#f0fdf4] text-[#14532d] border-[#bbf7d0]';
+  if (status === 'OPEN') return 'bg-orange-100 text-orange-700 border-orange-200';
+  if (status === 'IN_PROGRESS') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  if (status === 'RESOLVED') return 'bg-green-100 text-green-700 border-green-200';
+  if (status === 'CLOSED') return 'bg-gray-100 text-gray-600 border-gray-200';
+  return '';
+}
+
+// Returns the hover style for an unselected pill
+function getStatusPillHoverClass(status) {
+  if (status === '') return 'hover:bg-[#f0fdf4] hover:text-[#14532d] hover:border-[#bbf7d0]';
+  if (status === 'OPEN') return 'hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200';
+  if (status === 'IN_PROGRESS') return 'hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-200';
+  if (status === 'RESOLVED') return 'hover:bg-green-50 hover:text-green-600 hover:border-green-200';
+  if (status === 'CLOSED') return 'hover:bg-gray-50 hover:text-gray-500 hover:border-gray-200';
+  return '';
+}
+
+// Returns the small "what's happening" hint shown on each citizen card
+function getStatusHint(status) {
+  if (status === 'OPEN')        return { text: 'Awaiting officer review',    dot: 'bg-orange-400' };
+  if (status === 'IN_PROGRESS') return { text: 'Officer is working on this', dot: 'bg-yellow-400' };
+  if (status === 'RESOLVED')    return { text: 'Issue resolved by officer',  dot: 'bg-green-500'  };
+  if (status === 'CLOSED')      return { text: 'Issue closed',               dot: 'bg-slate-400'  };
+  if (status === 'DELETED')     return { text: 'Removed by admin',           dot: 'bg-red-500'    };
+  return { text: 'Awaiting officer review', dot: 'bg-orange-400' };
+}
+
+// Returns just the filename (last segment of the URL path)
+function getFileNameFromUrl(url) {
+  const parts = url.split('/');
+  return parts[parts.length - 1];
+}
+
+function isImageUrl(url) {
+  const name = getFileNameFromUrl(url).toLowerCase();
+  if (name.endsWith('.jpg'))  return true;
+  if (name.endsWith('.jpeg')) return true;
+  if (name.endsWith('.png'))  return true;
+  if (name.endsWith('.gif'))  return true;
+  return false;
+}
+
+function isVideoUrl(url) {
+  const name = getFileNameFromUrl(url).toLowerCase();
+  if (name.endsWith('.mp4')) return true;
+  if (name.endsWith('.avi')) return true;
+  if (name.endsWith('.mov')) return true;
+  return false;
+}
 
 // ── Citizen card view ─────────────────────────────────────────
-const STATUS_HINT = {
-  OPEN:        { text: 'Awaiting officer review',    dot: 'bg-orange-400' },
-  IN_PROGRESS: { text: 'Officer is working on this', dot: 'bg-yellow-400' },
-  RESOLVED:    { text: 'Issue resolved by officer',  dot: 'bg-green-500'  },
-  CLOSED:      { text: 'Issue closed',               dot: 'bg-slate-400'  },
-  DELETED:     { text: 'Removed by admin',           dot: 'bg-red-500'    },
-};
-
 function CitizenIssueCard({ issue }) {
-  const issueId    = issue.issueId ?? issue.id;
-  const mediaUrls  = issue.mediaUrls ?? [];
-  const imageCount = mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length;
-  const videoCount = mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length;
-  const isDeleted  = !!issue.deletionReason;
-  const hint       = isDeleted ? STATUS_HINT.DELETED : (STATUS_HINT[issue.status] || STATUS_HINT.OPEN);
+  let issueId = issue.issueId;
+  if (!issueId) {
+    issueId = issue.id;
+  }
+
+  let mediaUrls = [];
+  if (issue.mediaUrls) {
+    mediaUrls = issue.mediaUrls;
+  }
+
+  // Count images and videos with a simple loop
+  let imageCount = 0;
+  let videoCount = 0;
+  for (let i = 0; i < mediaUrls.length; i++) {
+    if (isImageUrl(mediaUrls[i])) imageCount = imageCount + 1;
+    if (isVideoUrl(mediaUrls[i])) videoCount = videoCount + 1;
+  }
+
+  const isDeleted = issue.deletionReason ? true : false;
+
+  let hint;
+  if (isDeleted) {
+    hint = getStatusHint('DELETED');
+  } else {
+    hint = getStatusHint(issue.status);
+  }
+
+  let statusForBadge = issue.status;
+  if (isDeleted) {
+    statusForBadge = 'DELETED';
+  }
 
   return (
     <Link
@@ -65,7 +118,7 @@ function CitizenIssueCard({ issue }) {
             {labelify(issue.type)}
           </span>
         </div>
-        <StatusBadge status={isDeleted ? 'DELETED' : issue.status} />
+        <StatusBadge status={statusForBadge} />
       </div>
 
       {/* Location + date */}
@@ -186,14 +239,32 @@ export default function IssuesPage({ mine = false }) {
     }
   };
 
-  const filtered = issues.filter(i => {
-    if (filterStatus && i.status !== filterStatus) return false;
-    if (filterType   && i.type   !== filterType)   return false;
-    return true;
-  });
+  // Apply filters with a simple loop
+  const filtered = [];
+  for (let i = 0; i < issues.length; i++) {
+    const it = issues[i];
+    if (filterStatus !== '' && it.status !== filterStatus) continue;
+    if (filterType !== '' && it.type !== filterType) continue;
+    filtered.push(it);
+  }
+
+  // Count how many issues exist per status (used by the filter pills)
+  function countByStatus(status) {
+    let count = 0;
+    for (let i = 0; i < issues.length; i++) {
+      if (issues[i].status === status) count = count + 1;
+    }
+    return count;
+  }
 
   // ── CITIZEN "MY ISSUES" VIEW ──────────────────────────────
   if (mine && isCitizen) {
+    // Build the list of pill options: '' (All), then every issue status
+    const pillOptions = [''];
+    for (let i = 0; i < ISSUE_STATUSES.length; i++) {
+      pillOptions.push(ISSUE_STATUSES[i]);
+    }
+
     return (
       <DashboardLayout>
         <PageHeader
@@ -209,32 +280,37 @@ export default function IssuesPage({ mine = false }) {
 
         {/* Status filter pills */}
         <div className="flex flex-wrap gap-2 mb-5">
-          {['', ...ISSUE_STATUSES].map(s => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                filterStatus === s
-                  ? STATUS_PILL_STYLES[s] + ' ring-2 ring-offset-1 ring-forest-600/30'
-                  : `bg-white text-[#64748b] border-[#cbd5e1] ${STATUS_PILL_HOVER[s]}`
-              }`}
-            >
-              {s === '' ? 'All' : labelify(s)}
-              {s !== '' && (
-                <span className="ml-1.5 font-bold">
-                  ({issues.filter(i => i.status === s).length})
-                </span>
-              )}
-            </button>
-          ))}
+          {pillOptions.map((s) => {
+            const isSelected = filterStatus === s;
+            let pillClass;
+            if (isSelected) {
+              pillClass = getStatusPillActiveClass(s) + ' ring-2 ring-offset-1 ring-forest-600/30';
+            } else {
+              pillClass = 'bg-white text-[#64748b] border-[#cbd5e1] ' + getStatusPillHoverClass(s);
+            }
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={'px-3 py-1.5 rounded-full text-xs font-medium border transition-all ' + pillClass}
+              >
+                {s === '' ? 'All' : labelify(s)}
+                {s !== '' && (
+                  <span className="ml-1.5 font-bold">
+                    ({countByStatus(s)})
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Issue cards */}
         {isLoading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map(n => (
-              <div key={n} className="h-24 bg-earth-100 rounded-2xl animate-pulse" />
-            ))}
+            <div className="h-24 bg-earth-100 rounded-2xl animate-pulse" />
+            <div className="h-24 bg-earth-100 rounded-2xl animate-pulse" />
+            <div className="h-24 bg-earth-100 rounded-2xl animate-pulse" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-bark-400 gap-3">
@@ -248,9 +324,11 @@ export default function IssuesPage({ mine = false }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map(issue => (
-              <CitizenIssueCard key={issue.issueId ?? issue.id} issue={issue} />
-            ))}
+            {filtered.map((issue) => {
+              let key = issue.issueId;
+              if (!key) key = issue.id;
+              return <CitizenIssueCard key={key} issue={issue} />;
+            })}
           </div>
         )}
       </DashboardLayout>

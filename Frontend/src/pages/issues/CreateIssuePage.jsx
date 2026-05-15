@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import * as issuesApi from '../../api/issuesApi';
 import { useAuth } from '../../context/AuthContext';
@@ -11,112 +10,213 @@ import { Paperclip, X, ImageIcon, Video } from 'lucide-react';
 
 const MAX_IMAGES = 5;
 const MAX_VIDEOS = 5;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
-const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/avi', 'video/quicktime'];
 
-const Field = ({ label, error, children }) => (
-  <div>
-    <label className="block text-sm font-medium text-[#14532d] mb-1.5">{label}</label>
-    {children}
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-);
+// Helper: check if file is an allowed image
+function isImageType(file) {
+  if (file.type === 'image/jpeg') return true;
+  if (file.type === 'image/png') return true;
+  if (file.type === 'image/gif') return true;
+  return false;
+}
+
+// Helper: check if file is an allowed video
+function isVideoType(file) {
+  if (file.type === 'video/mp4') return true;
+  if (file.type === 'video/avi') return true;
+  if (file.type === 'video/quicktime') return true;
+  return false;
+}
 
 export default function CreateIssuePage() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const { user } = useAuth();
 
-  const [form, setForm] = useState({ title: '', type: '', location: '', description: '' });
+  // Form fields — one useState for each field
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('');
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
+
   const [errors, setErrors] = useState({});
-  const [images, setImages] = useState([]);   // [{ file, preview }]
-  const [videos, setVideos]  = useState([]);  // [{ file, name, size }]
+  const [images, setImages] = useState([]);   // each item: { file, preview }
+  const [videos, setVideos] = useState([]);   // each item: { file, name, size }
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const mediaInputRef = useRef();
 
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-
   // ─── Validation ────────────────────────────────────────────────
-  const validate = () => {
+  function validate() {
     const e = {};
-    if (!form.title.trim())       e.title       = 'Issue title is required';
-    if (!form.type)               e.type        = 'Issue type is required';
-    if (!form.location.trim())    e.location    = 'Location is required';
-    if (!form.description.trim()) e.description = 'Description is required';
+    if (title.trim() === '') {
+      e.title = 'Issue title is required';
+    }
+    if (type === '') {
+      e.type = 'Issue type is required';
+    }
+    if (location.trim() === '') {
+      e.location = 'Location is required';
+    }
+    if (description.trim() === '') {
+      e.description = 'Description is required';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
+  }
 
   // ─── Media Handler ─────────────────────────────────────────────
-  const handleMediaSelect = (e) => {
-    const files = Array.from(e.target.files);
+  function handleMediaSelect(e) {
+    const selected = e.target.files;
 
-    const imgFiles   = files.filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type));
-    const vidFiles   = files.filter(f => ACCEPTED_VIDEO_TYPES.includes(f.type));
-    const otherFiles = files.filter(f => !ACCEPTED_IMAGE_TYPES.includes(f.type) && !ACCEPTED_VIDEO_TYPES.includes(f.type));
+    // Sort the selected files into images, videos, or "other"
+    const imgFiles = [];
+    const vidFiles = [];
+    let hasUnsupported = false;
 
-    if (otherFiles.length > 0) toast.error('Unsupported file type. Use jpg/png/gif or mp4/avi/mov');
+    for (let i = 0; i < selected.length; i++) {
+      const f = selected[i];
+      if (isImageType(f)) {
+        imgFiles.push(f);
+      } else if (isVideoType(f)) {
+        vidFiles.push(f);
+      } else {
+        hasUnsupported = true;
+      }
+    }
+
+    if (hasUnsupported) {
+      toast.error('Unsupported file type. Use jpg/png/gif or mp4/avi/mov');
+    }
 
     const imgRemaining = MAX_IMAGES - images.length;
     const vidRemaining = MAX_VIDEOS - videos.length;
 
-    if (imgFiles.length > imgRemaining) toast.warning(`Only ${imgRemaining} more image(s) allowed (max ${MAX_IMAGES})`);
-    if (vidFiles.length > vidRemaining) toast.warning(`Only ${vidRemaining} more video(s) allowed (max ${MAX_VIDEOS})`);
+    if (imgFiles.length > imgRemaining) {
+      toast.warning('Only ' + imgRemaining + ' more image(s) allowed (max ' + MAX_IMAGES + ')');
+    }
+    if (vidFiles.length > vidRemaining) {
+      toast.warning('Only ' + vidRemaining + ' more video(s) allowed (max ' + MAX_VIDEOS + ')');
+    }
 
-    const toAddImgs = imgFiles.slice(0, imgRemaining);
-    const toAddVids = vidFiles.slice(0, vidRemaining);
+    // Build the new image entries (respect the remaining-slots limit)
+    const newImages = [];
+    for (let i = 0; i < imgFiles.length; i++) {
+      if (i >= imgRemaining) break;
+      newImages.push({
+        file: imgFiles[i],
+        preview: URL.createObjectURL(imgFiles[i]),
+      });
+    }
 
-    setImages(prev => [...prev, ...toAddImgs.map(f => ({ file: f, preview: URL.createObjectURL(f) }))]);
-    setVideos(prev  => [...prev, ...toAddVids.map(f => ({ file: f, name: f.name, size: f.size }))]);
+    // Build the new video entries
+    const newVideos = [];
+    for (let i = 0; i < vidFiles.length; i++) {
+      if (i >= vidRemaining) break;
+      newVideos.push({
+        file: vidFiles[i],
+        name: vidFiles[i].name,
+        size: vidFiles[i].size,
+      });
+    }
+
+    setImages(images.concat(newImages));
+    setVideos(videos.concat(newVideos));
 
     e.target.value = '';
-  };
+  }
 
-  const removeImage = (idx) => {
-    setImages(prev => {
-      URL.revokeObjectURL(prev[idx].preview);
-      return prev.filter((_, i) => i !== idx);
-    });
-  };
+  function removeImage(idx) {
+    URL.revokeObjectURL(images[idx].preview);
+    const next = [];
+    for (let i = 0; i < images.length; i++) {
+      if (i !== idx) {
+        next.push(images[i]);
+      }
+    }
+    setImages(next);
+  }
 
-  const removeVideo = (idx) => setVideos(prev => prev.filter((_, i) => i !== idx));
+  function removeVideo(idx) {
+    const next = [];
+    for (let i = 0; i < videos.length; i++) {
+      if (i !== idx) {
+        next.push(videos[i]);
+      }
+    }
+    setVideos(next);
+  }
 
   // ─── Submit ────────────────────────────────────────────────────
-  const createMut = useMutation({
-    mutationFn: (data) => issuesApi.createIssue(data),
-    onSuccess: async (res) => {
-      qc.invalidateQueries({ queryKey: ['issues'] });
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!validate()) return;
+
+    setSubmitting(true);
+    try {
+      let citizenId = null;
+      if (user) {
+        citizenId = user.userId;
+      }
+
+      const res = await issuesApi.createIssue({
+        title: title,
+        type: type,
+        location: location,
+        description: description,
+        citizenId: citizenId,
+      });
       const issueId = res.data.issueId;
-      const allFiles = [...images.map(i => i.file), ...videos.map(v => v.file)];
+
+      // Collect all the files into one list
+      const allFiles = [];
+      for (let i = 0; i < images.length; i++) {
+        allFiles.push(images[i].file);
+      }
+      for (let i = 0; i < videos.length; i++) {
+        allFiles.push(videos[i].file);
+      }
 
       if (allFiles.length > 0) {
         setUploading(true);
         let failed = 0;
-        for (const file of allFiles) {
-          try { await issuesApi.uploadMedia(issueId, file); }
-          catch { failed++; }
+        for (let i = 0; i < allFiles.length; i++) {
+          try {
+            await issuesApi.uploadMedia(issueId, allFiles[i]);
+          } catch (uploadErr) {
+            failed = failed + 1;
+          }
         }
         setUploading(false);
-        failed > 0
-          ? toast.warning(`Issue created but ${failed} file(s) failed to upload`)
-          : toast.success('Issue reported with media successfully!');
+
+        if (failed > 0) {
+          toast.warning('Issue created but ' + failed + ' file(s) failed to upload');
+        } else {
+          toast.success('Issue reported with media successfully!');
+        }
       } else {
         toast.success('Issue reported successfully!');
       }
-      navigate(`/issues/${issueId}`);
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to report issue'),
-  });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!validate()) return;
-    createMut.mutate({ ...form, citizenId: user?.userId });
-  };
+      navigate('/issues/' + issueId);
+    } catch (err) {
+      let message = 'Failed to report issue';
+      if (err.response && err.response.data && err.response.data.message) {
+        message = err.response.data.message;
+      }
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  const totalMedia  = images.length + videos.length;
-  const isLoading   = createMut.isPending || uploading;
+  const totalMedia = images.length + videos.length;
+  const isLoading = submitting || uploading;
+
+  function openFilePicker() {
+    if (mediaInputRef.current) {
+      mediaInputRef.current.click();
+    }
+  }
 
   return (
     <DashboardLayout>
@@ -133,47 +233,57 @@ export default function CreateIssuePage() {
           <div className="bg-white border border-[#bbf7d0] rounded-2xl shadow-sm p-6 space-y-5">
 
             {/* Issue Title */}
-            <Field label="Issue Title *" error={errors.title}>
+            <div>
+              <label className="block text-sm font-medium text-[#14532d] mb-1.5">Issue Title *</label>
               <input
                 className="w-full border border-[#bbf7d0] rounded-xl px-3 py-2.5 text-sm text-[#1e293b] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/30 focus:border-[#86efac]"
                 placeholder="e.g. Illegal dumping near river"
-                value={form.title}
-                onChange={set('title')}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-            </Field>
+              {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
+            </div>
 
             {/* Issue Type */}
-            <Field label="Issue Type *" error={errors.type}>
+            <div>
+              <label className="block text-sm font-medium text-[#14532d] mb-1.5">Issue Type *</label>
               <select
                 className="w-full border border-[#bbf7d0] rounded-xl px-3 py-2.5 text-sm text-[#1e293b] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/30 focus:border-[#86efac]"
-                value={form.type}
-                onChange={set('type')}
+                value={type}
+                onChange={(e) => setType(e.target.value)}
               >
                 <option value="">Select type…</option>
-                {ISSUE_TYPES.map(t => <option key={t} value={t}>{labelify(t)}</option>)}
+                {ISSUE_TYPES.map((t) => (
+                  <option key={t} value={t}>{labelify(t)}</option>
+                ))}
               </select>
-            </Field>
+              {errors.type && <p className="text-xs text-red-500 mt-1">{errors.type}</p>}
+            </div>
 
             {/* Location */}
-            <Field label="Location *" error={errors.location}>
+            <div>
+              <label className="block text-sm font-medium text-[#14532d] mb-1.5">Location *</label>
               <input
                 className="w-full border border-[#bbf7d0] rounded-xl px-3 py-2.5 text-sm text-[#1e293b] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/30 focus:border-[#86efac]"
                 placeholder="e.g. Near Greenfield Park, River Road"
-                value={form.location}
-                onChange={set('location')}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
               />
-            </Field>
+              {errors.location && <p className="text-xs text-red-500 mt-1">{errors.location}</p>}
+            </div>
 
             {/* Description */}
-            <Field label="Description *" error={errors.description}>
+            <div>
+              <label className="block text-sm font-medium text-[#14532d] mb-1.5">Description *</label>
               <textarea
                 rows={4}
                 className="w-full border border-[#bbf7d0] rounded-xl px-3 py-2.5 text-sm text-[#1e293b] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/30 focus:border-[#86efac] resize-none"
                 placeholder="Describe the issue in detail…"
-                value={form.description}
-                onChange={set('description')}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
-            </Field>
+              {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
+            </div>
 
             {/* ─── Combined Media Upload ─────────────────────────── */}
             <div className="border-t border-[#bbf7d0] pt-5">
@@ -186,7 +296,7 @@ export default function CreateIssuePage() {
                 {totalMedia < (MAX_IMAGES + MAX_VIDEOS) && (
                   <button
                     type="button"
-                    onClick={() => mediaInputRef.current?.click()}
+                    onClick={openFilePicker}
                     className="text-xs text-[#16a34a] hover:text-[#15803d] font-semibold transition-colors"
                   >
                     + Add Files
@@ -208,7 +318,7 @@ export default function CreateIssuePage() {
               {totalMedia === 0 && (
                 <button
                   type="button"
-                  onClick={() => mediaInputRef.current?.click()}
+                  onClick={openFilePicker}
                   className="w-full border-2 border-dashed border-[#86efac] hover:border-[#16a34a] hover:bg-[#f0fdf4] rounded-xl py-8 flex flex-col items-center gap-2 text-[#94a3b8] hover:text-[#16a34a] transition-all"
                 >
                   <Paperclip size={26} />
@@ -242,7 +352,7 @@ export default function CreateIssuePage() {
                     {images.length < MAX_IMAGES && (
                       <button
                         type="button"
-                        onClick={() => mediaInputRef.current?.click()}
+                        onClick={openFilePicker}
                         className="aspect-square rounded-xl border-2 border-dashed border-[#86efac] hover:border-[#16a34a] hover:bg-[#f0fdf4] flex items-center justify-center text-[#94a3b8] hover:text-[#16a34a] transition-all"
                       >
                         <X size={16} className="rotate-45" />
@@ -281,7 +391,7 @@ export default function CreateIssuePage() {
                     {videos.length < MAX_VIDEOS && (
                       <button
                         type="button"
-                        onClick={() => mediaInputRef.current?.click()}
+                        onClick={openFilePicker}
                         className="w-full border border-dashed border-[#86efac] hover:border-[#16a34a] hover:bg-[#f0fdf4] rounded-xl py-2 text-xs text-[#64748b] hover:text-[#16a34a] transition-all flex items-center justify-center gap-1.5"
                       >
                         <Video size={12} /> Add another video
