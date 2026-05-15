@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
@@ -20,7 +19,6 @@ import { toast } from 'sonner';
 export default function AnalysisPage() {
   const { isScientist, isAdmin, isAgencyOfficer } = useRole();
   const { user } = useAuth();
-  const qc = useQueryClient();
   const [createModal, setCreateModal] = useState(false);
   const [csvModal, setCsvModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -29,23 +27,38 @@ export default function AnalysisPage() {
   const [csvFile, setCsvFile] = useState(null);
   const [csvProgress, setCsvProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-   const [filterAgencyOfficerId, setFilterAgencyOfficerId] = useState('');
+  const [filterAgencyOfficerId, setFilterAgencyOfficerId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAnalysisId, setFilterAnalysisId] = useState('');
   const [filterSensorType, setFilterSensorType] = useState('');
+  const [analyses, setAnalyses] = useState([]);
+  const [sensors, setSensors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
   const RECORDS_PER_PAGE = 6;
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const setCsv = (k) => (e) => setCsvForm(f => ({ ...f, [k]: e.target.value }));
 
-  const { data: analyses = [], isLoading } = useQuery({
-    queryKey: ['analyses'],
-    queryFn: () => sensorsApi.getAnalyses().then(r => r.data).catch(() => []),
-  });
+  async function loadAnalyses() {
+    setIsLoading(true);
+    try {
+      const [analysesRes, sensorsRes] = await Promise.all([
+        sensorsApi.getAnalyses().catch(() => ({ data: [] })),
+        sensorsApi.getSensors().catch(() => ({ data: [] })),
+      ]);
+      setAnalyses(analysesRes.data);
+      setSensors(sensorsRes.data);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const { data: sensors = [] } = useQuery({
-    queryKey: ['sensors'],
-    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
-  });
+  useEffect(() => {
+    loadAnalyses();
+  }, []);
 
   // Create a map of sensor ID to sensor type
   const sensorTypeMap = sensors.reduce((acc, s) => {
@@ -53,70 +66,84 @@ export default function AnalysisPage() {
     return acc;
   }, {});
 
-    // Apply filters to analyses
-    const filteredAnalyses = analyses.filter(a => {
-      // For analysis ID, parse the formatted filter input and compare
-      if (filterAnalysisId) {
-        const parsedFilterId = parseFormattedId(filterAnalysisId) || parseInt(filterAnalysisId, 10);
-        if (!isNaN(parsedFilterId)) {
-          if (a.analysisId !== parsedFilterId) return false;
-        } else {
-          // Fallback to string comparison if parsing fails
-          if (!a.analysisId?.toString().includes(filterAnalysisId)) return false;
-        }
+  // Apply filters to analyses
+  const filteredAnalyses = analyses.filter(a => {
+    if (filterAnalysisId) {
+      const parsedFilterId = parseFormattedId(filterAnalysisId) || parseInt(filterAnalysisId, 10);
+      if (!isNaN(parsedFilterId)) {
+        if (a.analysisId !== parsedFilterId) return false;
+      } else {
+        if (!a.analysisId?.toString().includes(filterAnalysisId)) return false;
       }
+    }
 
-      // For agency officer ID, parse the formatted filter input and compare
-      if (filterAgencyOfficerId) {
-        const parsedFilterId = parseFormattedId(filterAgencyOfficerId) || parseInt(filterAgencyOfficerId, 10);
-        if (!isNaN(parsedFilterId)) {
-          if (a.agencyOfficerId !== parsedFilterId) return false;
-        } else {
-          // Fallback to string comparison if parsing fails
-          if (!a.agencyOfficerId?.toString().includes(filterAgencyOfficerId)) return false;
-        }
+    if (filterAgencyOfficerId) {
+      const parsedFilterId = parseFormattedId(filterAgencyOfficerId) || parseInt(filterAgencyOfficerId, 10);
+      if (!isNaN(parsedFilterId)) {
+        if (a.agencyOfficerId !== parsedFilterId) return false;
+      } else {
+        if (!a.agencyOfficerId?.toString().includes(filterAgencyOfficerId)) return false;
       }
+    }
 
-      if (filterStatus && a.status !== filterStatus) return false;
-      if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
-      return true;
-    });
+    if (filterStatus && a.status !== filterStatus) return false;
+    if (filterSensorType && sensorTypeMap[a.sensorId] !== filterSensorType) return false;
+    return true;
+  });
 
-  const createMut = useMutation({
-    mutationFn: (d) => sensorsApi.createAnalysis(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['analyses'] }); toast.success('Analysis created'); setCreateModal(false); setForm({ dataId: '', findings: '' }); },
-    onError: (error) => {
+  async function handleCreate(payload) {
+    setCreateLoading(true);
+    try {
+      await sensorsApi.createAnalysis(payload);
+      toast.success('Analysis created');
+      setCreateModal(false);
+      setForm({ dataId: '', findings: '' });
+      loadAnalyses();
+    } catch (error) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to create analysis';
       toast.error(errorMsg);
       console.error('Create error:', error);
-    },
-  });
+    } finally {
+      setCreateLoading(false);
+    }
+  }
 
-  const reviewMut = useMutation({
-    mutationFn: ({ id, status, findings }) =>
-      sensorsApi.reviewAnalysis(id, status, findings),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['analyses'] }); toast.success('Analysis reviewed'); },
-    onError: (error) => {
+  async function handleReview(id, status, findings) {
+    setReviewLoading(true);
+    try {
+      await sensorsApi.reviewAnalysis(id, status, findings);
+      toast.success('Analysis reviewed');
+      loadAnalyses();
+    } catch (error) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to review analysis';
       toast.error(errorMsg);
       console.error('Review error:', error);
-    },
-  });
+    } finally {
+      setReviewLoading(false);
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => sensorsApi.deleteAnalysis(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['analyses'] }); toast.success('Analysis deleted'); setDeleteConfirm(null); },
-    onError: (error) => {
+  async function handleDelete(id) {
+    setDeleteLoading(true);
+    try {
+      await sensorsApi.deleteAnalysis(id);
+      toast.success('Analysis deleted');
+      setDeleteConfirm(null);
+      loadAnalyses();
+    } catch (error) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to delete analysis';
       toast.error(errorMsg);
       console.error('Delete error:', error);
-    },
-  });
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
-  const uploadCsvMut = useMutation({
-    mutationFn: () => sensorsApi.uploadCsv(csvFile, csvForm.sensorId, csvForm.sensorType,
-      (e) => setCsvProgress(Math.round(e.loaded / e.total * 100))),
-    onSuccess: (res) => {
+  async function handleUploadCsv() {
+    setUploadLoading(true);
+    try {
+      const res = await sensorsApi.uploadCsv(csvFile, csvForm.sensorId, csvForm.sensorType,
+        (e) => setCsvProgress(Math.round(e.loaded / e.total * 100)));
       toast.success(`CSV uploaded: ${res.data.successCount} records inserted successfully`, {
         description: `Total rows: ${res.data.totalRows}, Failed: ${res.data.failCount}`,
         duration: 4000,
@@ -124,9 +151,13 @@ export default function AnalysisPage() {
       setCsvModal(false);
       setCsvProgress(0);
       setCsvFile(null);
-    },
-    onError: () => { toast.error('CSV upload failed'); setCsvProgress(0); },
-  });
+    } catch {
+      toast.error('CSV upload failed');
+      setCsvProgress(0);
+    } finally {
+      setUploadLoading(false);
+    }
+  }
 
   const columns = [
      { key: 'sensorId', label: 'Sensor ID', render: r => <span className="text-xs font-medium">{formatSensorId(r.sensorId)}</span> },
@@ -155,8 +186,8 @@ export default function AnalysisPage() {
                 size="sm"
                 variant="outline"
                 className="text-xs"
-                onClick={() => reviewMut.mutate({ id: r.analysisId, status: 'REVIEWED', findings: r.findings })}
-                loading={reviewMut.isPending}
+                onClick={() => handleReview(r.analysisId, 'REVIEWED', r.findings)}
+                loading={reviewLoading}
               >
                 Review
               </Button>
@@ -284,8 +315,8 @@ export default function AnalysisPage() {
                 toast.error('Findings are required');
                 return;
               }
-              createMut.mutate({ dataId: parseInt(form.dataId), findings: form.findings });
-            }} loading={createMut.isPending}>Create</Button>
+              handleCreate({ dataId: parseInt(form.dataId), findings: form.findings });
+            }} loading={createLoading}>Create</Button>
           </div>
         </div>
       </Modal>
@@ -306,7 +337,7 @@ export default function AnalysisPage() {
           <FileUpload onFile={setCsvFile} accept=".csv" label="Upload CSV File" progress={csvProgress} />
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setCsvModal(false)}>Cancel</Button>
-            <Button onClick={() => uploadCsvMut.mutate()} loading={uploadCsvMut.isPending} disabled={!csvFile || !csvForm.sensorId}>Upload</Button>
+            <Button onClick={handleUploadCsv} loading={uploadLoading} disabled={!csvFile || !csvForm.sensorId}>Upload</Button>
           </div>
         </div>
       </Modal>
@@ -315,10 +346,10 @@ export default function AnalysisPage() {
       <ConfirmDialog
         open={deleteConfirm !== null}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMut.mutate(deleteConfirm)}
+        onConfirm={() => handleDelete(deleteConfirm)}
         title="Delete Analysis"
         message="Are you sure you want to delete this analysis? This action cannot be undone."
-        loading={deleteMut.isPending}
+        loading={deleteLoading}
         confirmLabel="Delete"
         variant="danger"
       />

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import {
@@ -26,23 +26,19 @@ export default function OperationsDashboard() {
 
   const showSensors = ['AGENCY_OFFICER', 'SCIENTIST', 'ADMINISTRATOR', 'SUPER_ADMIN'].includes(role);
 
-  const { data: issues = [] } = useQuery({
-    queryKey: ['issues'],
-    queryFn: () => issuesApi.getIssues().then(r => r.data).catch(() => []),
-  });
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectsApi.getProjects().then(r => r.data).catch(() => []),
-  });
-  const { data: sensors = [] } = useQuery({
-    queryKey: ['sensors'],
-    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
-    enabled: showSensors,
-  });
-  const { data: reports = [] } = useQuery({
-    queryKey: ['reports'],
-    queryFn: () => officerApi.getAllReports().then(r => r.data).catch(() => []),
-  });
+  const [issues, setIssues] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [sensors, setSensors] = useState([]);
+  const [reports, setReports] = useState([]);
+
+  useEffect(() => {
+    issuesApi.getIssues().then(r => setIssues(r.data)).catch(() => setIssues([]));
+    projectsApi.getProjects().then(r => setProjects(r.data)).catch(() => setProjects([]));
+    if (showSensors) {
+      sensorsApi.getSensors().then(r => setSensors(r.data)).catch(() => setSensors([]));
+    }
+    officerApi.getAllReports().then(r => setReports(r.data)).catch(() => setReports([]));
+  }, [showSensors]);
 
   const openIssues     = issues.filter(i => i.status === 'OPEN').length;
   const resolvedIssues = issues.filter(i => i.status === 'RESOLVED').length;

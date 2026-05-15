@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -32,7 +31,6 @@ const MILESTONE_BADGE_COLOR = {
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { canManageProjects } = useRole();
 
   // Milestones State
@@ -62,100 +60,61 @@ export default function ProjectDetailPage() {
     status: 'DRAFT',
   });
 
-  // Queries
-  const { data: project, isLoading: projectLoading } = useQuery({
-    queryKey: ['project', id],
-    queryFn: () => projectsApi.getProjectById(id).then(r => r.data),
-  });
+  // Data State
+  const [project, setProject] = useState(null);
+  const [projectLoading, setProjectLoading] = useState(true);
+  const [milestones, setMilestones] = useState([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(true);
+  const [impact, setImpact] = useState(null);
+  const [impactLoading, setImpactLoading] = useState(true);
 
-  const { data: milestones = [], isLoading: milestonesLoading } = useQuery({
-    queryKey: ['milestones', id],
-    queryFn: () => projectsApi.getMilestonesByProject(id).then(r => r.data).catch(() => []),
-  });
+  // Loading states for mutations
+  const [milestoneLoading, setMilestoneLoading] = useState(false);
+  const [impactSaveLoading, setImpactSaveLoading] = useState(false);
+  const [deleteImpactLoading, setDeleteImpactLoading] = useState(false);
+  const [deleteMilestoneLoading, setDeleteMilestoneLoading] = useState(false);
 
-  const { data: impact, isLoading: impactLoading } = useQuery({
-    queryKey: ['impact', id],
-    queryFn: () => projectsApi.getImpactByProject(id).then(r => r.data).catch(() => null),
-  });
+  async function loadProject() {
+    setProjectLoading(true);
+    try {
+      const r = await projectsApi.getProjectById(id);
+      setProject(r.data);
+    } catch {
+      setProject(null);
+    } finally {
+      setProjectLoading(false);
+    }
+  }
 
-  // Mutations
-  const addMilestoneMutation = useMutation({
-    mutationFn: (data) => projectsApi.addMilestone(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['milestones', id] });
-      toast.success('Milestone created successfully');
-      setMilestoneModalOpen(false);
-      setMilestoneForm({ title: '', date: '', status: 'PENDING' });
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to create milestone');
-    },
-  });
+  async function loadMilestones() {
+    setMilestonesLoading(true);
+    try {
+      const r = await projectsApi.getMilestonesByProject(id);
+      setMilestones(r.data);
+    } catch {
+      setMilestones([]);
+    } finally {
+      setMilestonesLoading(false);
+    }
+  }
 
-  const updateMilestoneMutation = useMutation({
-    mutationFn: (data) => projectsApi.updateMilestone(editingMilestone.milestoneId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['milestones', id] });
-      toast.success('Milestone updated successfully');
-      setEditMilestoneOpen(false);
-      setEditingMilestone(null);
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to update milestone');
-    },
-  });
+  async function loadImpact() {
+    setImpactLoading(true);
+    try {
+      const r = await projectsApi.getImpactByProject(id);
+      setImpact(r.data);
+    } catch {
+      setImpact(null);
+    } finally {
+      setImpactLoading(false);
+    }
+  }
 
-  const deleteMilestoneMutation = useMutation({
-    mutationFn: (milestoneId) => projectsApi.deleteMilestone(milestoneId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['milestones', id] });
-      toast.success('Milestone deleted successfully');
-      setDeleteMilestoneId(null);
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete milestone');
-    },
-  });
-
-  const addOrUpdateImpactMutation = useMutation({
-    mutationFn: (data) => projectsApi.addOrUpdateImpact(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impact', id] });
-      toast.success('Impact metrics updated successfully');
-      setImpactModalOpen(false);
-      setImpactForm({
-        metrics: {
-          treesPlanted: null,
-          areaRestoredHectares: null,
-          co2ReducedTons: null,
-          renewableEnergyKwh: null,
-          wasteCollectedKg: null,
-          waterBodiesCleaned: null,
-          pollutionIncidentsResolved: null,
-          peopleBenefited: null,
-          awarenessSessionsConducted: null,
-          volunteerEngagements: null,
-          customMetrics: {},
-          notes: '',
-        },
-        status: 'DRAFT',
-      });
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to update impact');
-    },
-  });
-
-  const deleteImpactMutation = useMutation({
-    mutationFn: () => projectsApi.deleteImpact(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impact', id] });
-      toast.success('Impact metrics deleted successfully');
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete impact');
-    },
-  });
+  useEffect(() => {
+    loadProject();
+    loadMilestones();
+    loadImpact();
+  }, [id]);
 
   // Calculate progress based on milestones
   const progress = useMemo(() => {
@@ -176,6 +135,94 @@ export default function ProjectDetailPage() {
       { name: 'People', value: impact.metrics.peopleBenefited || 0, color: '#ec4899' },
     ].filter(d => d.value > 0);
   }, [impact]);
+
+  async function handleAddMilestone(data) {
+    setMilestoneLoading(true);
+    try {
+      await projectsApi.addMilestone(id, data);
+      toast.success('Milestone created successfully');
+      setMilestoneModalOpen(false);
+      setMilestoneForm({ title: '', date: '', status: 'PENDING' });
+      loadMilestones();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create milestone');
+    } finally {
+      setMilestoneLoading(false);
+    }
+  }
+
+  async function handleUpdateMilestone(data) {
+    setMilestoneLoading(true);
+    try {
+      await projectsApi.updateMilestone(editingMilestone.milestoneId, data);
+      toast.success('Milestone updated successfully');
+      setEditMilestoneOpen(false);
+      setEditingMilestone(null);
+      loadMilestones();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update milestone');
+    } finally {
+      setMilestoneLoading(false);
+    }
+  }
+
+  async function handleDeleteMilestone(milestoneId) {
+    setDeleteMilestoneLoading(true);
+    try {
+      await projectsApi.deleteMilestone(milestoneId);
+      toast.success('Milestone deleted successfully');
+      setDeleteMilestoneId(null);
+      loadMilestones();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete milestone');
+    } finally {
+      setDeleteMilestoneLoading(false);
+    }
+  }
+
+  async function handleAddOrUpdateImpact(data) {
+    setImpactSaveLoading(true);
+    try {
+      await projectsApi.addOrUpdateImpact(id, data);
+      toast.success('Impact metrics updated successfully');
+      setImpactModalOpen(false);
+      setImpactForm({
+        metrics: {
+          treesPlanted: null,
+          areaRestoredHectares: null,
+          co2ReducedTons: null,
+          renewableEnergyKwh: null,
+          wasteCollectedKg: null,
+          waterBodiesCleaned: null,
+          pollutionIncidentsResolved: null,
+          peopleBenefited: null,
+          awarenessSessionsConducted: null,
+          volunteerEngagements: null,
+          customMetrics: {},
+          notes: '',
+        },
+        status: 'DRAFT',
+      });
+      loadImpact();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update impact');
+    } finally {
+      setImpactSaveLoading(false);
+    }
+  }
+
+  async function handleDeleteImpact() {
+    setDeleteImpactLoading(true);
+    try {
+      await projectsApi.deleteImpact(id);
+      toast.success('Impact metrics deleted successfully');
+      loadImpact();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete impact');
+    } finally {
+      setDeleteImpactLoading(false);
+    }
+  }
 
   // Handle edit milestone
   const handleEditMilestone = (milestone) => {
@@ -211,9 +258,9 @@ export default function ProjectDetailPage() {
     }
 
     if (editingMilestone) {
-      updateMilestoneMutation.mutate(milestoneForm);
+      handleUpdateMilestone(milestoneForm);
     } else {
-      addMilestoneMutation.mutate(milestoneForm);
+      handleAddMilestone(milestoneForm);
     }
   };
 
@@ -223,7 +270,7 @@ export default function ProjectDetailPage() {
       return;
     }
 
-    addOrUpdateImpactMutation.mutate({
+    handleAddOrUpdateImpact({
       metrics: impactForm.metrics,
       status: impactForm.status,
     });
@@ -584,7 +631,7 @@ export default function ProjectDetailPage() {
             </Button>
             <Button
               onClick={handleMilestoneSubmit}
-              loading={addMilestoneMutation.isPending || updateMilestoneMutation.isPending}
+              loading={milestoneLoading}
             >
               {editingMilestone ? 'Update Milestone' : 'Create Milestone'}
             </Button>
@@ -640,7 +687,7 @@ export default function ProjectDetailPage() {
             </Button>
             <Button
               onClick={handleMilestoneSubmit}
-              loading={updateMilestoneMutation.isPending}
+              loading={milestoneLoading}
             >
               Update Milestone
             </Button>
@@ -663,8 +710,8 @@ export default function ProjectDetailPage() {
             </Button>
             <Button
               className="bg-red-600 hover:bg-red-700"
-              onClick={() => deleteMilestoneMutation.mutate(deleteMilestoneId)}
-              loading={deleteMilestoneMutation.isPending}
+              onClick={() => handleDeleteMilestone(deleteMilestoneId)}
+              loading={deleteMilestoneLoading}
             >
               Delete
             </Button>
@@ -756,16 +803,17 @@ export default function ProjectDetailPage() {
                 variant="outline"
                 className="text-red-600 border-red-600 hover:bg-red-50"
                 onClick={() => {
-                  deleteImpactMutation.mutate();
+                  handleDeleteImpact();
                   setImpactModalOpen(false);
                 }}
+                loading={deleteImpactLoading}
               >
                 Delete Impact
               </Button>
             )}
             <Button
               onClick={handleImpactSubmit}
-              loading={addOrUpdateImpactMutation.isPending}
+              loading={impactSaveLoading}
             >
               {impact ? 'Update Impact' : 'Create Impact'}
             </Button>

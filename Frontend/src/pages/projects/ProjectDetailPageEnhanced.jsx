@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -19,7 +18,6 @@ import { toast } from 'sonner';
 export default function ProjectDetailPageEnhanced() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const { canManageProjects } = useRole();
 
   const [editModal, setEditModal] = useState(false);
@@ -33,62 +31,98 @@ export default function ProjectDetailPageEnhanced() {
      status: 'PLANNED',
    });
 
+  const [project, setProject] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [milestones, setMilestones] = useState([]);
+  const [impact, setImpact] = useState(null);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const editSet = (k) => (e) => setEditForm(f => ({ ...f, [k]: e.target.value }));
 
-  const { data: project, isLoading } = useQuery({
-    queryKey: ['project', id],
-    queryFn: () => projectsApi.getProjectById(id).then(r => r.data),
-  });
+  async function loadProject() {
+    setIsLoading(true);
+    try {
+      const r = await projectsApi.getProjectById(id);
+      setProject(r.data);
+    } catch {
+      setProject(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const { data: milestones = [], refetch: refetchMilestones } = useQuery({
-    queryKey: ['milestones', id],
-    queryFn: () => projectsApi.getMilestonesByProject(id).then(r => r.data).catch(() => []),
-  });
+  async function loadMilestones() {
+    try {
+      const r = await projectsApi.getMilestonesByProject(id);
+      setMilestones(r.data);
+    } catch {
+      setMilestones([]);
+    }
+  }
 
-  const { data: impact, refetch: refetchImpact } = useQuery({
-    queryKey: ['impact', id],
-    queryFn: () => projectsApi.getImpactByProject(id).then(r => r.data).catch(() => null),
-  });
+  async function loadImpact() {
+    try {
+      const r = await projectsApi.getImpactByProject(id);
+      setImpact(r.data);
+    } catch {
+      setImpact(null);
+    }
+  }
+
+  useEffect(() => {
+    loadProject();
+    loadMilestones();
+    loadImpact();
+  }, [id]);
 
   // Calculate progress
   const totalMilestones = milestones.length;
   const completedMilestones = milestones.filter(m => m.status === 'COMPLETED').length;
   const progressPercent = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
-  const updateMut = useMutation({
-    mutationFn: (d) => projectsApi.updateProject(id, d),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['project', id] });
+  async function handleUpdate(data) {
+    setUpdateLoading(true);
+    try {
+      await projectsApi.updateProject(id, data);
       toast.success('Project updated');
       setEditModal(false);
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update project'),
-  });
+      loadProject();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update project');
+    } finally {
+      setUpdateLoading(false);
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: () => projectsApi.deleteProject(id),
-    onSuccess: () => {
+  async function handleDelete() {
+    setDeleteLoading(true);
+    try {
+      await projectsApi.deleteProject(id);
       toast.success('Project deleted');
       navigate('/projects');
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete project'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete project');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
-   const onOpenEdit = () => {
-     if (project) {
-       setEditForm({
-         title: project.title || '',
-         description: project.description || '',
-         startDate: project.startDate || '',
-         endDate: project.endDate || '',
-         budget: project.budget || '',
-         status: project.status || 'PLANNED',
-       });
-       setEditModal(true);
-     }
-   };
+  const onOpenEdit = () => {
+    if (project) {
+      setEditForm({
+        title: project.title || '',
+        description: project.description || '',
+        startDate: project.startDate || '',
+        endDate: project.endDate || '',
+        budget: project.budget || '',
+        status: project.status || 'PLANNED',
+      });
+      setEditModal(true);
+    }
+  };
 
-  const handleUpdate = () => {
+  const handleUpdateSubmit = () => {
     if (!editForm.title) {
       toast.error('Title is required');
       return;
@@ -97,7 +131,7 @@ export default function ProjectDetailPageEnhanced() {
       ...editForm,
       budget: editForm.budget ? parseFloat(editForm.budget) : null,
     };
-    updateMut.mutate(data);
+    handleUpdate(data);
   };
 
   if (isLoading) {
@@ -216,7 +250,7 @@ export default function ProjectDetailPageEnhanced() {
           <MilestoneManagement
             projectId={id}
             milestones={milestones}
-            onRefresh={() => refetchMilestones()}
+            onRefresh={loadMilestones}
             canEdit={canManageProjects}
           />
         </Card>
@@ -229,7 +263,7 @@ export default function ProjectDetailPageEnhanced() {
           <ImpactManagement
             projectId={id}
             impact={impact}
-            onRefresh={() => refetchImpact()}
+            onRefresh={loadImpact}
             canEdit={canManageProjects}
           />
 
@@ -321,7 +355,7 @@ export default function ProjectDetailPageEnhanced() {
            </div>
            <div className="flex gap-3 justify-end">
              <Button variant="secondary" onClick={() => setEditModal(false)}>Cancel</Button>
-             <Button onClick={handleUpdate} loading={updateMut.isPending}>Update Project</Button>
+             <Button onClick={handleUpdateSubmit} loading={updateLoading}>Update Project</Button>
            </div>
          </div>
        </Modal>
@@ -335,8 +369,8 @@ export default function ProjectDetailPageEnhanced() {
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
             <Button
-              onClick={() => deleteMut.mutate()}
-              loading={deleteMut.isPending}
+              onClick={handleDelete}
+              loading={deleteLoading}
               className="bg-red-600 hover:bg-red-700"
             >
               Delete Project
@@ -347,4 +381,3 @@ export default function ProjectDetailPageEnhanced() {
     </DashboardLayout>
   );
 }
-

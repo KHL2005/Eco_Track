@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import {
@@ -19,18 +19,15 @@ import * as sensorsApi from '../../api/sensorsApi';
 export default function ScientistDashboard() {
   const { user } = useAuth();
 
-  const { data: sensors = [] } = useQuery({
-    queryKey: ['sensors'],
-    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
-  });
-  const { data: sensorData = [] } = useQuery({
-    queryKey: ['sensorData'],
-    queryFn: () => sensorsApi.getSensorData().then(r => r.data).catch(() => []),
-  });
-  const { data: analyses = [] } = useQuery({
-    queryKey: ['analyses'],
-    queryFn: () => sensorsApi.getAnalyses().then(r => r.data).catch(() => []),
-  });
+  const [sensors, setSensors] = useState([]);
+  const [sensorData, setSensorData] = useState([]);
+  const [analyses, setAnalyses] = useState([]);
+
+  useEffect(() => {
+    sensorsApi.getSensors().then(r => setSensors(r.data)).catch(() => setSensors([]));
+    sensorsApi.getSensorData().then(r => setSensorData(r.data)).catch(() => setSensorData([]));
+    sensorsApi.getAnalyses().then(r => setAnalyses(r.data)).catch(() => setAnalyses([]));
+  }, []);
 
   const activeSensors = sensors.filter(s => s.status === 'ACTIVE').length;
   const pendingAnalyses = analyses.filter(a => a.status === 'PENDING').length;

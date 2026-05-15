@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
@@ -15,7 +14,6 @@ import { toast } from 'sonner';
 
 export default function SensorDataPage() {
   const { canManageSensors } = useRole();
-  const qc = useQueryClient();
 
   // State
   const [createModal, setCreateModal] = useState(false);
@@ -29,20 +27,32 @@ export default function SensorDataPage() {
     sensorId: '',
     parametersJson: ''
   });
+  const [allSensorData, setAllSensorData] = useState([]);
+  const [sensors, setSensors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const RECORDS_PER_PAGE = 6;
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  // Queries
-  const { data: allSensorData = [], isLoading } = useQuery({
-    queryKey: ['sensorData'],
-    queryFn: () => sensorsApi.getSensorData().then(r => r.data).catch(() => []),
-  });
+  async function loadData() {
+    setIsLoading(true);
+    try {
+      const [dataRes, sensorsRes] = await Promise.all([
+        sensorsApi.getSensorData().catch(() => ({ data: [] })),
+        sensorsApi.getSensors().catch(() => ({ data: [] })),
+      ]);
+      setAllSensorData(dataRes.data);
+      setSensors(sensorsRes.data);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const { data: sensors = [] } = useQuery({
-    queryKey: ['sensors'],
-    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
-  });
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // Create a map of sensor ID to sensor type
   const sensorTypeMap = sensors.reduce((acc, s) => {
@@ -63,38 +73,40 @@ export default function SensorDataPage() {
     return matchesDataId && matchesSensorId && matchesSensorType;
   });
 
-  // Create mutation
-  const createMut = useMutation({
-    mutationFn: (d) => sensorsApi.addSensorData(d),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sensorData'] });
+  async function handleCreate(payload) {
+    setCreateLoading(true);
+    try {
+      await sensorsApi.addSensorData(payload);
       toast.success('Sensor data recorded successfully');
       setCreateModal(false);
       setCurrentPage(1);
       setSearchDataId('');
       setSearchSensorId('');
       setForm({ sensorId: '', parametersJson: '' });
-    },
-    onError: (error) => {
+      loadData();
+    } catch (error) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to record sensor data';
       toast.error(errorMsg);
-    },
-  });
+    } finally {
+      setCreateLoading(false);
+    }
+  }
 
-  // Delete mutation
-  const deleteMut = useMutation({
-    mutationFn: (dataId) => sensorsApi.deleteSensorData(dataId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sensorData'] });
+  async function handleDelete(dataId) {
+    setDeleteLoading(true);
+    try {
+      await sensorsApi.deleteSensorData(dataId);
       toast.success('Sensor data record deleted successfully');
       setDeleteConfirm(null);
       setCurrentPage(1);
-    },
-    onError: (error) => {
+      loadData();
+    } catch (error) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to delete sensor data';
       toast.error(errorMsg);
-    },
-  });
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
   // Parse and format JSON parameters for display
   const parseParameters = (parametersJson) => {
@@ -433,12 +445,12 @@ export default function SensorDataPage() {
                   toast.error('Parameters are required');
                   return;
                 }
-                createMut.mutate({
+                handleCreate({
                   sensorId: parseInt(form.sensorId),
                   parametersJson: form.parametersJson,
                 });
               }}
-              loading={createMut.isPending}
+              loading={createLoading}
             >
               Record Data
             </Button>
@@ -450,12 +462,11 @@ export default function SensorDataPage() {
       <ConfirmDialog
         open={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteMut.mutate(deleteConfirm)}
+        onConfirm={() => handleDelete(deleteConfirm)}
         title="Delete Sensor Data Record"
         message={`Are you sure you want to delete this sensor data record (ID: ${deleteConfirm})? This action cannot be undone and will also remove linked analyses.`}
-        loading={deleteMut.isPending}
+        loading={deleteLoading}
       />
     </DashboardLayout>
   );
 }
-

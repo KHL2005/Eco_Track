@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, ArrowRight } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
@@ -41,10 +40,11 @@ const statusColors = {
 };
 
 export default function ProjectDashboard() {
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectsApi.getProjects().then(r => r.data).catch(() => []),
-  });
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    projectsApi.getProjects().then(r => setProjects(r.data)).catch(() => setProjects([]));
+  }, []);
 
   // Calculate statistics
   const stats = {

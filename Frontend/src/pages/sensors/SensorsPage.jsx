@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
 import Button from '../../components/common/Button';
@@ -16,7 +15,6 @@ import { Plus, Edit, Trash2 } from 'lucide-react';
 
 export default function SensorsPage() {
   const { canManageSensors, isAdmin, isOfficer, isScientist } = useRole();
-  const qc = useQueryClient();
   const [createModal, setCreateModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -27,46 +25,59 @@ export default function SensorsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchId, setSearchId] = useState('');
+  const [sensors, setSensors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const setEdit = (k) => (e) => setEditForm(f => ({ ...f, [k]: e.target.value }));
 
-  const { data: sensors = [], isLoading } = useQuery({
-    queryKey: ['sensors'],
-    queryFn: () => sensorsApi.getSensors().then(r => r.data).catch(() => []),
-  });
+  async function loadSensors() {
+    setIsLoading(true);
+    try {
+      const r = await sensorsApi.getSensors();
+      setSensors(r.data);
+    } catch {
+      setSensors([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const createMut = useMutation({
-    mutationFn: (d) => sensorsApi.createSensor(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sensors'] }); toast.success('Sensor registered'); setCreateModal(false); setForm({ type: 'AIR', location: '' }); },
-    onError: (error) => {
+  useEffect(() => {
+    loadSensors();
+  }, []);
+
+  async function handleCreate(payload) {
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      await sensorsApi.createSensor(payload);
+      toast.success('Sensor registered');
+      setCreateModal(false);
+      setForm({ type: 'AIR', location: '' });
+      loadSensors();
+    } catch (error) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to register sensor';
       const details = error?.response?.data?.details || '';
       const fullError = details ? `${errorMsg}: ${details}` : errorMsg;
+      setCreateError(fullError);
       toast.error('Failed to register sensor', {
         description: fullError,
         duration: 5000
       });
       console.error('Sensor creation error:', error);
-    },
-  });
+    } finally {
+      setCreateLoading(false);
+    }
+  }
 
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }) => sensorsApi.updateSensorStatus(id, status),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sensors'] }); toast.success('Status updated'); },
-  });
-
-  const updateLocation = useMutation({
-    mutationFn: ({ id, location }) => sensorsApi.updateSensorLocation(id, location),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sensors'] }); toast.success('Location updated'); },
-  });
-
-  const updateType = useMutation({
-    mutationFn: ({ id, type }) => sensorsApi.updateSensorType(id, type),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sensors'] }); toast.success('Type updated'); },
-  });
-
-  const editMut = useMutation({
-    mutationFn: async ({ id, location, type, status }) => {
+  async function handleEdit({ id, location, type, status }) {
+    setEditLoading(true);
+    try {
       const promises = [];
       if (location !== undefined && location !== '' && editingSensor.location !== location) {
         promises.push(sensorsApi.updateSensorLocation(id, location));
@@ -79,39 +90,41 @@ export default function SensorsPage() {
       }
       if (promises.length === 0) {
         toast.info('No changes made');
-        return Promise.resolve();
+        setEditLoading(false);
+        return;
       }
-      return Promise.all(promises);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sensors'] });
+      await Promise.all(promises);
       toast.success('Sensor updated successfully');
       setEditModal(false);
       setEditingSensor(null);
       setEditForm({ location: '', type: '', status: '' });
-    },
-    onError: (error) => {
+      loadSensors();
+    } catch (error) {
       console.error('Update error:', error);
       toast.error(error.message || 'Failed to update sensor');
-    },
-  });
+    } finally {
+      setEditLoading(false);
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => sensorsApi.deleteSensor(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sensors'] });
+  async function handleDelete(id) {
+    setDeleteLoading(true);
+    try {
+      await sensorsApi.deleteSensor(id);
       toast.success(`Sensor with ID ${sensorToDelete?.id} deleted successfully`, {
         description: `All associated data and analyses have been removed.`,
         duration: 4000,
       });
       setDeleteConfirmOpen(false);
       setSensorToDelete(null);
-    },
-    onError: (error) => {
+      loadSensors();
+    } catch (error) {
       console.error('Delete error:', error);
       toast.error(error.message || 'Failed to delete sensor');
-    },
-  });
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
   const columns = [
     { key: 'id', label: 'ID', render: r => <span className="text-bark-800 text-xs font-semibold">{formatSensorId(r.id)}</span> },
@@ -221,13 +234,13 @@ export default function SensorsPage() {
         <DataTable columns={columns} data={filteredSensors} loading={isLoading} searchable={false} />
       </div>
 
-      <Modal open={createModal} onClose={() => setCreateModal(false)} title="Register New Sensor">
+      <Modal open={createModal} onClose={() => { setCreateModal(false); setCreateError(null); }} title="Register New Sensor">
         <div className="space-y-4">
-          {createMut.error && (
+          {createError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm font-medium text-red-900">Registration Failed</p>
               <p className="text-xs text-red-700 mt-1">
-                {createMut.error?.response?.data?.message || 'Please check your input and try again'}
+                {createError}
               </p>
             </div>
           )}
@@ -248,7 +261,7 @@ export default function SensorsPage() {
             {!form.type && <p className="text-xs text-orange-600 mt-1">Sensor type is required</p>}
           </div>
           <div className="flex gap-3 justify-end">
-            <Button variant="secondary" onClick={() => setCreateModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => { setCreateModal(false); setCreateError(null); }}>Cancel</Button>
             <Button onClick={() => {
               if (!form.location.trim()) {
                 toast.error('Location is required');
@@ -258,11 +271,11 @@ export default function SensorsPage() {
                 toast.error('Sensor type is required');
                 return;
               }
-              createMut.mutate({
+              handleCreate({
                 location: form.location,
                 type: form.type
               });
-            }} loading={createMut.isPending}>Register</Button>
+            }} loading={createLoading}>Register</Button>
           </div>
         </div>
       </Modal>
@@ -303,7 +316,7 @@ export default function SensorsPage() {
           </div>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setEditModal(false)}>Cancel</Button>
-            <Button onClick={() => editMut.mutate({ id: editingSensor.id, ...editForm })} loading={editMut.isPending}>Update</Button>
+            <Button onClick={() => handleEdit({ id: editingSensor.id, ...editForm })} loading={editLoading}>Update</Button>
           </div>
         </div>
       </Modal>
@@ -316,12 +329,12 @@ export default function SensorsPage() {
         }}
         onConfirm={() => {
           if (sensorToDelete) {
-            deleteMut.mutate(sensorToDelete.id);
+            handleDelete(sensorToDelete.id);
           }
         }}
         title="Delete Sensor"
         message={`Are you sure you want to delete sensor with ID ${sensorToDelete?.id}? This will also delete all associated sensor data and analyses.`}
-        loading={deleteMut.isPending}
+        loading={deleteLoading}
         confirmLabel="Delete Sensor"
         variant="danger"
       />

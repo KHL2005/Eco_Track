@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { X, Edit, Trash2, Plus } from 'lucide-react';
@@ -23,11 +22,12 @@ const statusBgColor = {
 };
 
 export default function MilestoneManagement({ projectId, milestones, onRefresh, canEdit }) {
-   const qc = useQueryClient();
    const [modal, setModal] = useState(false);
    const [editId, setEditId] = useState(null);
    const [statusModal, setStatusModal] = useState(null);
    const [form, setForm] = useState({ title: '', description: '', date: '', status: 'PENDING' });
+   const [saveLoading, setSaveLoading] = useState(false);
+   const [statusLoading, setStatusLoading] = useState(false);
 
    const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -52,51 +52,59 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
       setModal(true);
    };
 
-  const createMut = useMutation({
-    mutationFn: (d) => projectsApi.addMilestone(projectId, d),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] });
+  async function handleCreate(data) {
+    setSaveLoading(true);
+    try {
+      await projectsApi.addMilestone(projectId, data);
       toast.success('Milestone created');
       setModal(false);
       resetForm();
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to create milestone'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create milestone');
+    } finally {
+      setSaveLoading(false);
+    }
+  }
 
-  const updateMut = useMutation({
-    mutationFn: (d) => projectsApi.updateMilestone(editId, d),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] });
+  async function handleUpdate(data) {
+    setSaveLoading(true);
+    try {
+      await projectsApi.updateMilestone(editId, data);
       toast.success('Milestone updated');
       setModal(false);
       resetForm();
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update milestone'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update milestone');
+    } finally {
+      setSaveLoading(false);
+    }
+  }
 
-  const updateStatusMut = useMutation({
-    mutationFn: ({ milestoneId, status }) =>
-      projectsApi.updateMilestone(milestoneId, { status }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] });
+  async function handleUpdateStatus(milestoneId, status) {
+    setStatusLoading(true);
+    try {
+      await projectsApi.updateMilestone(milestoneId, { status });
       toast.success('Status updated');
       setStatusModal(null);
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update status'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setStatusLoading(false);
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => projectsApi.deleteMilestone(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] });
+  async function handleDelete(id) {
+    try {
+      await projectsApi.deleteMilestone(id);
       toast.success('Milestone deleted');
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete milestone'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete milestone');
+    }
+  }
 
    const handleSubmit = () => {
      if (!form.title || !form.date) {
@@ -104,9 +112,9 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
        return;
      }
      if (editId) {
-       updateMut.mutate(form);
+       handleUpdate(form);
      } else {
-       createMut.mutate(form);
+       handleCreate(form);
      }
    };
 
@@ -162,7 +170,7 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
                    <button
                      onClick={() => {
                        if (window.confirm('Delete this milestone?')) {
-                         deleteMut.mutate(m.milestoneId);
+                         handleDelete(m.milestoneId);
                        }
                      }}
                      className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
@@ -226,7 +234,7 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
            </div>
            <div className="flex gap-3 justify-end">
              <Button variant="secondary" onClick={() => { setModal(false); resetForm(); }}>Cancel</Button>
-             <Button onClick={handleSubmit} loading={createMut.isPending || updateMut.isPending}>
+             <Button onClick={handleSubmit} loading={saveLoading}>
                {editId ? 'Update' : 'Create'}
              </Button>
            </div>
@@ -240,8 +248,9 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
             <button
               key={status}
               onClick={() => {
-                updateStatusMut.mutate({ milestoneId: statusModal, status });
+                handleUpdateStatus(statusModal, status);
               }}
+              disabled={statusLoading}
               className="w-full p-3 text-left border border-bark-400/20 rounded-xl hover:bg-earth-100 transition-colors"
             >
               {labelify(status)}
@@ -252,4 +261,3 @@ export default function MilestoneManagement({ projectId, milestones, onRefresh, 
     </>
   );
 }
-

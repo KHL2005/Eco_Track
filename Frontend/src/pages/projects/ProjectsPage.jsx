@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import PageHeader from '../../components/common/PageHeader';
@@ -21,58 +20,99 @@ const statusColor = { PLANNED: 'border-blue-200 bg-blue-50', IN_PROGRESS: 'borde
 
 export default function ProjectsPage() {
   const { canManageProjects } = useRole();
-  const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [editId, setEditId] = useState(null);
-   const [form, setForm] = useState({ title: '', description: '', startDate: '', endDate: '', budget: '', status: 'PLANNED' });
-   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const [form, setForm] = useState({ title: '', description: '', startDate: '', endDate: '', budget: '', status: 'PLANNED' });
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectsApi.getProjects().then(r => r.data).catch(() => []),
-  });
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const createMut = useMutation({
-    mutationFn: (d) => projectsApi.createProject(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); toast.success('Project created'); setModal(false); resetForm(); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to create project'),
-  });
+  async function loadProjects() {
+    setIsLoading(true);
+    try {
+      const r = await projectsApi.getProjects();
+      setProjects(r.data);
+    } catch {
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const updateMut = useMutation({
-    mutationFn: (d) => projectsApi.updateProject(editId, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); toast.success('Project updated'); setModal(false); resetForm(); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update project'),
-  });
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => projectsApi.deleteProject(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); toast.success('Project deleted'); setDeleteId(null); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete project'),
-  });
+  async function handleCreate(data) {
+    setSaveLoading(true);
+    try {
+      await projectsApi.createProject(data);
+      toast.success('Project created');
+      setModal(false);
+      resetForm();
+      loadProjects();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create project');
+    } finally {
+      setSaveLoading(false);
+    }
+  }
 
-   const resetForm = () => {
-     setForm({ title: '', description: '', startDate: '', endDate: '', budget: '', status: 'PLANNED' });
-     setEditId(null);
-   };
+  async function handleUpdate(data) {
+    setSaveLoading(true);
+    try {
+      await projectsApi.updateProject(editId, data);
+      toast.success('Project updated');
+      setModal(false);
+      resetForm();
+      loadProjects();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update project');
+    } finally {
+      setSaveLoading(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    setDeleteLoading(true);
+    try {
+      await projectsApi.deleteProject(id);
+      toast.success('Project deleted');
+      setDeleteId(null);
+      loadProjects();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete project');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  const resetForm = () => {
+    setForm({ title: '', description: '', startDate: '', endDate: '', budget: '', status: 'PLANNED' });
+    setEditId(null);
+  };
 
   const onOpenCreate = () => {
     resetForm();
     setModal(true);
   };
 
-   const onOpenEdit = (project) => {
-     setEditId(project.projectId);
-     setForm({
-       title: project.title || '',
-       description: project.description || '',
-       startDate: project.startDate || '',
-       endDate: project.endDate || '',
-       budget: project.budget || '',
-       status: project.status || 'PLANNED',
-     });
-     setModal(true);
-   };
+  const onOpenEdit = (project) => {
+    setEditId(project.projectId);
+    setForm({
+      title: project.title || '',
+      description: project.description || '',
+      startDate: project.startDate || '',
+      endDate: project.endDate || '',
+      budget: project.budget || '',
+      status: project.status || 'PLANNED',
+    });
+    setModal(true);
+  };
 
   const handleSubmit = () => {
     if (!form.title) {
@@ -85,9 +125,9 @@ export default function ProjectsPage() {
     }
     const data = { ...form, budget: form.budget ? parseFloat(form.budget) : null };
     if (editId) {
-      updateMut.mutate(data);
+      handleUpdate(data);
     } else {
-      createMut.mutate(data);
+      handleCreate(data);
     }
   };
 
@@ -190,7 +230,7 @@ export default function ProjectsPage() {
            </div>
            <div className="flex gap-3 justify-end">
              <Button variant="secondary" onClick={() => { setModal(false); resetForm(); }}>Cancel</Button>
-             <Button onClick={handleSubmit} loading={createMut.isPending || updateMut.isPending}>{editId ? 'Update' : 'Create'}</Button>
+             <Button onClick={handleSubmit} loading={saveLoading}>{editId ? 'Update' : 'Create'}</Button>
            </div>
          </div>
        </Modal>
@@ -203,7 +243,7 @@ export default function ProjectsPage() {
           </p>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setDeleteId(null)}>Cancel</Button>
-            <Button onClick={() => deleteMut.mutate(deleteId)} loading={deleteMut.isPending} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={() => handleDelete(deleteId)} loading={deleteLoading} className="bg-red-600 hover:bg-red-700">
               Delete Project
             </Button>
           </div>
@@ -212,5 +252,3 @@ export default function ProjectsPage() {
     </DashboardLayout>
   );
 }
-
-

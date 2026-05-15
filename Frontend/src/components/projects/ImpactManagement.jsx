@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { Trash2, Edit, Plus } from 'lucide-react';
@@ -19,41 +18,52 @@ const metricDisplay = [
 ];
 
 export default function ImpactManagement({ projectId, impact, onRefresh, canEdit }) {
-  const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const createMut = useMutation({
-    mutationFn: (d) => projectsApi.addOrUpdateImpact(projectId, { metrics: d }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['impact', projectId] });
+  async function handleSave(data) {
+    setSaveLoading(true);
+    try {
+      await projectsApi.addOrUpdateImpact(projectId, { metrics: data });
       toast.success(impact ? 'Impact updated' : 'Impact created');
       setModal(false);
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to save impact'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save impact');
+    } finally {
+      setSaveLoading(false);
+    }
+  }
 
-  const statusMut = useMutation({
-    mutationFn: (status) => projectsApi.updateImpactStatus(projectId, status),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['impact', projectId] });
+  async function handleUpdateStatus(status) {
+    setStatusLoading(true);
+    try {
+      await projectsApi.updateImpactStatus(projectId, status);
       toast.success('Impact status updated');
       setStatusModal(false);
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update status'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setStatusLoading(false);
+    }
+  }
 
-  const deleteMut = useMutation({
-    mutationFn: () => projectsApi.deleteImpact(projectId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['impact', projectId] });
+  async function handleDelete() {
+    setDeleteLoading(true);
+    try {
+      await projectsApi.deleteImpact(projectId);
       toast.success('Impact deleted');
       onRefresh?.();
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete impact'),
-  });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete impact');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
 
   if (!impact) {
@@ -70,8 +80,8 @@ export default function ImpactManagement({ projectId, impact, onRefresh, canEdit
             <Modal open={modal} onClose={() => setModal(false)} title="Create Impact Metrics" size="lg">
               <ImpactMetricsForm
                 initialMetrics={{}}
-                onSave={(data) => createMut.mutate(data)}
-                loading={createMut.isPending}
+                onSave={(data) => handleSave(data)}
+                loading={saveLoading}
                 isEdit={false}
               />
             </Modal>
@@ -156,12 +166,13 @@ export default function ImpactManagement({ projectId, impact, onRefresh, canEdit
               <Button
                 onClick={() => {
                   if (window.confirm('Delete all impact metrics? This action cannot be undone.')) {
-                    deleteMut.mutate();
+                    handleDelete();
                   }
                 }}
                 size="sm"
                 variant="ghost"
                 className="text-red-600 hover:bg-red-50"
+                loading={deleteLoading}
               >
                 <Trash2 size={14} />
               </Button>
@@ -174,8 +185,8 @@ export default function ImpactManagement({ projectId, impact, onRefresh, canEdit
       <Modal open={modal} onClose={() => setModal(false)} title="Edit Impact Metrics" size="lg">
         <ImpactMetricsForm
           initialMetrics={metrics}
-          onSave={(data) => createMut.mutate(data)}
-          loading={createMut.isPending}
+          onSave={(data) => handleSave(data)}
+          loading={saveLoading}
           isEdit={true}
         />
       </Modal>
@@ -186,8 +197,8 @@ export default function ImpactManagement({ projectId, impact, onRefresh, canEdit
           {IMPACT_STATUSES.map(status => (
             <button
               key={status}
-              onClick={() => statusMut.mutate(status)}
-              disabled={statusMut.isPending}
+              onClick={() => handleUpdateStatus(status)}
+              disabled={statusLoading}
               className={`w-full p-3 rounded-xl border-2 text-left transition-colors ${
                 impact.status === status
                   ? 'border-forest-600 bg-forest-50'
@@ -202,4 +213,3 @@ export default function ImpactManagement({ projectId, impact, onRefresh, canEdit
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -13,21 +13,49 @@ export default function SensorDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { data: sensor, isLoading: sensorLoading } = useQuery({
-    queryKey: ['sensor', id],
-    queryFn: () => sensorsApi.getSensorById(id).then(r => r.data),
-  });
+  const [sensor, setSensor] = useState(null);
+  const [sensorLoading, setSensorLoading] = useState(true);
+  const [sensorData, setSensorData] = useState([]);
+  const [analyses, setAnalyses] = useState([]);
 
-  const { data: sensorData = [] } = useQuery({
-    queryKey: ['sensorData', id],
-    queryFn: () => sensorsApi.getDataBySensor(id).then(r => r.data).catch(() => []),
-  });
+  useEffect(() => {
+    async function loadSensor() {
+      setSensorLoading(true);
+      try {
+        const r = await sensorsApi.getSensorById(id);
+        setSensor(r.data);
+      } catch {
+        setSensor(null);
+      } finally {
+        setSensorLoading(false);
+      }
+    }
 
-  const { data: analyses = [] } = useQuery({
-    queryKey: ['analyses', 'sensor', id],
-    queryFn: () => sensorsApi.getAnalyses().then(r => r.data.filter(a => sensorData.some(d => d.id === a.dataId))).catch(() => []),
-    enabled: sensorData.length > 0,
-  });
+    async function loadSensorData() {
+      try {
+        const r = await sensorsApi.getDataBySensor(id);
+        setSensorData(r.data);
+      } catch {
+        setSensorData([]);
+      }
+    }
+
+    loadSensor();
+    loadSensorData();
+  }, [id]);
+
+  useEffect(() => {
+    if (sensorData.length === 0) return;
+    async function loadAnalyses() {
+      try {
+        const r = await sensorsApi.getAnalyses();
+        setAnalyses(r.data.filter(a => sensorData.some(d => d.id === a.dataId)));
+      } catch {
+        setAnalyses([]);
+      }
+    }
+    loadAnalyses();
+  }, [sensorData]);
 
   const chartData = [...sensorData]
     .sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt))
@@ -112,4 +140,3 @@ export default function SensorDetailPage() {
     </DashboardLayout>
   );
 }
-
