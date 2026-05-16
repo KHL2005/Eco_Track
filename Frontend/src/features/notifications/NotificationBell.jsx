@@ -79,7 +79,7 @@ export default function NotificationBell() {
                     <p className="text-sm text-bark-800 leading-snug">{n.message}</p>
                     <p className="text-xs text-bark-400 mt-0.5">{timeAgo(n.createdDate)}</p>
                   </div>
-                  <button onClick={() => handleMarkRead(n.notificationId)} className="text-bark-400 hover:text-forest-600 flex-shrink-0">
+                  <button onClick={() => handleMarkRead(n.notificationId)} className="text-bark-400 hover:text-forest-600 flex-shrink-0" title="Mark as read">
                     <Check size={14} />
                   </button>
                 </div>

@@ -309,22 +309,27 @@ export default function SensorDataPage() {
                     <div className="space-y-3">
                       {Object.entries(parseParameters(detailsModal.parametersJson)).map(([key, value]) => {
                         const paramInfo = formatParameterWithRange(key, value);
-                        const statusColor = paramInfo.isInRange === null
-                          ? 'text-bark-600'
-                          : paramInfo.isInRange
-                          ? 'text-green-600'
-                          : 'text-orange-600';
-                        const statusIcon = paramInfo.isInRange === null
-                          ? '○'
-                          : paramInfo.isInRange
-                          ? '✓'
-                          : '⚠';
+                        const sensorType = sensorTypeMap[detailsModal.sensorId];
+
+                        let statusIcon = null;
+                        let statusColor = 'text-bark-600';
+
+                        if (paramInfo.isInRange === null) {
+                          statusIcon = '○';
+                          statusColor = 'text-bark-500';
+                        } else if (paramInfo.isInRange) {
+                          statusIcon = '✓';
+                          statusColor = 'text-green-600';
+                        } else {
+                          statusIcon = '⚠';
+                          statusColor = 'text-red-600';
+                        }
 
                         return (
                           <div key={key} className="py-2 border-b border-bark-200/50 last:border-0">
                             <div className="flex justify-between items-start mb-1">
                               <span className="text-sm font-semibold text-bark-700">{paramInfo.label}</span>
-                              <span className={`text-xs font-bold ${statusColor}`}>{statusIcon}</span>
+                              <span className={`text-lg font-bold ${statusColor}`}>{statusIcon}</span>
                             </div>
                             <div className="text-xs text-bark-600 mb-1">
                               <strong>Value:</strong> {paramInfo.display || value}

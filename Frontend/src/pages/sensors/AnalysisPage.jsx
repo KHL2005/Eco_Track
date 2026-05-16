@@ -139,15 +139,72 @@ export default function AnalysisPage() {
     }
   }
 
+  // Validate CSV headers match the selected sensor type
+  function validateCsvHeaders(file, sensorType) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const lines = text.split('\n');
+          if (lines.length === 0) {
+            reject(new Error('CSV file is empty'));
+            return;
+          }
+
+          const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+          const airParams = ['pm25', 'pm2.5', 'pm10', 'co2', 'no2', 'so2', 'o3'];
+          const waterParams = ['ph', 'dissolvedoxygen', 'turbidity', 'conductivity', 'temperature', 'bod'];
+          const noiseParams = ['decibel', 'frequency', 'peak_level', 'peak level', 'ambient_level', 'ambient level', 'frequency_range', 'frequency range'];
+
+          let expectedParams = [];
+          let sensorName = '';
+
+          if (sensorType === 'AIR') {
+            expectedParams = airParams;
+            sensorName = 'AIR';
+          } else if (sensorType === 'WATER') {
+            expectedParams = waterParams;
+            sensorName = 'WATER';
+          } else if (sensorType === 'NOISE') {
+            expectedParams = noiseParams;
+            sensorName = 'NOISE';
+          }
+
+          const normalizedHeaders = headers.map(h => h.replace(/[_\s]/g, ''));
+          const normalizedExpected = expectedParams.map(p => p.replace(/[_\s]/g, ''));
+
+          const hasMatch = normalizedHeaders.some(h => normalizedExpected.includes(h));
+
+          if (!hasMatch) {
+            reject(new Error(
+              `CSV columns do not match ${sensorName} sensor type. Expected: ${expectedParams.join(', ')}. Found: ${headers.join(', ')}`
+            ));
+          } else {
+            resolve(true);
+          }
+        } catch (error) {
+          reject(new Error('Failed to read CSV file: ' + error.message));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read CSV file'));
+      reader.readAsText(file);
+    });
+  }
+
   async function handleUploadCsv() {
     setUploadLoading(true);
     try {
+      await validateCsvHeaders(csvFile, csvForm.sensorType);
+
       const res = await sensorsApi.uploadCsv(csvFile, csvForm.sensorId, csvForm.sensorType,
         (e) => setCsvProgress(Math.round(e.loaded / e.total * 100)));
-      const { successCount, failCount, totalRows } = res.data;
+      const { successCount, failCount, totalRows, message } = res.data;
+
       if (successCount === 0) {
         toast.error(`CSV upload failed: 0 records inserted`, {
-          description: `Total rows: ${totalRows}, Failed: ${failCount}. Check that the Sensor ID exists and the CSV columns match the sensor type.`,
+          description: `${message}`,
           duration: 6000,
         });
       } else if (failCount > 0) {
@@ -164,8 +221,13 @@ export default function AnalysisPage() {
       setCsvModal(false);
       setCsvProgress(0);
       setCsvFile(null);
-    } catch {
-      toast.error('CSV upload failed');
+      loadAnalyses();
+    } catch (error) {
+      const errorMsg = error?.response?.data?.message || error.message || 'CSV upload failed';
+      toast.error('CSV validation error', {
+        description: errorMsg,
+        duration: 6000,
+      });
       setCsvProgress(0);
     } finally {
       setUploadLoading(false);
