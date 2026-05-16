@@ -1,13 +1,3 @@
-/**
- * ID Formatting Utilities
- * Formats raw database IDs into professional display formats
- *
- * Examples:
- * - Sensor ID 1 → SNS01
- * - Analysis ID 42 → ANL042
- * - Data ID 123 → DATA123
- * - Scientist ID 7 → SC07
- */
 
 export const formatSensorId = (id) => {
   if (!id && id !== 0) return '—';
@@ -34,14 +24,6 @@ export const formatAgencyOfficerId = (id) => {
   return `AO${String(id).padStart(2, '0')}`;
 };
 
-/**
- * Parse formatted ID back to number
- * Examples:
- * - "SNS01" → 1
- * - "ANL042" → 42
- * - "DATA123" → 123
- * - "SC07" → 7
- */
 export const parseFormattedId = (formattedId) => {
   if (!formattedId || typeof formattedId !== 'string') return null;
 
@@ -54,10 +36,6 @@ export const parseFormattedId = (formattedId) => {
   return isNaN(parsedNumber) ? null : parsedNumber;
 };
 
-/**
- * Format sensor data with ideal ranges
- * Shows the parameter and whether it's within ideal range
- */
 export const formatParameterWithRange = (parameter, value) => {
   const ranges = {
     // Air Parameters
@@ -101,10 +79,6 @@ export const formatParameterWithRange = (parameter, value) => {
     'DB': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
     'soundLevel': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
     'sound_level': { min: 0, max: 55, unit: 'dB', label: 'Noise Level' },
-
-    // Temperature (common to all)
-    'Temperature': { min: 15, max: 35, unit: '°C', label: 'Temperature' },
-    'temperature': { min: 15, max: 35, unit: '°C', label: 'Temperature' },
   };
 
   const range = ranges[parameter];

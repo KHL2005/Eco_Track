@@ -14,7 +14,6 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Long> {
     List<Analysis> findByAgencyOfficerId(Long agencyOfficerId);
     List<Analysis> findByStatus(AnalysisStatus status);
 
-    // FIXED: Use direct sensorId field instead of trying to join dataId
     @Query("SELECT a FROM Analysis a WHERE a.sensorId = :sensorId")
     List<Analysis> findBySensorId(@Param("sensorId") Long sensorId);
 }

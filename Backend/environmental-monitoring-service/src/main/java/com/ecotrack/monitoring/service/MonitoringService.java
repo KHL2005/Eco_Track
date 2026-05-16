@@ -181,14 +181,11 @@ public class MonitoringService {
         String findings = (request.getFindings() != null && !request.getFindings().isBlank())
                 ? request.getFindings()
                 : generateFindings(data.getParametersJson());
-        // Assign agencyOfficerId: from request → IAM fetch → null default
+        
+        // Assign agencyOfficerId: initially null (not auto-assigned)
+        // Agency Officer ID will be assigned only when reviewed by an agency officer
         Long agencyOfficerId = request.getAgencyOfficerId();
-        if (agencyOfficerId == null) {
-            agencyOfficerId = assignAgencyOfficer();
-        }
-        // Keep as null if no agency officer available
 
-        // Determine status based on whether findings contain issues
         AnalysisStatus status = request.getStatus();
         if (status == null) {
             boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
@@ -232,8 +229,7 @@ public class MonitoringService {
 
     @Transactional
     public AnalysisResponse reviewAnalysis(Long id, String userId, String userRole, AnalysisStatus status, String findings) {
-        // ── Validate that the caller is an AGENCY_OFFICER or ADMIN ──────────────
-        if (userRole == null || (!userRole.equalsIgnoreCase("AGENCY_OFFICER") && 
+        if (userRole == null || (!userRole.equalsIgnoreCase("AGENCY_OFFICER") &&
             !userRole.equalsIgnoreCase("SUPER_ADMIN") && !userRole.equalsIgnoreCase("ADMINISTRATOR"))) {
             throw new UnauthorizedException("Only AGENCY_OFFICER or ADMIN roles can review analysis. Your role: " + userRole);
         }
@@ -255,9 +251,7 @@ public class MonitoringService {
         Analysis analysis = analysisRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis", id));
 
-        // Auto-assign reviewerId (agency officer ID) from JWT token
-        // This ensures each agency officer who reviews gets their unique ID based on their JWT token
-        // Same agency officer will have same ID across reviews, different officers will have different IDs
+
         analysis.setAgencyOfficerId(reviewerId);
         analysis.setStatus(status);
         if (findings != null && !findings.isBlank()) {
@@ -267,16 +261,20 @@ public class MonitoringService {
 
         log.info("Analysis {} reviewed by agency officer {} (role: {}). Status: {}", id, reviewerId, userRole, status);
         try {
+            // Fetch the reviewing officer's name
+            UserDto officer = iamServiceClient.getUserById(reviewerId);
+            String officerName = (officer != null && officer.getName() != null) ? officer.getName() : "Officer";
+            
+            // Get all scientists and send them the notification
             List<UserDto> scientists = iamServiceClient.getUsersByRole("SCIENTIST");
             if (scientists != null) {
                 for (UserDto scientist : scientists) {
-                    notify(scientist.getUserId(), id,
-                            "Analysis #" + id + " has been reviewed and marked as " + status + ".",
-                            NotificationCategory.GENERAL);
+                    String message = "Analysis #" + id + " reviewed by " + officerName + " and marked as " + status + ".";
+                    notify(scientist.getUserId(), id, message, NotificationCategory.GENERAL);
                 }
             }
         } catch (Exception e) {
-            log.warn("Could not fetch scientists to notify for analysis review: {}", e.getMessage());
+            log.warn("Could not fetch scientists or officer details to notify for analysis review: {}", e.getMessage());
         }
         return toAnalysisResponse(analysis);
     }
@@ -334,49 +332,38 @@ public class MonitoringService {
             String findings = generateFindings(data.getParametersJson());
             boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
 
-            Long agencyOfficerId = assignAgencyOfficer();
-            // Keep as null if no agency officer available
-
+            // Agency Officer ID is not assigned during auto-analysis creation
+            // It will be assigned only when the analysis is reviewed by an agency officer
             Analysis analysis = Analysis.builder()
                     .dataId(data.getDataId())
                     .sensorId(data.getSensorId())
-                    .agencyOfficerId(agencyOfficerId)
+                    .agencyOfficerId(null)
                     .findings(findings)
                     .status(hasViolation ? AnalysisStatus.FLAGGED : AnalysisStatus.PENDING)
                     .build();
             Analysis savedAnalysis = analysisRepository.save(analysis);
-            log.info("Auto-analysis triggered for sensorData id={}, flagged={}, agencyOfficerId={}", data.getDataId(), hasViolation, agencyOfficerId);
-            if (hasViolation && agencyOfficerId != null) {
-                notify(agencyOfficerId, savedAnalysis.getAnalysisId(),
-                        "Environmental violations detected on sensor #" + data.getSensorId() + ". Analysis flagged for your review.",
-                        NotificationCategory.GENERAL);
+            log.info("Auto-analysis triggered for sensorData id={}, flagged={}", data.getDataId(), hasViolation);
+            
+            if (hasViolation) {
+                try {
+                    List<UserDto> officers = iamServiceClient.getUsersByRole("AGENCY_OFFICER");
+                    if (officers != null && !officers.isEmpty()) {
+                        for (UserDto officer : officers) {
+                            notify(officer.getUserId(), savedAnalysis.getAnalysisId(),
+                                    "Environmental violations detected on sensor #" + data.getSensorId() + ". Analysis flagged for your review.",
+                                    NotificationCategory.GENERAL);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not fetch agency officers to notify for flagged analysis: {}", e.getMessage());
+                }
             }
         } catch (Exception e) {
             log.error("Failed to trigger auto-analysis for dataId={}: {}", data.getDataId(), e.getMessage());
         }
     }
 
-    private Long assignAgencyOfficer() {
-        try {
-            List<UserDto> officers = iamServiceClient.getUsersByRole("AGENCY_OFFICER");
-            if (officers != null && !officers.isEmpty()) {
-                // Round-robin: pick agency officer based on current analysis count
-                long totalAnalyses = analysisRepository.count();
-                int index = (int) (totalAnalyses % officers.size());
-                Long selectedId = officers.get(index).getUserId();
-                log.info("Auto-assigned agency officer userId={} for analysis", selectedId);
-                return selectedId;
-            }
-        } catch (Exception e) {
-            log.warn("Could not fetch agency officers from IAM service: {}", e.getMessage());
-        }
-        return null;
-    }
 
-    /**
-     * Generates a clean, concise findings string based on threshold rules applied to sensor parameters.
-     * Returns a comma-separated list of issues, or a "safe" message if all values are within limits.
-     */
     private String generateFindings(String parametersJson) {
         java.util.Map<String, Double> params = parseJsonToMap(parametersJson);
         java.util.List<String> parts = new java.util.ArrayList<>();
@@ -414,8 +401,48 @@ public class MonitoringService {
         addFinding(parts, params, "conductivity", "conductivity", new double[]{1200, 800,  500, 200});
         addFinding(parts, params, "BOD",          "BOD",          new double[]{15,   10,   5,   2});
 
-        // ── Noise & Temperature ─────────────────────────────────────
-        addFinding(parts, params, "decibel",     "noise",        new double[]{100,  85,   70,  60});
+        // ── Noise Parameters ─────────────────────────────────────────
+        Double decibel = params.get("decibel");
+        if (decibel != null) {
+            String label;
+            if (decibel > 100)      label = "hazardous - extreme noise pollution";
+            else if (decibel > 85)  label = "high - very loud and harmful";
+            else if (decibel > 70)  label = "moderate - noisy environment";
+            else if (decibel > 55)  label = "slightly elevated";
+            else                    label = "normal - quiet environment";
+            parts.add("noise level is " + label);
+        }
+
+        Double frequency = params.get("frequency");
+        if (frequency != null) {
+            String label;
+            if (frequency < 500 || frequency > 12000)      label = "out of normal range";
+            else if (frequency < 1000 || frequency > 8000) label = "slightly out of range";
+            else                                            label = "within normal range";
+            parts.add("frequency is " + label);
+        }
+
+        Double peakLevel = params.get("peak_level");
+        if (peakLevel != null) {
+            String label;
+            if (peakLevel > 70)      label = "hazardous - dangerous peak levels";
+            else if (peakLevel > 60) label = "high - elevated peak levels";
+            else if (peakLevel > 50) label = "moderate peak levels";
+            else                     label = "normal peak levels";
+            parts.add("peak noise level is " + label);
+        }
+
+        Double ambientLevel = params.get("ambient_level");
+        if (ambientLevel != null) {
+            String label;
+            if (ambientLevel > 60)      label = "hazardous - very high ambient noise";
+            else if (ambientLevel > 50) label = "high - elevated ambient noise";
+            else if (ambientLevel > 40) label = "moderate ambient noise";
+            else                        label = "normal ambient noise levels";
+            parts.add("ambient noise level is " + label);
+        }
+
+        // ── Temperature ─────────────────────────────────────────
         addFinding(parts, params, "temperature", "temperature",  new double[]{40,   35,   30,  25});
 
         if (parts.isEmpty()) {
@@ -424,7 +451,6 @@ public class MonitoringService {
         return String.join(", ", parts);
     }
 
-    /** Evaluates a parameter against four thresholds and adds a concise finding. */
     private void addFinding(java.util.List<String> parts, java.util.Map<String, Double> params,
                             String key, String label, double[] t) {
         Double v = params.get(key);
