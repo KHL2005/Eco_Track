@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.request;
 
 import com.ecotrack.iam.enums.UserRole;
 import jakarta.validation.constraints.*;
@@ -28,4 +28,3 @@ public class CreateUserRequest {
     @NotNull(message = "Role is required")
     private UserRole role;
 }
-

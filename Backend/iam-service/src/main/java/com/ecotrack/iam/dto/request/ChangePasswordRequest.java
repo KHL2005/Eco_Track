@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.request;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
@@ -15,4 +15,3 @@ public class ChangePasswordRequest {
              message = "Password must have min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character")
     private String newPassword;
 }
-

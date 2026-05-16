@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,4 +14,3 @@ public class AuthResponse {
     private String name;
     private String phone;
 }
-

@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.request;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
@@ -14,4 +14,3 @@ public class LoginRequest {
     @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
     private String password;
 }
-

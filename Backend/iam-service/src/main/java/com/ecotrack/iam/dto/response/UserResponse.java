@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.response;
 
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.enums.UserStatus;
@@ -18,4 +18,3 @@ public class UserResponse {
     private UserStatus status;
     private LocalDateTime createdAt;
 }
-

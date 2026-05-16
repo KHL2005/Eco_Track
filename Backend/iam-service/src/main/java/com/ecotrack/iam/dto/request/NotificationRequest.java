@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.request;
 
 import com.ecotrack.iam.enums.NotificationCategory;
 import jakarta.validation.constraints.*;

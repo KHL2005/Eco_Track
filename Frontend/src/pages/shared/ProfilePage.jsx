@@ -43,7 +43,7 @@ export default function ProfilePage() {
     setProfileLoading(true);
     try {
       const res = await usersApi.updateOwnProfile({ name: profileForm.name, phoneNumber: profileForm.phone });
-      setUser({ ...user, ...res.data.data });
+      setUser({ ...user, ...res.data });
       setEditing(false);
       toast.success('Profile updated!');
     } catch (err) {

@@ -1,8 +1,8 @@
 package com.ecotrack.iam.controller;
 
-import com.ecotrack.iam.dto.AuthResponse;
-import com.ecotrack.iam.dto.LoginRequest;
-import com.ecotrack.iam.dto.RegisterRequest;
+import com.ecotrack.iam.dto.response.AuthResponse;
+import com.ecotrack.iam.dto.request.LoginRequest;
+import com.ecotrack.iam.dto.request.RegisterRequest;
 import com.ecotrack.iam.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

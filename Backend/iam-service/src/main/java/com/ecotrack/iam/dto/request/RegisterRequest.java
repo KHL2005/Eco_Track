@@ -1,4 +1,4 @@
-package com.ecotrack.iam.dto;
+package com.ecotrack.iam.dto.request;
 
 import com.ecotrack.iam.enums.UserRole;
 import jakarta.validation.constraints.*;
@@ -35,4 +35,3 @@ public class RegisterRequest {
     // Role is ignored on public registration — always defaults to CITIZEN
     private UserRole role;
 }
-

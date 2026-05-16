@@ -1,6 +1,6 @@
 package com.ecotrack.iam.controller;
 
-import com.ecotrack.iam.dto.UserResponse;
+import com.ecotrack.iam.dto.response.UserResponse;
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;

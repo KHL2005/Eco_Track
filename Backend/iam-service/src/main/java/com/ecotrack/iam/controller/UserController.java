@@ -1,12 +1,11 @@
 package com.ecotrack.iam.controller;
 
-import com.ecotrack.iam.dto.ChangePasswordRequest;
-import com.ecotrack.iam.dto.CreateUserRequest;
-import com.ecotrack.iam.dto.UpdateUserRequest;
-import com.ecotrack.iam.dto.UpdateProfileRequest;
+import com.ecotrack.iam.dto.request.ChangePasswordRequest;
+import com.ecotrack.iam.dto.request.CreateUserRequest;
+import com.ecotrack.iam.dto.request.UpdateUserRequest;
+import com.ecotrack.iam.dto.request.UpdateProfileRequest;
 import com.ecotrack.iam.exception.BadRequestException;
-import com.ecotrack.iam.response.ApiResponse;
-import com.ecotrack.iam.dto.UserResponse;
+import com.ecotrack.iam.dto.response.UserResponse;
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -114,10 +113,9 @@ public class UserController {
 
     @PutMapping("/update-profile")
     @Operation(summary = "Update own profile (name, phone only)")
-    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+    public ResponseEntity<UserResponse> updateProfile(
             Authentication authentication,
             @Valid @RequestBody UpdateProfileRequest request) {
-        UserResponse updated = userService.updateProfile(authentication.getName(), request);
-        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
+        return ResponseEntity.ok(userService.updateProfile(authentication.getName(), request));
     }
 }
