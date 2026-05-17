@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 export default function IssueDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { canManageIssues } = useRole();
+  const { canManageIssues, canEditIssue, canDeleteIssue } = useRole();
   const { user } = useAuth();
   const [statusModal, setStatusModal] = useState(false);
   const [resolutionModal, setResolutionModal] = useState(false);
@@ -177,36 +177,36 @@ export default function IssueDetailPage() {
 
         {/* ── Attached Media ── */}
         <div className="bg-white rounded-2xl border border-[#bbf7d0] shadow-sm p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-[#14532d]">Attached Media</h3>
-              {issue.mediaUrls?.length > 0 && (
-                <p className="text-xs text-[#64748b] mt-0.5 flex items-center gap-3">
-                  {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <ImageIcon size={11} />
-                      {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length} image(s)
-                    </span>
-                  )}
-                  {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <Video size={11} />
-                      {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length} video(s)
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
-            {canManageIssues && (
-              <div>
-                <input ref={fileRef} type="file" className="hidden" accept="image/*,video/*"
-                  onChange={e => e.target.files[0] && handleUploadMedia(e.target.files[0])} />
-                <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} loading={uploadLoading}>
-                  <Upload size={14} /> Upload
-                </Button>
-              </div>
-            )}
-          </div>
+           <div className="flex items-center justify-between mb-4">
+             <div>
+               <h3 className="font-semibold text-[#14532d]">Attached Media</h3>
+               {issue.mediaUrls?.length > 0 && (
+                 <p className="text-xs text-[#64748b] mt-0.5 flex items-center gap-3">
+                   {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length > 0 && (
+                     <span className="inline-flex items-center gap-1">
+                       <ImageIcon size={11} />
+                       {issue.mediaUrls.filter(u => /\.(jpg|jpeg|png|gif)$/i.test(u.split('/').pop())).length} image(s)
+                     </span>
+                   )}
+                   {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length > 0 && (
+                     <span className="inline-flex items-center gap-1">
+                       <Video size={11} />
+                       {issue.mediaUrls.filter(u => /\.(mp4|avi|mov)$/i.test(u.split('/').pop())).length} video(s)
+                     </span>
+                   )}
+                 </p>
+               )}
+             </div>
+             {canEditIssue && (
+               <div>
+                 <input ref={fileRef} type="file" className="hidden" accept="image/*,video/*"
+                   onChange={e => e.target.files[0] && handleUploadMedia(e.target.files[0])} />
+                 <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} loading={uploadLoading}>
+                   <Upload size={14} /> Upload
+                 </Button>
+               </div>
+             )}
+           </div>
 
           {uploadProgress > 0 && uploadProgress < 100 && (
             <div className="h-1.5 bg-[#dcfce7] rounded-full mb-3 overflow-hidden">
@@ -230,28 +230,28 @@ export default function IssueDetailPage() {
                         const fileName = url.split('/').pop();
                         const mediaUrl = issuesApi.getMediaUrl(id, fileName);
                         return (
-                          <div
-                            key={url}
-                            className="relative group aspect-video bg-[#f0fdf4] rounded-xl overflow-hidden cursor-zoom-in border border-[#bbf7d0]"
-                          >
-                            <AuthenticatedImage
-                              src={mediaUrl}
-                              alt={fileName}
-                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                              onClick={(blobUrl) => setLightboxUrl(blobUrl)}
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
-                              <ZoomIn size={22} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
-                            </div>
-                            {canManageIssues && (
-                              <button
-                                className="absolute top-1 right-1 bg-white/90 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 z-10"
-                                onClick={e => { e.stopPropagation(); }}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </div>
+                           <div
+                             key={url}
+                             className="relative group aspect-video bg-[#f0fdf4] rounded-xl overflow-hidden cursor-zoom-in border border-[#bbf7d0]"
+                           >
+                             <AuthenticatedImage
+                               src={mediaUrl}
+                               alt={fileName}
+                               className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                               onClick={(blobUrl) => setLightboxUrl(blobUrl)}
+                             />
+                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+                               <ZoomIn size={22} className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                             </div>
+                             {canDeleteIssue && (
+                               <button
+                                 className="absolute top-1 right-1 bg-white/90 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 z-10"
+                                 onClick={e => { e.stopPropagation(); }}
+                               >
+                                 <Trash2 size={12} />
+                               </button>
+                             )}
+                           </div>
                         );
                     })}
                   </div>
@@ -271,23 +271,23 @@ export default function IssueDetailPage() {
                         const fileName = url.split('/').pop();
                         const mediaUrl = issuesApi.getMediaUrl(id, fileName);
                         return (
-                          <div key={url} className="relative group rounded-xl overflow-hidden bg-[#0f172a] border border-[#bbf7d0]">
-                            <AuthenticatedVideo
-                              src={mediaUrl}
-                              className="w-full max-h-64 object-contain"
-                            />
-                            <p className="text-xs text-[#94a3b8] px-3 py-1.5 truncate bg-[#1e293b] border-t border-white/10">
-                              {fileName}
-                            </p>
-                            {canManageIssues && (
-                              <button
-                                className="absolute top-1 right-1 bg-white/80 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
-                                onClick={() => {}}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </div>
+                           <div key={url} className="relative group rounded-xl overflow-hidden bg-[#0f172a] border border-[#bbf7d0]">
+                             <AuthenticatedVideo
+                               src={mediaUrl}
+                               className="w-full max-h-64 object-contain"
+                             />
+                             <p className="text-xs text-[#94a3b8] px-3 py-1.5 truncate bg-[#1e293b] border-t border-white/10">
+                               {fileName}
+                             </p>
+                             {canDeleteIssue && (
+                               <button
+                                 className="absolute top-1 right-1 bg-white/80 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
+                                 onClick={() => {}}
+                               >
+                                 <Trash2 size={12} />
+                               </button>
+                             )}
+                           </div>
                         );
                     })}
                   </div>

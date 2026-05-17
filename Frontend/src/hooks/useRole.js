@@ -12,7 +12,12 @@ export function useRole() {
   const isComplianceOfficer = role === ROLES.COMPLIANCE_OFFICER;
 
   const hasRole = (...roles) => roles.includes(role);
-  const canManageIssues = isAdmin || isAgencyOfficer;
+
+  // Issue management permissions
+  const canEditIssue = isCitizen;  // Upload/edit issue details (citizens only)
+  const canDeleteIssue = isCitizen || isAgencyOfficer;  // Delete issues (citizens + officers)
+  const canManageIssues = isAdmin || isAgencyOfficer;  // Update status/resolutions
+
   const canManageSensors = isAdmin || isAgencyOfficer || isScientist;
   const canManageProjects = isAdmin || isAgencyOfficer;
   const canManageCompliance = isAdmin || isComplianceOfficer;
@@ -29,6 +34,8 @@ export function useRole() {
     isIndustry,
     isComplianceOfficer,
     hasRole,
+    canEditIssue,
+    canDeleteIssue,
     canManageIssues,
     canManageSensors,
     canManageProjects,

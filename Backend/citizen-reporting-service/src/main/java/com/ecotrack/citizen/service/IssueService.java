@@ -145,6 +145,10 @@ public class IssueService {
         issue.setDeletedAt(java.time.LocalDateTime.now());
         issueRepository.save(issue);
         log.info("Issue {} soft-deleted. Reason: {}", id, reason);
+        // Send notification to citizen about the issue deletion
+        notify(issue.getCitizenId(), issue.getIssueId(),
+                "Your issue '" + issue.getTitle() + "' has been deleted by an admin. Reason: " + reason,
+                NotificationCategory.ISSUE);
     }
 
     // ─── Media Upload / Delete ────────────────────────────────────

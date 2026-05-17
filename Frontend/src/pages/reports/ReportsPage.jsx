@@ -94,31 +94,51 @@ export default function ReportsPage() {
     setForm(f => ({ ...f, [field]: e.target.value }));
   };
 
-  // Generate report
-  const handleGenerateReport = async () => {
-    const entityId = form.scope === 'PROJECT' ? form.projectId : form.issueId;
-    if (!entityId) {
-      toast.error(`Please select a ${form.scope.toLowerCase()}`);
-      return;
-    }
+   // Generate report
+   const handleGenerateReport = async () => {
+     const entityId = form.scope === 'PROJECT' ? form.projectId : form.issueId;
+     if (!entityId) {
+       toast.error(`Please select a ${form.scope.toLowerCase()}`);
+       return;
+     }
 
-    setCreateLoading(true);
-    try {
-      const payload = {
-        scope: form.scope,
-        [form.scope === 'PROJECT' ? 'projectId' : 'issueId']: parseInt(entityId),
-      };
-      await reportsApi.createReport(payload);
-      await loadReports();
-      toast.success('Report generated successfully');
-      setModal(false);
-      setForm({ scope: 'PROJECT', projectId: '', issueId: '' });
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate report');
-    } finally {
-      setCreateLoading(false);
-    }
-  };
+     // Validate that the issue still exists (not deleted)
+     if (form.scope === 'ISSUE') {
+       try {
+         await issuesApi.getIssueById(entityId);
+       } catch (err) {
+         toast.error('The selected issue no longer exists or has been deleted');
+         return;
+       }
+     }
+
+     // Validate that the project still exists
+     if (form.scope === 'PROJECT') {
+       try {
+         await projectsApi.getProjectById(entityId);
+       } catch (err) {
+         toast.error('The selected project no longer exists or has been deleted');
+         return;
+       }
+     }
+
+     setCreateLoading(true);
+     try {
+       const payload = {
+         scope: form.scope,
+         [form.scope === 'PROJECT' ? 'projectId' : 'issueId']: parseInt(entityId),
+       };
+       await reportsApi.createReport(payload);
+       await loadReports();
+       toast.success('Report generated successfully');
+       setModal(false);
+       setForm({ scope: 'PROJECT', projectId: '', issueId: '' });
+     } catch (err) {
+       toast.error(err.response?.data?.message || 'Failed to generate report');
+     } finally {
+       setCreateLoading(false);
+     }
+   };
 
     // Download report as file
     const handleDownloadReport = async (report) => {
@@ -605,26 +625,28 @@ export default function ReportsPage() {
              </div>
            )}
 
-           {form.scope === 'ISSUE' && (
-             <div>
-               <label className="block text-sm font-semibold text-bark-700 mb-2">Select Issue</label>
-               <select
-                 value={form.issueId}
-                 onChange={handleSelectionChange}
-                 className="w-full border-2 border-bark-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white"
-               >
-                 <option value="">-- Choose an issue --</option>
-                 {issues.map(i => (
-                   <option key={i.issueId} value={i.issueId}>
-                     Issue #{i.issueId} - {i.type}
-                   </option>
-                 ))}
-               </select>
-               {issues.length === 0 && (
-                 <p className="text-xs text-amber-600 mt-2">No issues available</p>
-               )}
-             </div>
-           )}
+            {form.scope === 'ISSUE' && (
+              <div>
+                <label className="block text-sm font-semibold text-bark-700 mb-2">Select Issue</label>
+                <select
+                  value={form.issueId}
+                  onChange={handleSelectionChange}
+                  className="w-full border-2 border-bark-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white"
+                >
+                  <option value="">-- Choose an issue --</option>
+                  {issues
+                    .filter(i => !i.deletionReason)
+                    .map(i => (
+                      <option key={i.issueId} value={i.issueId}>
+                        Issue #{i.issueId} - {i.type}
+                      </option>
+                    ))}
+                </select>
+                {issues.filter(i => !i.deletionReason).length === 0 && (
+                  <p className="text-xs text-amber-600 mt-2">No available issues</p>
+                )}
+              </div>
+            )}
 
            <div className="flex gap-2 justify-end pt-2 border-t border-bark-200">
              <Button variant="secondary" onClick={() => setModal(false)}>Cancel</Button>
