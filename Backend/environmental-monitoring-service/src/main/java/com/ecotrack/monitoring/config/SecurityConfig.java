@@ -70,7 +70,7 @@ public class SecurityConfig {
 
                 String path = request.getServletPath();
 
-                // ── Allow public paths without any auth check ────────────────
+                // ── Allow public paths without any auth check
                 boolean isPublic = PUBLIC_PATHS.stream()
                         .anyMatch(pattern -> pathMatcher.match(pattern, path));
                 if (isPublic) {
@@ -81,7 +81,7 @@ public class SecurityConfig {
                 String role  = request.getHeader("X-User-Role");
                 String email = request.getHeader("X-User-Email");
 
-                // ── Block immediately if no role header present ───────────────
+                // ── Block immediately if no role header present
                 if (role == null || role.isBlank()) {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json");
@@ -93,7 +93,7 @@ public class SecurityConfig {
                     return;
                 }
 
-                // ── Build SecurityContext from gateway-forwarded headers ──────
+                // ── Build SecurityContext from gateway-forwarded headers
                 if (SecurityContextHolder.getContext().getAuthentication() == null) {
                     UsernamePasswordAuthenticationToken auth =
                             new UsernamePasswordAuthenticationToken(
@@ -109,10 +109,6 @@ public class SecurityConfig {
         };
     }
 
-    /**
-     * CRITICAL: Disable Spring Boot's auto-registration of gatewayRoleFilter
-     * as a raw servlet filter outside the Spring Security chain.
-     */
     @Bean
     public FilterRegistrationBean<OncePerRequestFilter> disableGatewayFilterAutoRegistration(
             @Qualifier("gatewayRoleFilter") OncePerRequestFilter gatewayRoleFilter) {

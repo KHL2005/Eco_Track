@@ -1,6 +1,0 @@
-C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\Backend\api-gateway\src\main\java\com\ecotrack\gateway\ApiGatewayApplication.java
-C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\Backend\api-gateway\src\main\java\com\ecotrack\gateway\config\CorsConfig.java
-C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\Backend\api-gateway\src\main\java\com\ecotrack\gateway\filter\JwtAuthenticationFilter.java
-C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\Backend\api-gateway\src\main\java\com\ecotrack\gateway\security\JwtAuthenticationFilter.java
-C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\Backend\api-gateway\src\main\java\com\ecotrack\gateway\security\JwtUtil.java
-C:\Users\2479411\Documents\ECO-Track\ecotrack-microservices\Backend\api-gateway\src\main\java\com\ecotrack\gateway\security\SecurityConfig.java

@@ -24,8 +24,14 @@ public class ReportController {
     private final ReportService reportService;
 
     @PostMapping
-    @Operation(summary = "Generate a new report")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @Operation(
+        summary = "Generate a new report",
+        description = "Create a new report for a project or issue. " +
+                      "⚠️ UNIQUENESS CONSTRAINT: Only one report is allowed per project (PROJECT scope) " +
+                      "and only one report per issue (ISSUE scope). " +
+                      "Attempting to create a second report for the same entity will return a 400 Bad Request error."
+    )
+    @PreAuthorize("hasAnyAuthority('AGENCY_OFFICER','ADMINISTRATOR')")
     public ResponseEntity<ReportResponse> createReport(@Valid @RequestBody ReportRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reportService.createReport(request));
     }
@@ -48,9 +54,21 @@ public class ReportController {
         return ResponseEntity.ok(reportService.getReportsByScope(scope));
     }
 
+    @GetMapping("/project/{projectId}")
+    @Operation(summary = "Get all reports for a specific project")
+    public ResponseEntity<List<ReportResponse>> getProjectReports(@PathVariable("projectId") Long projectId) {
+        return ResponseEntity.ok(reportService.getReportsByProjectId(projectId));
+    }
+
+    @GetMapping("/issue/{issueId}")
+    @Operation(summary = "Get all reports for a specific issue")
+    public ResponseEntity<List<ReportResponse>> getIssueReports(@PathVariable("issueId") Long issueId) {
+        return ResponseEntity.ok(reportService.getReportsByIssueId(issueId));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a report")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATOR','AGENCY_OFFICER')")
     public ResponseEntity<Void> deleteReport(@PathVariable("id") Long id) {
         reportService.deleteReport(id);
         return ResponseEntity.noContent().build();

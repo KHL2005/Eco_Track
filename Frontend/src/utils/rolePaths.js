@@ -1,7 +1,7 @@
 const ROLE_PATHS = {
   SUPER_ADMIN: '/dashboard/super-admin',
   ADMINISTRATOR: '/dashboard/admin',
-  OFFICER: '/dashboard/officer',
+  AGENCY_OFFICER: '/dashboard/agency-officer',
   SCIENTIST: '/dashboard/scientist',
   INDUSTRY: '/dashboard/industry',
   CITIZEN: '/dashboard/citizen',

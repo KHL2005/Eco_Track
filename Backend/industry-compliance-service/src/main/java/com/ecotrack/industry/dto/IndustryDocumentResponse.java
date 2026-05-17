@@ -12,12 +12,15 @@ import java.time.LocalDateTime;
 public class IndustryDocumentResponse {
     private Long documentId;
     private Long industryId;
+    private String registrationNumber;
     private String industryName;
     private DocType docType;
     private String fileUri;
+    private String fileName;
     private String description;
     private LocalDateTime uploadedDate;
     private VerificationStatus verificationStatus;
+    private String rejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

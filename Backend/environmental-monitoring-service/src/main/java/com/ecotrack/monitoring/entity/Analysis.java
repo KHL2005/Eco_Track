@@ -16,7 +16,7 @@ public class Analysis {
 
     @Column(name = "sensor_id") private Long sensorId;
 
-    @Column(name = "scientist_id") private Long scientistId;
+    @Column(name = "agency_officer_id") private Long agencyOfficerId;
 
     @Column(nullable = false, columnDefinition = "TEXT") private String findings;
 

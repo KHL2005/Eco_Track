@@ -9,11 +9,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -25,7 +29,7 @@ public class ComplianceController {
 
     @PostMapping("/api/v1/compliance")
     @Operation(summary = "Create a compliance record")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<ComplianceRecordResponse> create(@Valid @RequestBody ComplianceRecordRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(complianceService.createRecord(request));
     }
@@ -60,9 +64,31 @@ public class ComplianceController {
         return ResponseEntity.ok(complianceService.getByResult(result));
     }
 
+    @GetMapping("/api/v1/compliance/report/download")
+    @Operation(summary = "Download a structured compliance report (CSV) — total count, summary by type/result, detailed breakdown")
+    public ResponseEntity<byte[]> downloadReport() {
+        byte[] csv = complianceService.generateComplianceReport();
+        String filename = "compliance-report-" + LocalDate.now().format(DateTimeFormatter.ISO_DATE) + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
+    }
+
+    @PatchMapping("/api/v1/compliance/{id}")
+    @Operation(summary = "Update compliance record result and notes")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
+    public ResponseEntity<ComplianceRecordResponse> update(@PathVariable("id") Long id,
+                                                            @RequestParam("result") ComplianceResult result,
+                                                            @RequestParam(name = "notes", required = false) String notes) {
+        return ResponseEntity.ok(complianceService.updateRecord(id, result, notes));
+    }
+
     @DeleteMapping("/api/v1/compliance/{id}")
     @Operation(summary = "Delete a compliance record")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         complianceService.deleteRecord(id);
         return ResponseEntity.noContent().build();
@@ -70,7 +96,7 @@ public class ComplianceController {
 
     @PostMapping("/api/v1/audits")
     @Operation(summary = "Create an audit")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<AuditResponse> createAudit(@Valid @RequestBody AuditRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(complianceService.createAudit(request));
     }
@@ -95,7 +121,7 @@ public class ComplianceController {
 
     @PatchMapping("/api/v1/audits/{id}/status")
     @Operation(summary = "Update audit status and findings")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMINISTRATOR','SUPER_ADMIN')")
     public ResponseEntity<AuditResponse> updateStatus(@PathVariable("id") Long id,
                                                        @RequestParam("status") AuditStatus status,
                                                        @RequestParam(name = "findings", required = false) String findings) {

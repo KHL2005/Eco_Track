@@ -10,6 +10,9 @@ import com.ecotrack.citizen.exception.BadRequestException;
 import com.ecotrack.citizen.exception.DuplicateResourceException;
 import com.ecotrack.citizen.exception.IssueNotFoundException;
 import com.ecotrack.citizen.exception.ResourceNotFoundException;
+import com.ecotrack.citizen.feign.NotificationCategory;
+import com.ecotrack.citizen.feign.NotificationClient;
+import com.ecotrack.citizen.feign.NotificationRequest;
 import com.ecotrack.citizen.repository.IssueRepository;
 import com.ecotrack.citizen.repository.ResolutionRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class IssueService {
     private final IssueRepository issueRepository;
     private final ResolutionRepository resolutionRepository;
     private final MediaStorageService mediaStorageService;
+    private final NotificationClient notificationClient;
 
     // ─── Issue CRUD ───────────────────────────────────────────────
 
@@ -36,13 +40,16 @@ public class IssueService {
     public IssueResponse createIssue(IssueRequest request) {
         Issue issue = Issue.builder()
                 .citizenId(request.getCitizenId())
+                .title(request.getTitle())
                 .type(request.getType())
                 .location(request.getLocation())
                 .description(request.getDescription())
                 .status(IssueStatus.OPEN)
                 .build();
         issue = issueRepository.save(issue);
-
+        notify(issue.getCitizenId(), issue.getIssueId(),
+                "Your issue '" + issue.getTitle() + "' has been submitted successfully.",
+                NotificationCategory.ISSUE);
         return toIssueResponse(issue);
     }
 
@@ -87,6 +94,9 @@ public class IssueService {
     public IssueResponse updateIssue(Long id, IssueRequest request) {
         Issue issue = findIssueById(id);
         // Partial update — only update provided fields
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            issue.setTitle(request.getTitle());
+        }
         if (request.getLocation() != null && !request.getLocation().isBlank()) {
             issue.setLocation(request.getLocation());
         }
@@ -102,19 +112,43 @@ public class IssueService {
     @Transactional
     public IssueResponse updateIssueStatus(Long id, IssueStatusUpdateRequest request) {
         Issue issue = findIssueById(id);
+        if (issue.getDeletionReason() != null) {
+            throw new BadRequestException("Issue has been deleted by an admin and cannot be modified");
+        }
         validateStatusTransition(issue.getStatus(), request.getStatus());
         issue.setStatus(request.getStatus());
-        return toIssueResponse(issueRepository.save(issue));
+        Issue saved = issueRepository.save(issue);
+        notify(saved.getCitizenId(), saved.getIssueId(),
+                "Your issue status has been updated to " + request.getStatus() + ".",
+                NotificationCategory.ISSUE);
+        return toIssueResponse(saved);
     }
 
     @Transactional
-    public void deleteIssue(Long id) {
-        findIssueById(id); // validates existence, throws IssueNotFoundException
-        // Delete linked resolution first to avoid FK constraint violation
+    public void deleteIssue(Long id, String reason) {
+        if (reason == null || reason.trim().length() < 5) {
+            throw new BadRequestException("Please provide a reason of at least 5 characters for deleting this issue");
+        }
+        if (reason.length() > 500) {
+            throw new BadRequestException("Deletion reason must be 500 characters or less");
+        }
+        Issue issue = findIssueById(id);
+        if (issue.getDeletionReason() != null) {
+            throw new BadRequestException("Issue is already deleted");
+        }
+        // Soft-delete via deletion_reason marker (status enum stays unchanged so we
+        // don't have to alter the existing MySQL ENUM column). Linked resolution
+        // is hard-deleted because it's an officer-internal artifact.
         resolutionRepository.findByIssueId(id)
                 .ifPresent(r -> resolutionRepository.deleteById(r.getResolutionId()));
-        issueRepository.deleteById(id);
-        log.info("Issue {} and linked resolution deleted", id);
+        issue.setDeletionReason(reason);
+        issue.setDeletedAt(java.time.LocalDateTime.now());
+        issueRepository.save(issue);
+        log.info("Issue {} soft-deleted. Reason: {}", id, reason);
+        // Send notification to citizen about the issue deletion
+        notify(issue.getCitizenId(), issue.getIssueId(),
+                "Your issue '" + issue.getTitle() + "' has been deleted by an admin. Reason: " + reason,
+                NotificationCategory.ISSUE);
     }
 
     // ─── Media Upload / Delete ────────────────────────────────────
@@ -160,16 +194,16 @@ public class IssueService {
     // ─── Resolution CRUD ─────────────────────────────────────────
 
     @Transactional
-    public ResolutionResponse addResolution(ResolutionRequest request) {
-        Issue issue = findIssueById(request.getIssueId());
+    public ResolutionResponse addResolution(Long issueId, ResolutionRequest request) {
+        Issue issue = findIssueById(issueId);
 
-        if (resolutionRepository.existsByIssueId(request.getIssueId())) {
+        if (resolutionRepository.existsByIssueId(issueId)) {
             throw new DuplicateResourceException(
-                    "Resolution already exists for issue: " + request.getIssueId());
+                    "Resolution already exists for issue: " + issueId);
         }
 
         Resolution resolution = Resolution.builder()
-                .issueId(request.getIssueId())
+                .issueId(issueId)
                 .officerId(request.getOfficerId())
                 .actions(request.getActions())
                 .status(ResolutionStatus.PENDING)
@@ -182,7 +216,9 @@ public class IssueService {
             issue.setStatus(IssueStatus.IN_PROGRESS);
             issueRepository.save(issue);
         }
-
+        notify(issue.getCitizenId(), issueId,
+                "A resolution has been assigned to your issue.",
+                NotificationCategory.ISSUE);
         return toResolutionResponse(resolution);
     }
 
@@ -242,6 +278,8 @@ public class IssueService {
                     issue.setStatus(IssueStatus.RESOLVED);
                     issueRepository.save(issue);
                 }
+                notify(issue.getCitizenId(), issue.getIssueId(),
+                        "Your issue has been resolved.", NotificationCategory.ISSUE);
             });
         }
 
@@ -265,6 +303,20 @@ public class IssueService {
     }
 
     // ─── Private Helpers ─────────────────────────────────────────
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
 
     private Issue findIssueById(Long id) {
         return issueRepository.findById(id)
@@ -309,12 +361,15 @@ public class IssueService {
         return IssueResponse.builder()
                 .issueId(issue.getIssueId())
                 .citizenId(issue.getCitizenId())
+                .title(issue.getTitle())
                 .type(issue.getType())
                 .location(issue.getLocation())
                 .description(issue.getDescription())
                 .date(issue.getDate())
                 .status(issue.getStatus())
                 .mediaUrls(mediaUrls)
+                .deletionReason(issue.getDeletionReason())
+                .deletedAt(issue.getDeletedAt())
                 .createdAt(issue.getCreatedAt())
                 .updatedAt(issue.getUpdatedAt())
                 .build();

@@ -21,6 +21,9 @@ public class Issue {
     @Column(name = "citizen_id", nullable = false)
     private Long citizenId;
 
+    @Column(nullable = false, length = 200)
+    private String title;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private IssueType type;
@@ -44,6 +47,14 @@ public class Issue {
     @Column(name = "media_url", length = 512)
     @Builder.Default
     private List<String> mediaUrls = new ArrayList<>();
+
+    // Populated only when an admin soft-deletes the issue. Kept on the record so
+    // the reporting citizen can still see what happened and why.
+    @Column(name = "deletion_reason", length = 500)
+    private String deletionReason;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

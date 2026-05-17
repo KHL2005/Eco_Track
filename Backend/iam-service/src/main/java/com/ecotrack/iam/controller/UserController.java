@@ -1,9 +1,11 @@
 package com.ecotrack.iam.controller;
 
-import com.ecotrack.iam.dto.ChangePasswordRequest;
-import com.ecotrack.iam.dto.CreateUserRequest;
-import com.ecotrack.iam.dto.UpdateUserRequest;
-import com.ecotrack.iam.dto.UserResponse;
+import com.ecotrack.iam.dto.request.ChangePasswordRequest;
+import com.ecotrack.iam.dto.request.CreateUserRequest;
+import com.ecotrack.iam.dto.request.UpdateUserRequest;
+import com.ecotrack.iam.dto.request.UpdateProfileRequest;
+import com.ecotrack.iam.exception.BadRequestException;
+import com.ecotrack.iam.dto.response.UserResponse;
 import com.ecotrack.iam.enums.UserRole;
 import com.ecotrack.iam.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,10 +13,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 
@@ -23,6 +27,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "User Management", description = "Admin user management APIs")
 @SecurityRequirement(name = "bearerAuth")
 public class UserController {
@@ -35,8 +40,17 @@ public class UserController {
     public ResponseEntity<UserResponse> createUser(
             @Valid @RequestBody CreateUserRequest request,
             @RequestHeader("X-User-Role") String callerRole) {
-        UserRole role = UserRole.valueOf(callerRole);
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request, role));
+        log.info("User creation request received: targetRole={}, callerRole={}", request.getRole(), callerRole);
+        UserRole resolvedCallerRole;
+        try {
+            resolvedCallerRole = UserRole.valueOf(callerRole);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid caller role in X-User-Role header: '{}'", callerRole);
+            throw new BadRequestException("Invalid caller role: '" + callerRole + "'");
+        }
+        UserResponse created = userService.createUser(request, resolvedCallerRole);
+        log.info("User created successfully: userId={}, role={}", created.getUserId(), created.getRole());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping
@@ -60,10 +74,23 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update user")
-    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMINISTRATOR')")
+    @Operation(summary = "Update user (self or admin)")
     public ResponseEntity<UserResponse> updateUser(@PathVariable("id") Long id,
-                                                    @RequestBody UpdateUserRequest request) {
+                                                   @Valid @RequestBody UpdateUserRequest request) {
+        // Get authenticated user's details
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String authEmail = authentication.getName();
+        // You may want to fetch user by email to get their ID and role
+        var userOpt = userService.findByEmail(authEmail);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        var authUser = userOpt.get();
+        boolean isAdmin = authUser.getRole() == UserRole.SUPER_ADMIN || authUser.getRole() == UserRole.ADMINISTRATOR;
+        boolean isSelf = authUser.getUserId().equals(id);
+        if (!isSelf && !isAdmin) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(userService.updateUser(id, request));
     }
 
@@ -84,4 +111,11 @@ public class UserController {
         return ResponseEntity.ok("Password changed successfully");
     }
 
+    @PutMapping("/update-profile")
+    @Operation(summary = "Update own profile (name, phone only)")
+    public ResponseEntity<UserResponse> updateProfile(
+            Authentication authentication,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(userService.updateProfile(authentication.getName(), request));
+    }
 }

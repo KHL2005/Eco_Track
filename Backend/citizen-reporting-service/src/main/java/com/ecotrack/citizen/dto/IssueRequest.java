@@ -9,6 +9,8 @@ import lombok.Data;
 public class IssueRequest {
     @NotNull(message = "Citizen ID is required")
     private Long citizenId;
+    @NotBlank(message = "Issue title is required")
+    private String title;
     @NotNull(message = "Issue type is required")
     private IssueType type;
     @NotBlank(message = "Location is required")

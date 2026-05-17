@@ -18,69 +18,17 @@ spring:
         locator:
           enabled: false
           lower-case-service-id: true
-      routes:
-        # IAM Service (port 8081)
-        - id: iam-auth
-          uri: lb://iam-service
-          predicates:
-            - Path=/api/v1/auth/**
-        - id: iam-users
-          uri: lb://iam-service
-          predicates:
-            - Path=/api/v1/users/**
-        - id: iam-notifications
-          uri: lb://iam-service
-          predicates:
-            - Path=/api/v1/notifications/**
-        # Citizen Reporting Service (port 8083)
-        - id: citizen-issues
-          uri: lb://citizen-reporting-service
-          predicates:
-            - Path=/api/v1/issues/**
-        # Environmental Monitoring Service (port 8084)
-        - id: monitoring-sensors
-          uri: lb://environmental-monitoring-service
-          predicates:
-            - Path=/api/v1/sensors/**
-        - id: monitoring-sensor-data
-          uri: lb://environmental-monitoring-service
-          predicates:
-            - Path=/api/v1/sensor-data/**
-        - id: monitoring-analysis
-          uri: lb://environmental-monitoring-service
-          predicates:
-            - Path=/api/v1/analysis/**
-        - id: monitoring-csv
-          uri: lb://environmental-monitoring-service
-          predicates:
-            - Path=/api/v1/upload-csv/**
-        # Industry Compliance Service (port 8085)
-        - id: industry-emissions
-          uri: lb://industry-compliance-service
-          predicates:
-            - Path=/api/v1/emissions/**
-        - id: industry-documents
-          uri: lb://industry-compliance-service
-          predicates:
-            - Path=/api/v1/industry-documents/**
-        # Project Management Service (port 8086)
-        - id: project-projects
-          uri: lb://project-management-service
-          predicates:
-            - Path=/api/v1/projects/**
-        - id: project-reports
-          uri: lb://project-management-service
-          predicates:
-            - Path=/api/v1/reports/**
-        # Compliance Audit Service (port 8087)
-        - id: compliance-records
-          uri: lb://compliance-audit-service
-          predicates:
-            - Path=/api/v1/compliance/**
-        - id: compliance-audits
-          uri: lb://compliance-audit-service
-          predicates:
-            - Path=/api/v1/audits/**
+      # Routes are defined in GatewayConfig.java (Java RouteLocator).
+      # That keeps CB + Retry + RateLimiter composition clean and DRY.
+
+  # ── Redis — required by RequestRateLimiter ──────────────────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      connect-timeout: 2s
+      timeout: 2s
+
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 
@@ -91,7 +39,72 @@ eureka:
   instance:
     prefer-ip-address: true
 
+# ── Resilience4j Circuit Breakers ──────────────────────────────────────────────
+#
+# Shared "default" base config is inherited by all six CB instances.
+# Per-service TimeLimiter overrides accommodate file-upload endpoints.
+#
+# Circuit state machine (COUNT_BASED sliding window):
+#   CLOSED  → needs ≥ 5 calls, then opens if ≥ 50% of last 10 failed
+#   OPEN    → stays open 15 s, then auto-transitions to HALF_OPEN
+#   HALF_OPEN → allows 3 probe calls; closes if they succeed, reopens if they fail
+#
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+    instances:
+      iamCB:        { base-config: default }
+      notificationCB: { base-config: default }
+      citizenCB:    { base-config: default }
+      monitoringCB: { base-config: default }
+      industryCB:   { base-config: default }
+      projectCB:    { base-config: default }
+      complianceCB: { base-config: default }
+
+  # TimeLimiter — how long the gateway waits for a downstream response
+  # before counting it as a failure.  File-upload routes get more time.
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+        cancel-running-future: true
+    instances:
+      iamCB:        { base-config: default }
+      notificationCB: { base-config: default }
+      citizenCB:    { timeout-duration: 10s }   # media uploads ≤ 50 MB
+      monitoringCB: { timeout-duration: 15s }   # CSV bulk ingestion
+      industryCB:   { timeout-duration: 30s }   # PDF upload + GridFS write
+      projectCB:    { base-config: default }
+      complianceCB: { base-config: default }
+
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
     com.ecotrack.gateway: DEBUG
+    io.github.resilience4j: INFO
+
+# ── Actuator — exposes circuit-breaker state, routes, and health ──────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,circuitbreakers,circuitbreakerevents,metrics
+  endpoint:
+    health:
+      show-details: always    # shows each CB instance status in /actuator/health
+    gateway:
+      enabled: true           # enables /actuator/gateway/routes, /actuator/gateway/globalfilters
+  health:
+    circuitbreakers:
+      enabled: true           # includes CB state in /actuator/health response

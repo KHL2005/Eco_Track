@@ -3,22 +3,35 @@ package com.ecotrack.industry.service;
 import com.ecotrack.industry.dto.*;
 import com.ecotrack.industry.entity.EmissionLog;
 import com.ecotrack.industry.entity.IndustryDocument;
-import com.ecotrack.industry.enums.DocType;
 import com.ecotrack.industry.enums.EmissionStatus;
+import com.ecotrack.industry.enums.EmissionType;
 import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.exception.BadRequestException;
-import com.ecotrack.industry.exception.DuplicateResourceException;
+import com.ecotrack.industry.exception.FileStorageException;
 import com.ecotrack.industry.exception.ResourceNotFoundException;
+import com.ecotrack.industry.feign.IamServiceClient;
+import com.ecotrack.industry.feign.NotificationCategory;
+import com.ecotrack.industry.feign.NotificationClient;
+import com.ecotrack.industry.feign.NotificationRequest;
+import com.ecotrack.industry.feign.UserDto;
 import com.ecotrack.industry.repository.EmissionLogRepository;
 import com.ecotrack.industry.repository.IndustryDocumentRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.*;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,40 +41,65 @@ public class IndustryService {
 
     private final EmissionLogRepository      emissionLogRepository;
     private final IndustryDocumentRepository documentRepository;
-    private final GridFsService              gridFsService;
+    private final NotificationClient         notificationClient;
+    private final IamServiceClient           iamServiceClient;
+
+    // ─── File Storage Setup ───────────────────────────────────────────────────
+
+    private static final Set<String> ALLOWED_TYPES = Set.of(
+            "application/pdf"
+    );
+
+    @Value("${app.upload-dir}")
+    private String uploadDirPath;
+
+    private Path uploadDir;
+
+    @PostConstruct
+    private void initUploadDir() {
+        this.uploadDir = Paths.get(uploadDirPath).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(this.uploadDir);
+            log.info("File storage initialized at: {}", this.uploadDir);
+        } catch (IOException e) {
+            throw new FileStorageException("Could not create upload directory: " + uploadDirPath, e);
+        }
+    }
 
     // ─── Emission Log CRUD ────────────────────────────────────────────────────
 
     @Transactional
-    public EmissionLogResponse logEmission(EmissionLogRequest request) {
+    public EmissionLogResponse logEmission(EmissionLogRequest request, Long industryUserId) {
         String normalizedName = request.getIndustryName().trim();
-        String normalizedType = request.getType().trim();
-        if (emissionLogRepository.existsByIndustryNameAndType(normalizedName, normalizedType)) {
-            throw new DuplicateResourceException(
-                    "Emission record already exists for company '" + normalizedName +
-                    "' with emission type '" + normalizedType + "'");
-        }
+        EmissionType emissionType = request.getType();
         EmissionLog emissionLog = EmissionLog.builder()
-                .industryId(request.getIndustryId())
+                .industryId(industryUserId)
+                .registrationNumber(request.getRegistrationNumber().trim())
                 .industryName(normalizedName)
-                .type(normalizedType)
+                .type(emissionType)
                 .quantity(request.getQuantity())
+                .description(request.getDescription())
                 .status(EmissionStatus.SUBMITTED)
                 .build();
-        return toEmissionResponse(emissionLogRepository.save(emissionLog));
+        EmissionLogResponse response = toEmissionResponse(emissionLogRepository.save(emissionLog));
+        notify(industryUserId, response.getLogId(),
+                "Your emission log for '" + normalizedName + "' has been submitted for review.",
+                NotificationCategory.EMISSION);
+        notifyRoleUsers("COMPLIANCE_OFFICER", response.getLogId(),
+                normalizedName + " has submitted an emission log. Please review it.",
+                NotificationCategory.EMISSION);
+        return response;
     }
 
-    public List<EmissionLogResponse> getAllEmissions() {
-        return emissionLogRepository.findAll().stream().map(this::toEmissionResponse).collect(Collectors.toList());
+    public List<EmissionLogResponse> getAllEmissions(Long callerId, String callerRole) {
+        List<EmissionLog> logs = "INDUSTRY".equals(callerRole) && callerId != null
+                ? emissionLogRepository.findByIndustryId(callerId)
+                : emissionLogRepository.findAll();
+        return logs.stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
 
     public EmissionLogResponse getEmissionById(Long id) {
         return toEmissionResponse(findEmissionById(id));
-    }
-
-    public List<EmissionLogResponse> getEmissionsByIndustry(Long industryId) {
-        if (industryId == null) throw new BadRequestException("Industry ID is required");
-        return emissionLogRepository.findByIndustryId(industryId).stream().map(this::toEmissionResponse).collect(Collectors.toList());
     }
 
     public List<EmissionLogResponse> getEmissionsByIndustryName(String industryName) {
@@ -70,12 +108,27 @@ public class IndustryService {
     }
 
     @Transactional
-    public EmissionLogResponse updateEmissionStatus(Long id, EmissionStatus status) {
+    public EmissionLogResponse updateEmissionStatus(Long id, EmissionStatus status, String rejectionReason) {
         if (status == null) throw new BadRequestException("Status is required");
         EmissionLog emissionLog = findEmissionById(id);
         validateEmissionStatusTransition(emissionLog.getStatus(), status);
+
+        if (status == EmissionStatus.REJECTED) {
+            if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+                throw new BadRequestException("Rejection reason is required when rejecting an emission");
+            }
+            emissionLog.setRejectionReason(rejectionReason.trim());
+        } else {
+            emissionLog.setRejectionReason(null);
+        }
         emissionLog.setStatus(status);
-        return toEmissionResponse(emissionLogRepository.save(emissionLog));
+
+        EmissionLogResponse response = toEmissionResponse(emissionLogRepository.save(emissionLog));
+        String msg = status == EmissionStatus.APPROVED
+                ? "Your emission log has been approved."
+                : "Your emission log has been rejected. Reason: " + emissionLog.getRejectionReason();
+        notify(emissionLog.getIndustryId(), emissionLog.getLogId(), msg, NotificationCategory.EMISSION);
+        return response;
     }
 
     @Transactional
@@ -87,49 +140,44 @@ public class IndustryService {
 
     // ─── Industry Document CRUD ───────────────────────────────────────────────
 
-    /**
-     * Saves metadata to MySQL and uploads the PDF to MongoDB GridFS in one call.
-     * fileUri is auto-set to "/api/v1/industry-documents/{id}?view=true".
-     */
     @Transactional
-    public IndustryDocumentResponse submitDocument(Long industryId,
-                                                    String industryName,
-                                                    String docType,
-                                                    String description,
-                                                    MultipartFile file) {
-        // Step 1 – save metadata with temporary fileUri
+    public IndustryDocumentResponse submitDocument(IndustryDocumentRequest request, MultipartFile file, Long industryUserId) {
+        StoredFileInfo fileInfo = storeFile(file, industryUserId, request.getDocType().name());
+
         IndustryDocument doc = IndustryDocument.builder()
-                .industryId(industryId)
-                .industryName(industryName.trim())
-                .docType(DocType.valueOf(docType.toUpperCase()))
-                .fileUri("pending")
-                .description(description)
+                .industryId(industryUserId)
+                .registrationNumber(request.getRegistrationNumber().trim())
+                .industryName(request.getIndustryName().trim())
+                .docType(request.getDocType())
+                .fileUri(fileInfo.filePath())
+                .fileName(fileInfo.originalFilename())
+                .contentType(fileInfo.contentType())
+                .fileSize(fileInfo.fileSize())
+                .description(request.getDescription())
                 .verificationStatus(VerificationStatus.SUBMITTED)
                 .build();
         doc = documentRepository.save(doc);
 
-        // Step 2 – upload PDF to GridFS (validates type + 10 MB limit internally)
-        String gridFsId = gridFsService.storePdf(file, doc.getDocumentId());
-
-        // Step 3 – replace fileUri with the self-serving view URL
-        doc.setFileUri("/api/v1/industry-documents/" + doc.getDocumentId() + "?view=true");
-        doc = documentRepository.save(doc);
-
-        log.info("Document {} saved, PDF stored in GridFS id={}", doc.getDocumentId(), gridFsId);
-        return toDocumentResponse(doc);
+        log.info("Document {} saved, file stored at {}", doc.getDocumentId(), fileInfo.filePath());
+        IndustryDocumentResponse response = toDocumentResponse(doc);
+        notify(industryUserId, response.getDocumentId(),
+                "Your compliance document has been submitted and is pending review.",
+                NotificationCategory.COMPLIANCE);
+        notifyRoleUsers("COMPLIANCE_OFFICER", response.getDocumentId(),
+                request.getIndustryName().trim() + " has submitted a compliance document. Please review it.",
+                NotificationCategory.COMPLIANCE);
+        return response;
     }
 
-    public List<IndustryDocumentResponse> getAllDocuments() {
-        return documentRepository.findAll().stream().map(this::toDocumentResponse).collect(Collectors.toList());
+    public List<IndustryDocumentResponse> getAllDocuments(Long callerId, String callerRole) {
+        List<IndustryDocument> docs = "INDUSTRY".equals(callerRole) && callerId != null
+                ? documentRepository.findByIndustryId(callerId)
+                : documentRepository.findAll();
+        return docs.stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
 
     public IndustryDocumentResponse getDocumentById(Long docId) {
         return toDocumentResponse(findDocumentById(docId));
-    }
-
-    public List<IndustryDocumentResponse> getDocumentsByIndustry(Long industryId) {
-        if (industryId == null) throw new BadRequestException("Industry ID is required");
-        return documentRepository.findByIndustryId(industryId).stream().map(this::toDocumentResponse).collect(Collectors.toList());
     }
 
     public List<IndustryDocumentResponse> getDocumentsByIndustryName(String industryName) {
@@ -138,39 +186,134 @@ public class IndustryService {
     }
 
     @Transactional
-    public IndustryDocumentResponse verifyDocument(Long docId, VerificationStatus status) {
+    public IndustryDocumentResponse verifyDocument(Long docId, VerificationStatus status, String rejectionReason) {
         if (status == null) throw new BadRequestException("Verification status is required");
         IndustryDocument doc = findDocumentById(docId);
         validateDocumentStatusTransition(doc.getVerificationStatus(), status);
+
+        if (status == VerificationStatus.REJECTED) {
+            if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+                throw new BadRequestException("Rejection reason is required when rejecting a document");
+            }
+            doc.setRejectionReason(rejectionReason.trim());
+        } else {
+            doc.setRejectionReason(null);
+        }
         doc.setVerificationStatus(status);
-        return toDocumentResponse(documentRepository.save(doc));
+
+        IndustryDocumentResponse response = toDocumentResponse(documentRepository.save(doc));
+        String msg = status == VerificationStatus.APPROVED
+                ? "Your compliance document has been approved."
+                : "Your compliance document has been rejected. Reason: " + doc.getRejectionReason();
+        notify(doc.getIndustryId(), doc.getDocumentId(), msg, NotificationCategory.COMPLIANCE);
+        return response;
     }
 
-    /**
-     * Deletes MySQL metadata AND the linked PDF from MongoDB GridFS together.
-     */
     @Transactional
     public void deleteDocument(Long docId) {
-        findDocumentById(docId);
-        try {
-            gridFsService.deletePdfByDocumentId(docId);
-            log.info("PDF deleted from GridFS for documentId={}", docId);
-        } catch (Exception e) {
-            log.warn("No PDF found in GridFS for documentId={} — skipping GridFS delete", docId);
-        }
+        IndustryDocument doc = findDocumentById(docId);
         documentRepository.deleteById(docId);
+        deleteFile(doc.getFileUri());
         log.info("IndustryDocument {} deleted", docId);
     }
 
-    /**
-     * Fetches the raw PDF bytes from GridFS — called by the controller for view/download.
-     */
-    public Map<String, Object> getPdfForDocument(Long docId) {
-        findDocumentById(docId); // validate document exists in MySQL first
-        return gridFsService.getPdfByDocumentId(docId);
+    public DownloadPayload getFileForDocument(Long docId) {
+        IndustryDocument doc = findDocumentById(docId);
+        return loadFileAsResource(doc.getFileUri(), doc.getFileName(), doc.getContentType(), doc.getFileSize());
+    }
+
+    // ─── File Storage Operations ──────────────────────────────────────────────
+
+    private StoredFileInfo storeFile(MultipartFile file, Long ownerId, String category) {
+        if (file == null || file.isEmpty())
+            throw new FileStorageException("File must not be empty");
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank())
+            throw new FileStorageException("Original filename must not be null");
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase()))
+            throw new BadRequestException("Unsupported file type: " + contentType + ". Only PDF files are accepted.");
+
+        String sanitized = sanitizeFilename(originalFilename);
+        String uniqueName = ownerId + "_" + category + "_" + UUID.randomUUID() + "_" + sanitized;
+
+        Path targetPath = uploadDir.resolve(uniqueName).normalize();
+        if (!targetPath.startsWith(uploadDir))
+            throw new FileStorageException("Security violation: filename resolves outside upload directory");
+
+        try {
+            Files.createDirectories(targetPath.getParent());
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("File stored: owner={}, category={}, path={}", ownerId, category, targetPath);
+            return new StoredFileInfo(targetPath.toAbsolutePath().toString(), originalFilename, contentType, file.getSize());
+        } catch (IOException e) {
+            throw new FileStorageException("Failed to write file to disk: " + originalFilename, e);
+        }
+    }
+
+    private DownloadPayload loadFileAsResource(String filePath, String originalFilename, String contentType, Long fileSize) {
+        try {
+            Path path = Paths.get(filePath);
+            Resource resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable())
+                throw new FileStorageException("File not found or not readable at: " + filePath);
+            log.info("File loaded for download: {}", filePath);
+            return new DownloadPayload(resource, originalFilename, contentType, fileSize);
+        } catch (MalformedURLException e) {
+            throw new FileStorageException("Invalid file path: " + filePath, e);
+        }
+    }
+
+    private void deleteFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) return;
+        try {
+            boolean deleted = Files.deleteIfExists(Paths.get(filePath));
+            if (deleted) log.info("File deleted from disk: {}", filePath);
+            else         log.warn("File not found on disk, skipping delete: {}", filePath);
+        } catch (IOException e) {
+            log.error("Failed to delete file at {}: {}", filePath, e.getMessage());
+        }
+    }
+
+    private String sanitizeFilename(String filename) {
+        if (filename.contains(".."))
+            throw new FileStorageException("Filename contains path traversal sequence: " + filename);
+        String name = Paths.get(filename).getFileName().toString();
+        if (name.isBlank())
+            throw new FileStorageException("Invalid filename: " + filename);
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private void notifyRoleUsers(String role, Long entityId, String message, NotificationCategory category) {
+        try {
+            List<UserDto> users = iamServiceClient.getUsersByRole(role);
+            if (users != null) {
+                for (UserDto user : users) {
+                    notify(user.getUserId(), entityId, message, category);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch users for role={} to notify: {}", role, e.getMessage());
+        }
+    }
 
     private EmissionLog findEmissionById(Long id) {
         return emissionLogRepository.findById(id)
@@ -204,19 +347,20 @@ public class IndustryService {
 
     private EmissionLogResponse toEmissionResponse(EmissionLog e) {
         return EmissionLogResponse.builder()
-                .logId(e.getLogId()).industryId(e.getIndustryId()).industryName(e.getIndustryName())
-                .type(e.getType()).quantity(e.getQuantity()).date(e.getDate())
-                .status(e.getStatus()).createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
+                .logId(e.getLogId()).industryId(e.getIndustryId()).registrationNumber(e.getRegistrationNumber()).industryName(e.getIndustryName())
+                .type(e.getType()).quantity(e.getQuantity()).description(e.getDescription()).date(e.getDate())
+                .status(e.getStatus()).rejectionReason(e.getRejectionReason()).createdAt(e.getCreatedAt()).updatedAt(e.getUpdatedAt())
                 .build();
     }
 
     private IndustryDocumentResponse toDocumentResponse(IndustryDocument d) {
         return IndustryDocumentResponse.builder()
-                .documentId(d.getDocumentId()).industryId(d.getIndustryId()).industryName(d.getIndustryName())
-                .docType(d.getDocType()).fileUri(d.getFileUri()).description(d.getDescription())
-                .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus())
+                .documentId(d.getDocumentId()).industryId(d.getIndustryId()).registrationNumber(d.getRegistrationNumber()).industryName(d.getIndustryName())
+                .docType(d.getDocType())
+                .fileUri("/api/v1/industry-documents/" + d.getDocumentId() + "?download=true")
+                .fileName(d.getFileName()).description(d.getDescription())
+                .uploadedDate(d.getUploadedDate()).verificationStatus(d.getVerificationStatus()).rejectionReason(d.getRejectionReason())
                 .createdAt(d.getCreatedAt()).updatedAt(d.getUpdatedAt())
                 .build();
     }
 }
-

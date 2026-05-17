@@ -6,21 +6,24 @@ import com.ecotrack.monitoring.entity.Sensor;
 import com.ecotrack.monitoring.entity.SensorData;
 import com.ecotrack.monitoring.enums.AnalysisStatus;
 import com.ecotrack.monitoring.enums.SensorStatus;
+import com.ecotrack.monitoring.enums.SensorType;
 import com.ecotrack.monitoring.exception.BadRequestException;
 import com.ecotrack.monitoring.exception.ResourceNotFoundException;
-import com.ecotrack.monitoring.exception.ScientistNotFoundException;
+import com.ecotrack.monitoring.exception.AgencyOfficerNotFoundException;
 import com.ecotrack.monitoring.exception.UnauthorizedException;
+import com.ecotrack.monitoring.feign.IamServiceClient;
+import com.ecotrack.monitoring.feign.NotificationCategory;
+import com.ecotrack.monitoring.feign.NotificationClient;
+import com.ecotrack.monitoring.feign.NotificationRequest;
+import com.ecotrack.monitoring.feign.UserDto;
 import com.ecotrack.monitoring.repository.AnalysisRepository;
 import com.ecotrack.monitoring.repository.SensorDataRepository;
 import com.ecotrack.monitoring.repository.SensorRepository;
-import com.ecotrack.monitoring.feign.IamServiceClient;
-import com.ecotrack.monitoring.feign.UserDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,17 +36,32 @@ public class MonitoringService {
     private final SensorDataRepository sensorDataRepository;
     private final AnalysisRepository analysisRepository;
     private final IamServiceClient iamServiceClient;
+    private final NotificationClient notificationClient;
 
     // ─── Sensors ─────────────────────────────────────────────────
 
     @Transactional
     public SensorResponse createSensor(SensorRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Sensor request cannot be null");
+        }
+        if (request.getLocation() == null || request.getLocation().trim().isEmpty()) {
+            throw new BadRequestException("Location is required and cannot be empty");
+        }
+        if (request.getType() == null) {
+            throw new BadRequestException("Sensor type is required and must be one of: AIR, WATER, NOISE");
+        }
+        
         Sensor sensor = Sensor.builder()
-                .location(request.getLocation())
+                .location(request.getLocation().trim())
                 .type(request.getType())
                 .status(SensorStatus.ACTIVE)
                 .build();
-        return toSensorResponse(sensorRepository.save(sensor));
+        
+        Sensor savedSensor = sensorRepository.save(sensor);
+        log.info("Sensor created successfully: id={}, type={}, location={}", savedSensor.getSensorId(), savedSensor.getType(), savedSensor.getLocation());
+        
+        return toSensorResponse(savedSensor);
     }
 
     public List<SensorResponse> getAllSensors() {
@@ -68,6 +86,26 @@ public class MonitoringService {
     }
 
     @Transactional
+    public SensorResponse updateSensorLocation(Long id, String location) {
+        if (location == null || location.trim().isEmpty()) {
+            throw new BadRequestException("Location is required");
+        }
+        Sensor sensor = findSensorById(id);
+        sensor.setLocation(location);
+        return toSensorResponse(sensorRepository.save(sensor));
+    }
+
+    @Transactional
+    public SensorResponse updateSensorType(Long id, SensorType type) {
+        if (type == null) {
+            throw new BadRequestException("Type is required");
+        }
+        Sensor sensor = findSensorById(id);
+        sensor.setType(type);
+        return toSensorResponse(sensorRepository.save(sensor));
+    }
+
+    @Transactional
     public void deleteSensor(Long id) {
         findSensorById(id); // validates existence
         sensorDataRepository.findBySensorId(id).forEach(data -> {
@@ -80,7 +118,6 @@ public class MonitoringService {
 
     // ─── Sensor Data ─────────────────────────────────────────────
 
-    @Transactional
     public SensorDataResponse addSensorData(SensorDataRequest request) {
         // Validate sensor exists
         findSensorById(request.getSensorId());
@@ -88,6 +125,8 @@ public class MonitoringService {
         SensorData data = SensorData.builder()
                 .sensorId(request.getSensorId())
                 .parametersJson(request.getParametersJson())
+                .recordedAt(request.getRecordedAt())
+                .notes(request.getNotes())
                 .build();
         data = sensorDataRepository.save(data);
 
@@ -142,17 +181,11 @@ public class MonitoringService {
         String findings = (request.getFindings() != null && !request.getFindings().isBlank())
                 ? request.getFindings()
                 : generateFindings(data.getParametersJson());
+        
+        // Assign agencyOfficerId: initially null (not auto-assigned)
+        // Agency Officer ID will be assigned only when reviewed by an agency officer
+        Long agencyOfficerId = request.getAgencyOfficerId();
 
-        // Assign scientistId: from request → IAM fetch → default 1L
-        Long scientistId = request.getScientistId();
-        if (scientistId == null) {
-            scientistId = assignScientist();
-        }
-        if (scientistId == null) {
-            scientistId = 1L; // fallback default
-        }
-
-        // Determine status based on whether findings contain issues
         AnalysisStatus status = request.getStatus();
         if (status == null) {
             boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
@@ -162,7 +195,7 @@ public class MonitoringService {
         Analysis analysis = Analysis.builder()
                 .dataId(request.getDataId())
                 .sensorId(data.getSensorId())
-                .scientistId(scientistId)
+                .agencyOfficerId(agencyOfficerId)
                 .findings(findings)
                 .status(status)
                 .build();
@@ -196,17 +229,17 @@ public class MonitoringService {
 
     @Transactional
     public AnalysisResponse reviewAnalysis(Long id, String userId, String userRole, AnalysisStatus status, String findings) {
-        // ── Validate that the caller is a SCIENTIST ──────────────────────────
-        if (userRole == null || !userRole.equalsIgnoreCase("SCIENTIST")) {
-            throw new UnauthorizedException("Only SCIENTIST role can review analysis. Your role: " + userRole);
+        if (userRole == null || (!userRole.equalsIgnoreCase("AGENCY_OFFICER") &&
+            !userRole.equalsIgnoreCase("SUPER_ADMIN") && !userRole.equalsIgnoreCase("ADMINISTRATOR"))) {
+            throw new UnauthorizedException("Only AGENCY_OFFICER or ADMIN roles can review analysis. Your role: " + userRole);
         }
         if (userId == null || userId.isBlank()) {
             throw new UnauthorizedException("User ID is missing from request. Please login again.");
         }
 
-        Long scientistId;
+        Long reviewerId;
         try {
-            scientistId = Long.parseLong(userId);
+            reviewerId = Long.parseLong(userId);
         } catch (NumberFormatException e) {
             throw new UnauthorizedException("Invalid user ID in token: " + userId);
         }
@@ -218,23 +251,61 @@ public class MonitoringService {
         Analysis analysis = analysisRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis", id));
 
-        // Auto-assign scientistId from JWT — no manual override allowed
-        analysis.setScientistId(scientistId);
+
+        analysis.setAgencyOfficerId(reviewerId);
         analysis.setStatus(status);
         if (findings != null && !findings.isBlank()) {
             analysis.setFindings(findings);
         }
         analysis = analysisRepository.save(analysis);
 
-
+        log.info("Analysis {} reviewed by agency officer {} (role: {}). Status: {}", id, reviewerId, userRole, status);
+        try {
+            // Fetch the reviewing officer's name
+            UserDto officer = iamServiceClient.getUserById(reviewerId);
+            String officerName = (officer != null && officer.getName() != null) ? officer.getName() : "Officer";
+            
+            // Get all scientists and send them the notification
+            List<UserDto> scientists = iamServiceClient.getUsersByRole("SCIENTIST");
+            if (scientists != null) {
+                for (UserDto scientist : scientists) {
+                    String message = "Analysis #" + id + " reviewed by " + officerName + " and marked as " + status + ".";
+                    notify(scientist.getUserId(), id, message, NotificationCategory.GENERAL);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch scientists or officer details to notify for analysis review: {}", e.getMessage());
+        }
         return toAnalysisResponse(analysis);
     }
 
 
-    public List<AnalysisResponse> getAnalysisByScientistId(Long scientistId) {
-        List<Analysis> results = analysisRepository.findByScientistId(scientistId);
+    public List<AnalysisResponse> getAnalysisByAgencyOfficerId(Long agencyOfficerId) {
+        List<Analysis> results = analysisRepository.findByAgencyOfficerId(agencyOfficerId);
         if (results.isEmpty()) {
-            throw new ScientistNotFoundException(scientistId);
+            throw new AgencyOfficerNotFoundException(agencyOfficerId);
+        }
+        return results.stream()
+                .map(this::toAnalysisResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<AnalysisResponse> getAnalysisByStatus(AnalysisStatus status) {
+        List<Analysis> results = analysisRepository.findByStatus(status);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No analysis records found with status: " + status);
+        }
+        return results.stream()
+                .map(this::toAnalysisResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<AnalysisResponse> getAnalysisBySensorId(Long sensorId) {
+        // Validate sensor exists
+        findSensorById(sensorId);
+        List<Analysis> results = analysisRepository.findBySensorId(sensorId);
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException("No analysis records found for sensor id: " + sensorId);
         }
         return results.stream()
                 .map(this::toAnalysisResponse)
@@ -261,46 +332,38 @@ public class MonitoringService {
             String findings = generateFindings(data.getParametersJson());
             boolean hasViolation = !findings.equals("All environmental parameters are within safe limits");
 
-            Long scientistId = assignScientist();
-            if (scientistId == null) {
-                scientistId = 1L; // fallback default
-            }
-
+            // Agency Officer ID is not assigned during auto-analysis creation
+            // It will be assigned only when the analysis is reviewed by an agency officer
             Analysis analysis = Analysis.builder()
                     .dataId(data.getDataId())
                     .sensorId(data.getSensorId())
-                    .scientistId(scientistId)
+                    .agencyOfficerId(null)
                     .findings(findings)
                     .status(hasViolation ? AnalysisStatus.FLAGGED : AnalysisStatus.PENDING)
                     .build();
-            analysisRepository.save(analysis);
-            log.info("Auto-analysis triggered for sensorData id={}, flagged={}, scientistId={}", data.getDataId(), hasViolation, scientistId);
+            Analysis savedAnalysis = analysisRepository.save(analysis);
+            log.info("Auto-analysis triggered for sensorData id={}, flagged={}", data.getDataId(), hasViolation);
+            
+            if (hasViolation) {
+                try {
+                    List<UserDto> officers = iamServiceClient.getUsersByRole("AGENCY_OFFICER");
+                    if (officers != null && !officers.isEmpty()) {
+                        for (UserDto officer : officers) {
+                            notify(officer.getUserId(), savedAnalysis.getAnalysisId(),
+                                    "Environmental violations detected on sensor #" + data.getSensorId() + ". Analysis flagged for your review.",
+                                    NotificationCategory.GENERAL);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not fetch agency officers to notify for flagged analysis: {}", e.getMessage());
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to trigger auto-analysis for dataId={}: {}", data.getDataId(), e.getMessage());
         }
     }
 
-    private Long assignScientist() {
-        try {
-            List<UserDto> scientists = iamServiceClient.getUsersByRole("SCIENTIST");
-            if (scientists != null && !scientists.isEmpty()) {
-                // Round-robin: pick scientist based on current analysis count
-                long totalAnalyses = analysisRepository.count();
-                int index = (int) (totalAnalyses % scientists.size());
-                Long selectedId = scientists.get(index).getUserId();
-                log.info("Auto-assigned scientist userId={} for analysis", selectedId);
-                return selectedId;
-            }
-        } catch (Exception e) {
-            log.warn("Could not fetch scientists from IAM service: {}", e.getMessage());
-        }
-        return null;
-    }
 
-    /**
-     * Generates a clean, concise findings string based on threshold rules applied to sensor parameters.
-     * Returns a comma-separated list of issues, or a "safe" message if all values are within limits.
-     */
     private String generateFindings(String parametersJson) {
         java.util.Map<String, Double> params = parseJsonToMap(parametersJson);
         java.util.List<String> parts = new java.util.ArrayList<>();
@@ -338,8 +401,48 @@ public class MonitoringService {
         addFinding(parts, params, "conductivity", "conductivity", new double[]{1200, 800,  500, 200});
         addFinding(parts, params, "BOD",          "BOD",          new double[]{15,   10,   5,   2});
 
-        // ── Noise & Temperature ─────────────────────────────────────
-        addFinding(parts, params, "decibel",     "noise",        new double[]{100,  85,   70,  60});
+        // ── Noise Parameters ─────────────────────────────────────────
+        Double decibel = params.get("decibel");
+        if (decibel != null) {
+            String label;
+            if (decibel > 100)      label = "hazardous - extreme noise pollution";
+            else if (decibel > 85)  label = "high - very loud and harmful";
+            else if (decibel > 70)  label = "moderate - noisy environment";
+            else if (decibel > 55)  label = "slightly elevated";
+            else                    label = "normal - quiet environment";
+            parts.add("noise level is " + label);
+        }
+
+        Double frequency = params.get("frequency");
+        if (frequency != null) {
+            String label;
+            if (frequency < 500 || frequency > 12000)      label = "out of normal range";
+            else if (frequency < 1000 || frequency > 8000) label = "slightly out of range";
+            else                                            label = "within normal range";
+            parts.add("frequency is " + label);
+        }
+
+        Double peakLevel = params.get("peak_level");
+        if (peakLevel != null) {
+            String label;
+            if (peakLevel > 70)      label = "hazardous - dangerous peak levels";
+            else if (peakLevel > 60) label = "high - elevated peak levels";
+            else if (peakLevel > 50) label = "moderate peak levels";
+            else                     label = "normal peak levels";
+            parts.add("peak noise level is " + label);
+        }
+
+        Double ambientLevel = params.get("ambient_level");
+        if (ambientLevel != null) {
+            String label;
+            if (ambientLevel > 60)      label = "hazardous - very high ambient noise";
+            else if (ambientLevel > 50) label = "high - elevated ambient noise";
+            else if (ambientLevel > 40) label = "moderate ambient noise";
+            else                        label = "normal ambient noise levels";
+            parts.add("ambient noise level is " + label);
+        }
+
+        // ── Temperature ─────────────────────────────────────────
         addFinding(parts, params, "temperature", "temperature",  new double[]{40,   35,   30,  25});
 
         if (parts.isEmpty()) {
@@ -348,7 +451,6 @@ public class MonitoringService {
         return String.join(", ", parts);
     }
 
-    /** Evaluates a parameter against four thresholds and adds a concise finding. */
     private void addFinding(java.util.List<String> parts, java.util.Map<String, Double> params,
                             String key, String label, double[] t) {
         Double v = params.get(key);
@@ -387,6 +489,20 @@ public class MonitoringService {
         return map;
     }
 
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
+
     // ─── Mappers ─────────────────────────────────────────────────
 
     private SensorResponse toSensorResponse(Sensor s) {
@@ -402,10 +518,13 @@ public class MonitoringService {
 
     private SensorDataResponse toSensorDataResponse(SensorData d) {
         return SensorDataResponse.builder()
+                .id(d.getDataId())
                 .dataId(d.getDataId())
                 .sensorId(d.getSensorId())
                 .parametersJson(d.getParametersJson())
+                .recordedAt(d.getRecordedAt())
                 .timestamp(d.getTimestamp())
+                .notes(d.getNotes())
                 .build();
     }
 
@@ -414,7 +533,7 @@ public class MonitoringService {
                 .analysisId(a.getAnalysisId())
                 .dataId(a.getDataId())
                 .sensorId(a.getSensorId())
-                .scientistId(a.getScientistId())
+                .agencyOfficerId(a.getAgencyOfficerId())
                 .findings(a.getFindings())
                 .date(a.getDate())
                 .status(a.getStatus())

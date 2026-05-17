@@ -22,9 +22,9 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
-    @ExceptionHandler(ScientistNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleScientistNotFound(ScientistNotFoundException ex) {
-        return buildResponse(HttpStatus.NOT_FOUND, "Scientist Not Found", ex.getMessage());
+    @ExceptionHandler(AgencyOfficerNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleAgencyOfficerNotFound(AgencyOfficerNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Agency Officer Not Found", ex.getMessage());
     }
 
     @ExceptionHandler(UnauthorizedException.class)

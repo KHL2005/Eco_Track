@@ -13,4 +13,3 @@ public class CitizenReportingServiceApplication {
         SpringApplication.run(CitizenReportingServiceApplication.class, args);
     }
 }
-

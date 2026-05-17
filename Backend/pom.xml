@@ -16,6 +16,7 @@
         <module>config-server</module>
         <module>api-gateway</module>
         <module>iam-service</module>
+        <module>notification-service</module>
         <module>citizen-reporting-service</module>
         <module>environmental-monitoring-service</module>
         <module>industry-compliance-service</module>

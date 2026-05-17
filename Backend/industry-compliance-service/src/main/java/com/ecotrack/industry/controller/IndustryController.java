@@ -6,14 +6,15 @@ import com.ecotrack.industry.enums.VerificationStatus;
 import com.ecotrack.industry.service.IndustryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,14 +28,18 @@ public class IndustryController {
     @PostMapping("/api/v1/emissions")
     @Operation(summary = "Log a new industry emission (status defaults to SUBMITTED)")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
-    public ResponseEntity<EmissionLogResponse> logEmission(@RequestBody EmissionLogRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(industryService.logEmission(request));
+    public ResponseEntity<EmissionLogResponse> logEmission(
+            @RequestBody @Valid EmissionLogRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) Long industryUserId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(industryService.logEmission(request, industryUserId));
     }
 
     @GetMapping("/api/v1/emissions")
     @Operation(summary = "Get all emission logs")
-    public ResponseEntity<List<EmissionLogResponse>> getAllEmissions() {
-        return ResponseEntity.ok(industryService.getAllEmissions());
+    public ResponseEntity<List<EmissionLogResponse>> getAllEmissions(
+            @RequestHeader(value = "X-User-Id",   required = false) Long callerId,
+            @RequestHeader(value = "X-User-Role", required = false) String callerRole) {
+        return ResponseEntity.ok(industryService.getAllEmissions(callerId, callerRole));
     }
 
     @GetMapping("/api/v1/emissions/{id}")
@@ -51,11 +56,13 @@ public class IndustryController {
     }
 
     @PatchMapping("/api/v1/emissions/{id}/status")
-    @Operation(summary = "Update emission status (SUBMITTED → APPROVED / REJECTED)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @Operation(summary = "Update emission status (SUBMITTED → APPROVED / REJECTED). Reason is required when status is REJECTED.")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMIN')")
     public ResponseEntity<EmissionLogResponse> updateEmissionStatus(
-            @PathVariable Long id, @RequestParam("status") EmissionStatus status) {
-        return ResponseEntity.ok(industryService.updateEmissionStatus(id, status));
+            @PathVariable Long id,
+            @RequestParam("status") EmissionStatus status,
+            @RequestParam(value = "rejectionReason", required = false) String rejectionReason) {
+        return ResponseEntity.ok(industryService.updateEmissionStatus(id, status, rejectionReason));
     }
 
     @DeleteMapping("/api/v1/emissions/{id}")
@@ -70,80 +77,60 @@ public class IndustryController {
 
     /**
      * POST /api/v1/industry-documents  — multipart/form-data
-     *
-     * Form fields:
-     *   industryId   (Long)
-     *   industryName (String)
-     *   docType      (PERMIT | COMPLIANCE | OTHERS)
-     *   description  (String, optional)
-     *   file         (PDF, max 10 MB)
-     *
-     * Stores metadata in MySQL and PDF in MongoDB GridFS.
-     * Returns JSON where fileUri = "/api/v1/industry-documents/{id}?view=true"
+     * Stores file on local filesystem; saves metadata + disk path in MySQL.
+     * Returns JSON where fileUri = "/api/v1/industry-documents/{id}?download=true"
      */
     @PostMapping(value = "/api/v1/industry-documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Submit compliance document + upload PDF in one request (max 10 MB)")
+    @Operation(summary = "Submit compliance document + upload file (PDF/PNG/JPG, max 10 MB)")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
     public ResponseEntity<IndustryDocumentResponse> submitDocument(
-            @RequestParam("industryId")                               Long          industryId,
-            @RequestParam("industryName")                             String        industryName,
-            @RequestParam("docType")                                  String        docType,
-            @RequestParam(value = "description", required = false)    String        description,
-            @RequestPart("file")                                      MultipartFile file) {
+            @ModelAttribute @Valid IndustryDocumentRequest request,
+            @RequestParam("file")                          MultipartFile file,
+            @RequestHeader(value = "X-User-Id", required = false) Long industryUserId) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(industryService.submitDocument(industryId, industryName, docType, description, file));
+                .body(industryService.submitDocument(request, file, industryUserId));
     }
 
-    /**
-     * GET /api/v1/industry-documents
-     * Returns JSON list — each item has fileUri pointing to its PDF view URL.
-     */
     @GetMapping("/api/v1/industry-documents")
     @Operation(summary = "Get all industry documents (JSON metadata list)")
-    public ResponseEntity<List<IndustryDocumentResponse>> getAllDocuments() {
-        return ResponseEntity.ok(industryService.getAllDocuments());
+    public ResponseEntity<List<IndustryDocumentResponse>> getAllDocuments(
+            @RequestHeader(value = "X-User-Id",   required = false) Long callerId,
+            @RequestHeader(value = "X-User-Role", required = false) String callerRole) {
+        return ResponseEntity.ok(industryService.getAllDocuments(callerId, callerRole));
     }
 
     /**
      * GET /api/v1/industry-documents/{docId}
-     *   (no params)       → JSON metadata
-     *   ?view=true        → stream PDF inline  (browser renders it)
-     *   ?download=true    → stream PDF as file download
+     *   (no params)    → JSON metadata
+     *   ?view=true     → stream file inline  (browser renders it)
+     *   ?download=true → stream file as attachment download
      */
     @GetMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Get JSON metadata OR view/download PDF. "
-             + "Use ?view=true to render inline, ?download=true to download.")
+    @Operation(summary = "Get JSON metadata OR stream file. Use ?download=true to download, ?view=true to view inline.")
     public ResponseEntity<?> getDocumentById(
             @PathVariable Long docId,
-            @RequestParam(value = "view",     required = false, defaultValue = "false") boolean view,
-            @RequestParam(value = "download", required = false, defaultValue = "false") boolean download) {
+            @RequestParam(value = "download", required = false, defaultValue = "false") boolean download,
+            @RequestParam(value = "view",     required = false, defaultValue = "false") boolean view) {
 
-        if (view || download) {
-            Map<String, Object> pdf = industryService.getPdfForDocument(docId);
-            byte[] data        = (byte[])  pdf.get("data");
-            String fileName    = (String)  pdf.get("fileName");
-            String contentType = (String)  pdf.get("contentType");
-            long   fileSize    = (long)    pdf.get("fileSize");
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType(contentType));
-            headers.setContentLength(fileSize);
-            // inline  → browser PDF viewer | attachment → Save dialog
-            headers.setContentDisposition(
-                    ContentDisposition.builder(download ? "attachment" : "inline")
-                                      .filename(fileName)
-                                      .build());
-            return new ResponseEntity<>(data, headers, HttpStatus.OK);
+        if (download || view) {
+            DownloadPayload payload = industryService.getFileForDocument(docId);
+            String ct = payload.contentType() != null
+                    ? payload.contentType()
+                    : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(ct))
+                    .contentLength(payload.fileSize() != null ? payload.fileSize() : -1L)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.builder(view ? "inline" : "attachment")
+                                              .filename(payload.originalFilename())
+                                              .build().toString())
+                    .body((Resource) payload.resource());
         }
 
         return ResponseEntity.ok(industryService.getDocumentById(docId));
     }
 
-    /**
-     * GET /api/v1/industry-documents/industry?industryName=Steel Industries
-     * Returns JSON list for the given industry.
-     */
     @GetMapping("/api/v1/industry-documents/industry")
     @Operation(summary = "Get all documents for a specific industry by name")
     public ResponseEntity<List<IndustryDocumentResponse>> getDocumentsByIndustryName(
@@ -152,19 +139,21 @@ public class IndustryController {
     }
 
     @PatchMapping("/api/v1/industry-documents/{docId}/verify")
-    @Operation(summary = "Verify or reject a document (SUBMITTED → APPROVED / REJECTED)")
-    @PreAuthorize("hasAnyAuthority('OFFICER','ADMIN')")
+    @Operation(summary = "Verify or reject a document (SUBMITTED → APPROVED / REJECTED). Reason is required when status is REJECTED.")
+    @PreAuthorize("hasAnyAuthority('COMPLIANCE_OFFICER','ADMIN')")
     public ResponseEntity<IndustryDocumentResponse> verifyDocument(
-            @PathVariable Long docId, @RequestParam("status") VerificationStatus status) {
-        return ResponseEntity.ok(industryService.verifyDocument(docId, status));
+            @PathVariable Long docId,
+            @RequestParam("status") VerificationStatus status,
+            @RequestParam(value = "rejectionReason", required = false) String rejectionReason) {
+        return ResponseEntity.ok(industryService.verifyDocument(docId, status, rejectionReason));
     }
 
     /**
      * DELETE /api/v1/industry-documents/{docId}
-     * Deletes BOTH MySQL metadata AND the PDF from MongoDB GridFS.
+     * Deletes BOTH MySQL metadata AND the file from the local filesystem.
      */
     @DeleteMapping("/api/v1/industry-documents/{docId}")
-    @Operation(summary = "Delete document metadata + its PDF from GridFS in one call")
+    @Operation(summary = "Delete document metadata + its file from disk in one call")
     @PreAuthorize("hasAnyAuthority('INDUSTRY','ADMIN')")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long docId) {
         industryService.deleteDocument(docId);

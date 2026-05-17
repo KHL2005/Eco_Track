@@ -13,17 +13,17 @@ export function AuthProvider({ children }) {
       try {
         const parsed = JSON.parse(stored);
         setToken(parsed.token);
-        setUser({ userId: parsed.userId, email: parsed.email, role: parsed.role, name: parsed.name });
+        setUser({ userId: parsed.userId, email: parsed.email, role: parsed.role, name: parsed.name, phone: parsed.phone });
       } catch { /* ignore */ }
     }
     setLoading(false);
   }, []);
 
   const login = useCallback((data) => {
-    const { token, userId, email, role, name } = data;
+    const { token, userId, email, role, name, phone } = data;
     setToken(token);
-    setUser({ userId, email, role, name });
-    localStorage.setItem('ecotrack_auth', JSON.stringify({ token, userId, email, role, name }));
+    setUser({ userId, email, role, name, phone });
+    localStorage.setItem('ecotrack_auth', JSON.stringify({ token, userId, email, role, name, phone }));
   }, []);
 
   const logout = useCallback(() => {
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
   const role = user?.role || null;
 
   return (
-    <AuthContext.Provider value={{ user, token, role, login, logout, isAuthenticated, loading }}>
+    <AuthContext.Provider value={{ user, setUser, token, role, login, logout, isAuthenticated, loading }}>
       {children}
     </AuthContext.Provider>
   );

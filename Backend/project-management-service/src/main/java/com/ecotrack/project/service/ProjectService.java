@@ -7,7 +7,13 @@ import com.ecotrack.project.enums.*;
 import com.ecotrack.project.exception.BadRequestException;
 import com.ecotrack.project.exception.ProjectNotFoundException;
 import com.ecotrack.project.exception.ResourceNotFoundException;
+import com.ecotrack.project.feign.NotificationCategory;
+import com.ecotrack.project.feign.NotificationClient;
+import com.ecotrack.project.feign.NotificationRequest;
 import com.ecotrack.project.repository.*;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +30,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final MilestoneRepository milestoneRepository;
     private final ImpactRepository impactRepository;
+    private final NotificationClient notificationClient;
 
     // ─── Project CRUD ─────────────────────────────────────────────
 
@@ -33,6 +40,12 @@ public class ProjectService {
                 && request.getEndDate().isBefore(request.getStartDate())) {
             throw new BadRequestException("End date cannot be before start date");
         }
+        
+        // Validate budget
+        if (request.getBudget() != null && request.getBudget().signum() <= 0) {
+            throw new BadRequestException("Budget must be greater than zero");
+        }
+        
         Project project = Project.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
@@ -42,6 +55,12 @@ public class ProjectService {
                 .status(request.getStatus() != null ? request.getStatus() : ProjectStatus.PLANNED)
                 .build();
         project = projectRepository.save(project);
+        Long userId = getUserIdFromRequest();
+        if (userId != null) {
+            notify(userId, project.getProjectId(),
+                    "Project '" + project.getTitle() + "' has been created successfully.",
+                    NotificationCategory.PROJECT);
+        }
         return toProjectResponse(project);
     }
 
@@ -82,6 +101,9 @@ public class ProjectService {
             project.setEndDate(request.getEndDate());
         }
         if (request.getBudget() != null) {
+            if (request.getBudget().signum() <= 0) {
+                throw new BadRequestException("Budget must be greater than zero");
+            }
             project.setBudget(request.getBudget());
         }
         if (request.getStatus() != null) {
@@ -104,14 +126,46 @@ public class ProjectService {
 
     @Transactional
     public MilestoneResponse addMilestone(Long projectId, MilestoneRequest request) {
-        findProjectById(projectId); // validates project exists, throws ProjectNotFoundException
+        Project project = findProjectById(projectId); // validates project exists, throws ProjectNotFoundException
+        
+        // Validate milestone date is within project duration
+        if (request.getDate().isBefore(project.getStartDate())) {
+            throw new BadRequestException("Milestone date cannot be before project start date (" + project.getStartDate() + ")");
+        }
+        if (project.getEndDate() != null && request.getDate().isAfter(project.getEndDate())) {
+            throw new BadRequestException("Milestone date cannot be after project end date (" + project.getEndDate() + ")");
+        }
+        
+        // Validate sequential order - milestone date should be >= latest existing milestone date
+        List<Milestone> existingMilestones = milestoneRepository.findByProjectId(projectId);
+        if (!existingMilestones.isEmpty()) {
+            Milestone latestMilestone = existingMilestones.stream()
+                    .max((m1, m2) -> m1.getDate().compareTo(m2.getDate()))
+                    .orElse(null);
+            if (latestMilestone != null && request.getDate().isBefore(latestMilestone.getDate())) {
+                throw new BadRequestException("Milestone date must be after the latest milestone date (" + latestMilestone.getDate() + ")");
+            }
+        }
+        
         Milestone milestone = Milestone.builder()
                 .projectId(projectId)
                 .title(request.getTitle())
+                .description(request.getDescription())
                 .date(request.getDate())
                 .status(request.getStatus() != null ? request.getStatus() : MilestoneStatus.PENDING)
                 .build();
-        return toMilestoneResponse(milestoneRepository.save(milestone));
+        Milestone saved = milestoneRepository.save(milestone);
+
+        // Auto-update project status based on milestones
+        updateProjectStatusBasedOnMilestones(projectId);
+
+        Long userId = getUserIdFromRequest();
+        if (userId != null) {
+            notify(userId, saved.getMilestoneId(),
+                    "Milestone '" + saved.getTitle() + "' has been added to project #" + projectId + ".",
+                    NotificationCategory.PROJECT);
+        }
+        return toMilestoneResponse(saved);
     }
 
     public MilestoneResponse getMilestoneById(Long milestoneId) {
@@ -135,24 +189,74 @@ public class ProjectService {
     @Transactional
     public MilestoneResponse updateMilestone(Long milestoneId, MilestoneRequest request) {
         Milestone milestone = findMilestoneById(milestoneId);
+        Long projectId = milestone.getProjectId();
+        Project project = findProjectById(projectId);
+        
         // Partial update — only update provided fields
         if (request.getTitle() != null && !request.getTitle().isBlank()) {
             milestone.setTitle(request.getTitle());
         }
+        if (request.getDescription() != null) {
+            milestone.setDescription(request.getDescription());
+        }
         if (request.getDate() != null) {
+            // Validate new milestone date is within project duration
+            if (request.getDate().isBefore(project.getStartDate())) {
+                throw new BadRequestException("Milestone date cannot be before project start date (" + project.getStartDate() + ")");
+            }
+            if (project.getEndDate() != null && request.getDate().isAfter(project.getEndDate())) {
+                throw new BadRequestException("Milestone date cannot be after project end date (" + project.getEndDate() + ")");
+            }
+            
+            // Validate sequential order
+            List<Milestone> otherMilestones = milestoneRepository.findByProjectId(projectId).stream()
+                    .filter(m -> !m.getMilestoneId().equals(milestoneId))
+                    .toList();
+            
+            Milestone latestBefore = otherMilestones.stream()
+                    .filter(m -> m.getDate().isBefore(request.getDate()))
+                    .max((m1, m2) -> m1.getDate().compareTo(m2.getDate()))
+                    .orElse(null);
+            
+            Milestone earliestAfter = otherMilestones.stream()
+                    .filter(m -> m.getDate().isAfter(request.getDate()))
+                    .min((m1, m2) -> m1.getDate().compareTo(m2.getDate()))
+                    .orElse(null);
+            
+            if (earliestAfter != null) {
+                throw new BadRequestException("New milestone date conflicts with later milestone (" + earliestAfter.getDate() + ")");
+            }
+            
             milestone.setDate(request.getDate());
         }
         if (request.getStatus() != null) {
             milestone.setStatus(request.getStatus());
         }
         Milestone saved = milestoneRepository.save(milestone);
+
+        // Auto-update project status based on milestones
+        updateProjectStatusBasedOnMilestones(projectId);
+
+        if (request.getStatus() != null) {
+            Long userId = getUserIdFromRequest();
+            if (userId != null) {
+                notify(userId, saved.getMilestoneId(),
+                        "Milestone '" + saved.getTitle() + "' status updated to " + saved.getStatus() + ".",
+                        NotificationCategory.PROJECT);
+            }
+        }
         return toMilestoneResponse(saved);
     }
 
     @Transactional
     public void deleteMilestone(Long milestoneId) {
-        findMilestoneById(milestoneId); // validates existence
+        Milestone milestone = findMilestoneById(milestoneId);
+        Long projectId = milestone.getProjectId();
+        
         milestoneRepository.deleteById(milestoneId);
+        
+        // Auto-update project status after milestone deletion
+        updateProjectStatusBasedOnMilestones(projectId);
     }
 
     // ─── Impact CRUD ──────────────────────────────────────────────
@@ -291,7 +395,14 @@ public class ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Impact not found for project: " + projectId));
         impact.setStatus(status);
-        return toImpactResponse(impactRepository.save(impact));
+        Impact saved = impactRepository.save(impact);
+        Long userId = getUserIdFromRequest();
+        if (userId != null) {
+            notify(userId, saved.getImpactId(),
+                    "Impact status for project #" + projectId + " updated to " + status + ".",
+                    NotificationCategory.PROJECT);
+        }
+        return toImpactResponse(saved);
     }
 
     @Transactional
@@ -304,6 +415,83 @@ public class ProjectService {
     }
 
     // ─── Private Helpers ─────────────────────────────────────────
+
+    private void notify(Long userId, Long entityId, String message, NotificationCategory category) {
+        try {
+            notificationClient.createNotification(
+                    NotificationRequest.builder()
+                            .userId(userId)
+                            .entityId(entityId)
+                            .message(message)
+                            .category(category)
+                            .build());
+        } catch (Exception e) {
+            log.warn("Failed to send notification to userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private Long getUserIdFromRequest() {
+        try {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                String userId = attrs.getRequest().getHeader("X-User-Id");
+                if (userId != null && !userId.isBlank()) {
+                    return Long.parseLong(userId);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not extract X-User-Id from request context: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Auto-update project status based on milestone conditions:
+     * - If project has incomplete milestones → IN_PROGRESS
+     * - If progress % is 100 (all milestones COMPLETED) → COMPLETED
+     * - If new milestone added and progress % != 100 → IN_PROGRESS
+     */
+    private void updateProjectStatusBasedOnMilestones(Long projectId) {
+        List<Milestone> milestones = milestoneRepository.findByProjectId(projectId);
+        
+        if (milestones.isEmpty()) {
+            // No milestones - keep current status (usually PLANNED)
+            return;
+        }
+        
+        Project project = findProjectById(projectId);
+        ProjectStatus currentStatus = project.getStatus();
+        
+        // Calculate progress percentage
+        long totalMilestones = milestones.size();
+        long completedMilestones = milestones.stream()
+                .filter(m -> m.getStatus() == MilestoneStatus.COMPLETED)
+                .count();
+        
+        int progressPercent = (int) Math.round((completedMilestones * 100.0) / totalMilestones);
+        
+        ProjectStatus newStatus;
+        
+        if (progressPercent == 100) {
+            // All milestones completed - project is COMPLETED
+            newStatus = ProjectStatus.COMPLETED;
+        } else if (progressPercent > 0 || totalMilestones > 0) {
+            // Has milestones and some work started - project is IN_PROGRESS
+            newStatus = ProjectStatus.IN_PROGRESS;
+        } else {
+            // No progress yet - keep current status
+            return;
+        }
+        
+        // Only update if status actually changes
+        if (currentStatus != newStatus) {
+            project.setStatus(newStatus);
+            projectRepository.save(project);
+            log.info("Project {} status auto-updated from {} to {} (progress: {}%)", 
+                    projectId, currentStatus, newStatus, progressPercent);
+        }
+    }
 
     private Project findProjectById(Long id) {
         return projectRepository.findById(id)
@@ -336,6 +524,7 @@ public class ProjectService {
                 .milestoneId(m.getMilestoneId())
                 .projectId(m.getProjectId())
                 .title(m.getTitle())
+                .description(m.getDescription())
                 .date(m.getDate())
                 .status(m.getStatus())
                 .createdAt(m.getCreatedAt())

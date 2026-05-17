@@ -13,12 +13,15 @@ import java.util.List;
 public class IssueResponse {
     private Long issueId;
     private Long citizenId;
+    private String title;
     private IssueType type;
     private String location;
     private String description;
     private LocalDateTime date;
     private IssueStatus status;
     private List<String> mediaUrls;
+    private String deletionReason;
+    private LocalDateTime deletedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

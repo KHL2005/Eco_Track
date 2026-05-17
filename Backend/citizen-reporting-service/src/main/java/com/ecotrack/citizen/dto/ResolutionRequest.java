@@ -6,11 +6,8 @@ import lombok.Data;
 
 @Data
 public class ResolutionRequest {
-    @NotNull(message = "Issue ID is required")
-    private Long issueId;
     @NotNull(message = "Officer ID is required")
     private Long officerId;
     @NotBlank(message = "Actions are required")
     private String actions;
 }
-
