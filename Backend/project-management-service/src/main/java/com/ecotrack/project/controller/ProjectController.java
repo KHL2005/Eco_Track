@@ -63,7 +63,7 @@ public class ProjectController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete project and all linked milestones and impact")
-    @PreAuthorize("hasAnyAuthority('ADMINISTRATOR','SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMINISTRATOR','SUPER_ADMIN','AGENCY_OFFICER')")
     public ResponseEntity<Void> deleteProject(@PathVariable("id") Long id) {
         projectService.deleteProject(id);
         return ResponseEntity.noContent().build();

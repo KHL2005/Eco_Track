@@ -1,13 +1,6 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 
-// Globally suppress api-gateway "service temporarily unavailable" fallback toasts.
-// GatewayFallbackController returns 503 with messages like
-// "<service> is temporarily unavailable. Please try again shortly." for every
-// downstream service when its circuit breaker is open. Surfacing that to end users
-// is unhelpful, so we wrap toast.error once (sonner's `toast` is a shared singleton)
-// to drop any message containing the fallback phrase. Page code keeps calling
-// toast.error normally — no per-page changes needed.
 const FALLBACK_PHRASE = 'temporarily unavailable. Please try again shortly.';
 const _originalToastError = toast.error.bind(toast);
 toast.error = (message, options) => {
@@ -21,7 +14,6 @@ const axiosInstance = axios.create({
   timeout: 30000,
 });
 
-// Simple flags to prevent showing the same error toast multiple times in quick succession
 let authErrorShown = false;
 let forbiddenErrorShown = false;
 
@@ -34,7 +26,7 @@ axiosInstance.interceptors.request.use(
         const { token } = JSON.parse(stored);
         if (token) config.headers.Authorization = `Bearer ${token}`;
       } catch (e) {
-        // ignore JSON parse errors
+        console.error('Failed to parse auth token from localStorage:', e);
       }
     }
     return config;
@@ -42,7 +34,6 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle 401 + 403 errors globally
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -50,12 +41,10 @@ axiosInstance.interceptors.response.use(
     const url = error.config ? (error.config.url || '') : '';
 
     if (status === 401) {
-      // A 401 on login/register means wrong credentials — let the page handle it
       if (url.includes('/auth/')) {
         return Promise.reject(error);
       }
 
-      // Any other 401 means the session expired — clear storage and go to home
       localStorage.removeItem('ecotrack_auth');
       if (!authErrorShown) {
         authErrorShown = true;
@@ -69,7 +58,6 @@ axiosInstance.interceptors.response.use(
     if (status === 403) {
       console.warn('403 Forbidden error on:', url);
 
-      // These endpoints return 403 for role-based access — suppress the toast for them
       const shouldSuppress =
         url.includes('/auth/') ||
         url.includes('/me') ||
@@ -95,9 +83,6 @@ axiosInstance.interceptors.response.use(
         }
       }
     }
-
-    // 5xx and network errors are not toasted globally — each page component
-    // shows its own error message via its own catch block.
 
     return Promise.reject(error);
   }

@@ -30,17 +30,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
 
-    // ── Public / open paths (JWT not required) ────────────────────────────────
-    //
-    // IMPORTANT: matching uses startsWith(), NOT contains().
-    // Using contains() would allow path-traversal bypasses like:
-    //   /api/v1/evil/api/v1/auth/login  → would match "auth/login" via contains
-    //
     private static final List<String> OPEN_PATH_PREFIXES = List.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login",
-            // NOTE: change-password is NOT here — it still requires a valid JWT.
-            //       It is in ANY_AUTHENTICATED_PATHS below instead.
+
             "/api/v1/internal/",      // service-to-service internal endpoints
 
             // ── Swagger / OpenAPI ──────────────────────────────────────────
@@ -65,10 +58,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/compliance/swagger-ui"
     );
 
-    /**
-     * Paths that any authenticated user may access regardless of role.
-     * JWT is still validated; only the role-restriction check is skipped.
-     */
     private static final List<String> ANY_AUTHENTICATED_PATHS = List.of(
             "/api/v1/users/change-password",  // every role can change their own password,
             "/api/v1/users/update-profile"
@@ -106,7 +95,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     "/api/v1/projects",         "/api/v1/reports",
                     "/api/v1/notifications"
             )),
-            // Both admin variants get full /api/v1 access
+
             Map.entry("SUPER_ADMIN",   List.of("/api/v1")),
             Map.entry("ADMINISTRATOR", List.of("/api/v1"))
     );
@@ -120,22 +109,19 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String path      = request.getURI().getPath();
         String requestId = UUID.randomUUID().toString();
 
-        // ── 1. Always pass CORS preflight through ────────────────────────────
-        //    Browsers send OPTIONS without an Authorization header.
-        //    The CorsWebFilter (WebFilter layer) has already handled the
-        //    CORS response headers; we just need to not reject OPTIONS here.
+        // Always pass CORS preflight through ────────────────────────────
         if (HttpMethod.OPTIONS.equals(request.getMethod())) {
             log.debug("[{}] OPTIONS preflight — pass-through (path={})", requestId, path);
             return chain.filter(exchange);
         }
 
-        // ── 2. Skip JWT check for open / public paths ────────────────────────
+        //  Skip JWT check for open / public paths ────────────────────────
         if (isOpenPath(path)) {
             log.debug("[{}] Open path — pass-through (path={})", requestId, path);
             return chain.filter(exchange);
         }
 
-        // ── 3. Extract Authorization header ──────────────────────────────────
+        // Extract Authorization header ──────────────────────────────────
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || authHeader.isBlank()) {
@@ -156,7 +142,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         String token = authHeader.substring(7).trim();
 
-        // ── 4. Validate JWT signature & expiry ───────────────────────────────
+        // Validate JWT signature & expiry ───────────────────────────────
         TokenValidationResult result = jwtUtil.getValidationResult(token);
 
         if (result == TokenValidationResult.EXPIRED) {
@@ -175,14 +161,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     "The provided token is invalid or has been tampered with.");
         }
 
-        // ── 5. Extract claims ─────────────────────────────────────────────────
+        // Extract claims ─────────────────────────────────────────────────
         String email  = jwtUtil.extractEmail(token);
         String role   = jwtUtil.extractRole(token);
         String userId = jwtUtil.extractUserId(token);
 
         log.debug("[{}] JWT valid — userId={}, role={}, path={}", requestId, userId, role, path);
 
-        // ── 6. Coarse-grained role-based access check ─────────────────────────
+        // Coarse-grained role-based access check ─────────────────────────
         if (!isPathAllowedForRole(role, path)) {
             log.warn("[{}] 403 — role '{}' not permitted for path '{}'", requestId, role, path);
             return errorResponse(exchange, requestId,
@@ -191,8 +177,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     "Role '" + role + "' does not have permission to access this resource.");
         }
 
-        // ── 7. Forward user context to downstream services ────────────────────
-        //    Downstream services read these headers instead of re-parsing JWT.
+        // Forward user context to downstream services ────────────────────
         ServerHttpRequest mutatedRequest = request.mutate()
                 .header("X-User-Email",      email  != null ? email  : "")
                 .header("X-User-Role",       role   != null ? role   : "")
@@ -209,12 +194,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Returns true if the path starts with any open-path prefix.
-     *
-     * <p>Uses {@code startsWith} (not {@code contains}) to prevent
-     * path-traversal bypasses such as {@code /api/v1/evil/api/v1/auth/login}.
-     */
+
     private boolean isOpenPath(String path) {
         return OPEN_PATH_PREFIXES.stream().anyMatch(path::startsWith);
     }
@@ -231,21 +211,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     // ── Structured JSON error response ────────────────────────────────────────
 
-    /**
-     * Writes a structured JSON error body and sets the correct HTTP status,
-     * Content-Type, WWW-Authenticate (for 401), and X-Request-Id headers.
-     *
-     * <p>Response body example:
-     * <pre>
-     * {
-     *   "status": 401,
-     *   "error": "token_expired",
-     *   "message": "Your session has expired. Please log in again.",
-     *   "requestId": "550e8400-e29b-41d4-a716-446655440000",
-     *   "timestamp": "2026-04-28T10:15:30Z"
-     * }
-     * </pre>
-     */
     private Mono<Void> errorResponse(ServerWebExchange exchange,
                                      String requestId,
                                      HttpStatus status,
@@ -259,7 +224,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Request-Id", requestId);
 
-        // RFC 6750 §3.1 — WWW-Authenticate must be present on every 401
         if (status == HttpStatus.UNAUTHORIZED) {
             headers.set(HttpHeaders.WWW_AUTHENTICATE,
                     "Bearer realm=\"EcoTrack\", error=\"" + errorCode + "\", " +
@@ -273,7 +237,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         return response.writeWith(Mono.just(buffer));
     }
 
-    /** Builds a compact JSON string without pulling in Jackson as a dependency. */
     private String buildJsonError(int status, String error, String message, String requestId) {
         return "{"
                 + "\"status\":"    + status                              + ","
@@ -284,19 +247,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 + "}";
     }
 
-    /** Minimal JSON string escaping (backslash and double-quote). */
     private String escapeJson(String value) {
         if (value == null) return "";
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    /**
-     * Run at -100 so this filter fires before all other GlobalFilters
-     * (default order = 0) and route-specific filters.
-     * CorsWebFilter is a WebFilter (Ordered.HIGHEST_PRECEDENCE) and
-     * executes in the WebFlux layer before any GlobalFilter — so CORS
-     * headers are always present even when we return 4xx here.
-     */
+
     @Override
     public int getOrder() {
 

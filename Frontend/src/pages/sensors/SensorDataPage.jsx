@@ -427,7 +427,6 @@ export default function SensorDataPage() {
 
                 <div className="col-span-2 pt-2"><strong>NOISE SENSORS:</strong></div>
                 <div>• <strong>Decibel</strong>: 0–55 dB (ideal)</div>
-                <div>• <strong>Temperature</strong>: 15–35 °C</div>
               </div>
             </div>
           </div>

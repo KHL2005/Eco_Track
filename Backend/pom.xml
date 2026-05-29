@@ -53,6 +53,15 @@
         </dependencies>
     </dependencyManagement>
 
+    <dependencies>
+        <!-- Exclude commons-logging globally to avoid conflicts with spring-jcl -->
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <pluginManagement>
             <plugins>

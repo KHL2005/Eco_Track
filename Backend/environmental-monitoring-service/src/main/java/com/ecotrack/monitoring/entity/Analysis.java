@@ -23,7 +23,9 @@ public class Analysis {
     @Column(nullable = false) private LocalDateTime date;
 
     @Enumerated(EnumType.STRING)
+
     @Column(nullable = false) @Builder.Default
+
     private AnalysisStatus status = AnalysisStatus.PENDING;
 
     @Column(name = "created_at") private LocalDateTime createdAt;
